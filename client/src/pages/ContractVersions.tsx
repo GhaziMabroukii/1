@@ -26,6 +26,9 @@ const ContractVersions = () => {
     enabled: !!contractId
   });
 
+  // Type the versions data
+  const typedVersions = versions as any[];
+
   const isLoading = contractLoading || versionsLoading;
 
   const getStatusBadge = (status: string) => {
@@ -111,23 +114,26 @@ const ContractVersions = () => {
     );
   }
 
+  // Type the contract data
+  const typedContract = contract as any;
+
   // Combine current contract with versions
   const currentVersion = {
     id: 'current',
-    version: versions.length + 1,
-    contractData: contract.contractData,
-    ownerSignature: contract.ownerSignature,
-    tenantSignature: contract.tenantSignature,
-    ownerSignedAt: contract.ownerSignedAt,
-    tenantSignedAt: contract.tenantSignedAt,
+    version: typedVersions.length + 1,
+    contractData: typedContract?.contractData,
+    ownerSignature: typedContract?.ownerSignature,
+    tenantSignature: typedContract?.tenantSignature,
+    ownerSignedAt: typedContract?.ownerSignedAt,
+    tenantSignedAt: typedContract?.tenantSignedAt,
     status: 'current',
     modificationReason: 'Version actuelle du contrat',
-    modifiedBy: contract.ownerId,
-    createdAt: contract.updatedAt,
+    modifiedBy: typedContract?.ownerId,
+    createdAt: typedContract?.updatedAt,
     fieldsModified: []
   };
 
-  const allVersions = [currentVersion, ...versions].sort((a, b) => b.version - a.version);
+  const allVersions = [currentVersion, ...typedVersions].sort((a, b) => b.version - a.version);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -147,7 +153,7 @@ const ContractVersions = () => {
           <div className="flex items-center gap-4 mb-2">
             <History className="h-6 w-6 text-blue-600" />
             <h1 className="text-2xl font-bold text-gray-900">
-              Historique des versions - {contract.contractData?.propertyTitle || `Contrat #${contractId}`}
+              Historique des versions - {typedContract?.contractData?.propertyTitle || `Contrat #${contractId}`}
             </h1>
           </div>
           
@@ -185,7 +191,7 @@ const ContractVersions = () => {
                         
                         <div className="flex items-center gap-1">
                           <User className="h-4 w-4" />
-                          <span>Par {getUserName(version.modifiedBy || contract.ownerId)}</span>
+                          <span>Par {getUserName(version.modifiedBy || typedContract?.ownerId)}</span>
                         </div>
                       </div>
                       
