@@ -18,15 +18,28 @@ const ContractVersions = () => {
   console.log('ContractVersions Debug:', { match, params, contractId });
 
   // Fetch main contract data
-  const { data: contract, isLoading: contractLoading } = useQuery({
+  const { data: contract, isLoading: contractLoading, error: contractError } = useQuery({
     queryKey: [`/api/contracts/${contractId}`],
     enabled: !!contractId
   });
 
   // Fetch all versions for this contract
-  const { data: versions = [], isLoading: versionsLoading } = useQuery({
+  const { data: versions = [], isLoading: versionsLoading, error: versionsError } = useQuery({
     queryKey: [`/api/contracts/${contractId}/versions`],
     enabled: !!contractId
+  });
+  
+  // Debug logging for queries
+  console.log('ContractVersions Queries Debug:', {
+    contractId,
+    contractEnabled: !!contractId,
+    contract,
+    contractLoading,
+    contractError,
+    versions,
+    versionsLoading,
+    versionsError,
+    versionsLength: Array.isArray(versions) ? versions.length : 0
   });
 
   // Type the versions data
