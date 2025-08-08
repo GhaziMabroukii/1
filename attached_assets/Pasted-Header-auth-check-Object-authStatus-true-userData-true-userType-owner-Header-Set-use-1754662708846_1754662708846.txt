@@ -1,0 +1,63 @@
+Header auth check: 
+Object {authStatus: "true", userData: true, userType: "owner"}
+Header: Set user type to: owner with user ID: 1
+Header auth check: 
+Object {authStatus: "true", userData: true, userType: "owner"}
+Header: Set user type to: owner with user ID: 1
+Header auth check: 
+Object {authStatus: "true", userData: true, userType: "owner"}
+Header: Set user type to: owner with user ID: 1
+Header auth check: 
+Object {authStatus: "true", userData: true, userType: "owner"}
+Header: Set user type to: owner with user ID: 1
+Header auth check: 
+Object {authStatus: "true", userData: true, userType: "owner"}
+Header: Set user type to: owner with user ID: 1
+Header auth check: 
+Object {authStatus: "true", userData: true, userType: "owner"}
+Header: Set user type to: owner with user ID: 1
+Header auth check: 
+Object {authStatus: "true", userData: true, userType: "owner"}
+Header: Set user type to: owner with user ID: 1
+Header auth check: 
+Object {authStatus: "true", userData: true, userType: "owner"}
+Header: Set user type to: owner with user ID: 1
+Header auth check: 
+Object {authStatus: "true", userData: true, userType: "owner"}
+Header: Set user type to: owner with user ID: 1
+Header auth check: 
+Object {authStatus: "true", userData: true, userType: "owner"}
+Header: Set user type to: owner with user ID: 1
+Header auth check: 
+Object {authStatus: "true", userData: true, userType: "owner"}
+Header: Set user type to: owner with user ID: 1
+Header auth check: 
+Object {authStatus: "true", userData: true, userType: "owner"}
+Header: Set user type to: owner with user ID: 1
+Header auth check: 
+Object {authStatus: "true", userData: true, userType: "owner"}
+Header: Set user type to: owner with user ID: 1
+Header auth check: 
+Object {authStatus: "true", userData: true, userType: "owner"}
+Header: Set user type to: owner with user ID: 1
+Header auth check: 
+Object {authStatus: "true", userData: true, userType: "owner"}
+Header: Set user type to: owner with user ID: 1
+Header auth check: 
+Object {authStatus: "true", userData: true, userType: "owner"}
+Header: Set user type to: owner with user ID: 1
+Header auth check: 
+Object {authStatus: "true", userData: true, userType: "owner"}
+Header: Set user type to: owner with user ID: 1
+Header auth check: 
+Object {authStatus: "true", userData: true, userType: "owner"}
+Header: Set user type to: owner with user ID: 1
+Header auth check: 
+Object {authStatus: "true", userData: true, userType: "owner"}
+Header: Set user type to: owner with user ID: 1
+Header auth check: 
+Object {authStatus: "true", userData: true, userType: "owner"}
+Header: Set user type to: owner with user ID: 1
+Header auth check: 
+Object {authStatus: "true", userData: true, userType: "owner"}
+Header: Set user type to: owner with user ID: 1
