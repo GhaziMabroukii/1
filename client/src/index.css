@@ -1,0 +1,155 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Ekrili Neo-Brutalism Design System - Bold, Raw, Unapologetic
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Modern Glassmorphism Design System */
+    --background: 240 10% 98%;
+    --foreground: 240 10% 15%;
+
+    /* Primary Brand Colors - Tunisian inspired */
+    --primary: 15 86% 53%;          /* Warm orange-red */
+    --primary-foreground: 0 0% 98%;
+
+    /* Secondary Colors */
+    --secondary: 200 95% 55%;       /* Mediterranean blue */
+    --secondary-foreground: 0 0% 98%;
+
+    /* Accent Colors */
+    --accent: 160 84% 39%;          /* Olive green */
+    --accent-foreground: 0 0% 98%;
+
+    /* Success/Highlight */
+    --success: 142 76% 36%;         /* Emerald green */
+    --success-foreground: 0 0% 98%;
+
+    /* Warning */
+    --warning: 38 92% 50%;          /* Golden yellow */
+    --warning-foreground: 240 10% 15%;
+
+    /* Destructive */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    /* Neutral System */
+    --muted: 240 4% 95%;
+    --muted-foreground: 240 4% 46%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 15%;
+
+    /* Borders & Inputs */
+    --border: 240 6% 90%;
+    --input: 240 6% 97%;
+    --ring: 15 86% 53%;
+
+    /* Glass Effects */
+    --glass-bg: 255 255 255 / 0.1;
+    --glass-border: 255 255 255 / 0.2;
+    --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+
+    /* Smooth radius */
+    --radius: 16px;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(15 86% 53%) 0%, hsl(25 95% 63%) 100%);
+    --gradient-secondary: linear-gradient(135deg, hsl(200 95% 55%) 0%, hsl(220 95% 65%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(15 86% 53% / 0.1) 0%, hsl(200 95% 55% / 0.1) 100%);
+  }
+
+  .dark {
+    --background: 240 10% 9%;
+    --foreground: 240 5% 96%;
+    --primary: 15 86% 58%;
+    --secondary: 200 95% 60%;
+    --accent: 160 84% 44%;
+    --success: 142 76% 41%;
+    --muted: 240 4% 15%;
+    --muted-foreground: 240 4% 65%;
+    --card: 240 10% 12%;
+    --border: 240 6% 20%;
+    --input: 240 6% 18%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-normal antialiased;
+    background: var(--gradient-hero);
+    min-height: 100vh;
+  }
+}
+
+/* Modern Glassmorphism Components */
+@layer components {
+  .glass {
+    background: rgba(var(--glass-bg));
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(var(--glass-border));
+    box-shadow: var(--glass-shadow);
+  }
+  
+  .glass-card {
+    @apply glass rounded-2xl p-6 transition-all duration-300 hover:shadow-2xl;
+  }
+  
+  .glass-button {
+    @apply glass rounded-xl px-6 py-3 font-semibold transition-all duration-300 hover:scale-105 active:scale-95;
+  }
+  
+  .glass-input {
+    @apply glass rounded-xl px-4 py-3 border-0 bg-white/10 placeholder:text-muted-foreground focus:bg-white/20 focus:outline-none focus:ring-2 focus:ring-primary/50;
+  }
+
+  .gradient-text {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .gradient-button {
+    background: var(--gradient-primary);
+    @apply text-white rounded-xl px-6 py-3 font-semibold transition-all duration-300 hover:scale-105 hover:shadow-lg active:scale-95;
+  }
+
+  .floating-element {
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+  }
+
+  .slide-up {
+    animation: slideUp 0.5s ease-out;
+  }
+  
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .pulse-gentle {
+    animation: pulseGentle 2s ease-in-out infinite;
+  }
+  
+  @keyframes pulseGentle {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+}
