@@ -385,6 +385,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           details: "Active contract prevents new contract creation"
         });
       }
+
+      // ENFORCEMENT: Check for contracts in modification status
+      const modificationContracts = await db
+        .select()
+        .from(contracts)
+        .where(
+          and(
+            eq(contracts.propertyId, validatedData.propertyId),
+            eq(contracts.status, 'waiting_for_modification')
+          )
+        );
+      
+      if (modificationContracts.length > 0) {
+        return res.status(400).json({
+          error: "Un contrat pour cette propriété est actuellement en cours de modification. Vous devez attendre la fin du processus de modification avant de créer un nouveau contrat.",
+          details: "Contract in modification status prevents new contract creation"
+        });
+      }
       
       const contract = await storage.createContract(validatedData);
       

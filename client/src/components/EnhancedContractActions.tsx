@@ -53,10 +53,39 @@ export function EnhancedContractActions({ contract, currentUserId, userType }: C
   const [contractModifications, setContractModifications] = useState<any>({});
 
   // Fetch pending requests for this contract
-  const { data: pendingRequests = [] } = useQuery<RequestStatus[]>({
+  const { data: pendingRequests = [], isLoading: requestsLoading } = useQuery<RequestStatus[]>({
     queryKey: [`/api/contracts/${contract.id}/pending-requests`],
-    enabled: !!contract.id
+    queryFn: async () => {
+      const response = await fetch(`/api/contracts/${contract.id}/pending-requests`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      const data = await response.json();
+      console.log('Pending requests query returned:', data);
+      return data;
+    },
+    enabled: !!contract.id,
+    staleTime: 0,
+    gcTime: 0
   });
+
+  // Debug log
+  console.log('EnhancedContractActions Debug:', {
+    contractId: contract.id,
+    pendingRequests,
+    requestsLoading,
+    modificationRequest: pendingRequests.find(r => r.type === 'modification'),
+    userType,
+    currentUserId,
+    queryKey: `/api/contracts/${contract.id}/pending-requests`
+  });
+
+  // Force refresh pending requests when component mounts
+  React.useEffect(() => {
+    if (contract.id) {
+      queryClient.invalidateQueries({ queryKey: [`/api/contracts/${contract.id}/pending-requests`] });
+    }
+  }, [contract.id, queryClient]);
 
   // Find current request statuses
   const terminationRequest = pendingRequests.find(r => r.type === 'termination');
