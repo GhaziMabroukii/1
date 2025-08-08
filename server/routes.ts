@@ -1221,6 +1221,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           type: sql<string>`'modification'`,
           status: contractModificationRequests.status,
           createdAt: contractModificationRequests.createdAt,
+          modificationDeadline: contractModificationRequests.modificationDeadline,
+          fieldsToModify: contractModificationRequests.fieldsToModify,
         })
         .from(contractModificationRequests)
         .where(eq(contractModificationRequests.contractId, contractId));

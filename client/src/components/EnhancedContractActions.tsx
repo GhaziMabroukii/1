@@ -8,6 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { AlertCircle, AlertTriangle, Edit, Trash2, Clock, CheckCircle, XCircle, ChevronDown, RefreshCw } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { fr } from 'date-fns/locale';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +36,7 @@ interface RequestStatus {
   type: 'modification' | 'termination';
   status: 'pending' | 'accepted' | 'rejected';
   createdAt: string;
+  modificationDeadline?: string;
 }
 
 export function EnhancedContractActions({ contract, currentUserId, userType }: ContractActionsProps) {
@@ -58,6 +61,12 @@ export function EnhancedContractActions({ contract, currentUserId, userType }: C
   // Find current request statuses
   const terminationRequest = pendingRequests.find(r => r.type === 'termination');
   const modificationRequest = pendingRequests.find(r => r.type === 'modification');
+
+  // Helper function to check if modification deadline is still valid
+  const isWithinModificationDeadline = (deadline?: string): boolean => {
+    if (!deadline) return false;
+    return new Date(deadline) > new Date();
+  };
 
   // Early termination request mutation
   const terminationRequestMutation = useMutation({
@@ -304,20 +313,37 @@ export function EnhancedContractActions({ contract, currentUserId, userType }: C
                 </DropdownMenu>
               </div>
               
-              {/* Modify Contract Button - appears when modification is pending */}
-              {modificationRequest.status === 'pending' && (
-                <Button
-                  onClick={() => setShowModifyContractDialog(true)}
-                  disabled={contractModificationMutation.isPending}
-                  className="w-full bg-green-600 hover:bg-green-700"
-                  size="sm"
-                >
-                  <Edit className="w-3 h-3 mr-2" />
-                  Modifier le contrat
-                  {contractModificationMutation.isPending && (
-                    <RefreshCw className="w-3 h-3 ml-2 animate-spin" />
+              {/* Modify Contract Button - appears when modification is accepted and within 24h deadline */}
+              {modificationRequest.status === 'accepted' && isWithinModificationDeadline(modificationRequest.modificationDeadline) && (
+                <div className="space-y-2">
+                  <Button
+                    onClick={() => setShowModifyContractDialog(true)}
+                    disabled={contractModificationMutation.isPending}
+                    className="w-full bg-green-600 hover:bg-green-700"
+                    size="sm"
+                  >
+                    <Edit className="w-3 h-3 mr-2" />
+                    Modifier le contrat (24h restantes)
+                    {contractModificationMutation.isPending && (
+                      <RefreshCw className="w-3 h-3 ml-2 animate-spin" />
+                    )}
+                  </Button>
+                  {modificationRequest.modificationDeadline && (
+                    <p className="text-xs text-orange-600 text-center">
+                      Délai: {formatDistanceToNow(new Date(modificationRequest.modificationDeadline), { 
+                        addSuffix: true, 
+                        locale: fr 
+                      })}
+                    </p>
                   )}
-                </Button>
+                </div>
+              )}
+              
+              {/* Show expired deadline message */}
+              {modificationRequest.status === 'accepted' && !isWithinModificationDeadline(modificationRequest.modificationDeadline) && (
+                <div className="w-full p-2 bg-red-50 border border-red-200 rounded text-red-700 text-sm text-center">
+                  Délai de modification expiré (24h)
+                </div>
               )}
             </div>
           )}
