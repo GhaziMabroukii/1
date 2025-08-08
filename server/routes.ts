@@ -995,6 +995,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .where(eq(contracts.id, contractId));
 
+      // Mark modification request as completed
+      if (modRequest) {
+        await db
+          .update(contractModificationRequests)
+          .set({ status: 'completed' })
+          .where(eq(contractModificationRequests.id, modRequest.id));
+      }
+
       // Notify tenant of contract modification
       await storage.createNotification({
         userId: contract.tenantId,

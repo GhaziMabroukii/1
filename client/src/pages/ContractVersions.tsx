@@ -97,7 +97,7 @@ const ContractVersions = () => {
     );
   }
 
-  if (!contract) {
+  if (!contract && !contractLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
@@ -263,13 +263,15 @@ const ContractVersions = () => {
             </Card>
           ))}
           
-          {allVersions.length === 1 && (
+          {(allVersions.length === 1 || typedVersions.length === 0) && (
             <Card className="text-center py-8 border-dashed">
               <CardContent>
                 <History className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Première version</h3>
+                <h3 className="text-lg font-semibold mb-2">{typedVersions.length === 0 ? 'Aucune version archivée' : 'Première version'}</h3>
                 <p className="text-muted-foreground">
-                  Ce contrat n'a pas encore été modifié. L'historique des versions apparaîtra ici après les modifications.
+                  {typedVersions.length === 0 
+                    ? 'Ce contrat n\'a pas encore d\'historique de modifications. Les versions précédentes apparaîtront ici après les modifications.' 
+                    : 'Ce contrat n\'a pas encore été modifié. L\'historique des versions apparaîtra ici après les modifications.'}
                 </p>
               </CardContent>
             </Card>

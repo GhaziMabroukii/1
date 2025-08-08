@@ -207,6 +207,10 @@ export function EnhancedContractActions({ contract, currentUserId, userType }: C
         return <Badge variant="outline" className={`${baseClasses} bg-green-50 text-green-700 border-green-300`}>
           <CheckCircle className="w-3 h-3 mr-1" /> Acceptée
         </Badge>;
+      case 'completed':
+        return <Badge variant="outline" className={`${baseClasses} bg-blue-50 text-blue-700 border-blue-300`}>
+          <CheckCircle className="w-3 h-3 mr-1" /> Terminée
+        </Badge>;
       case 'rejected':
         return <Badge variant="outline" className={`${baseClasses} bg-red-50 text-red-700 border-red-300`}>
           <XCircle className="w-3 h-3 mr-1" /> Refusée
