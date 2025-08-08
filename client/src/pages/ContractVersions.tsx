@@ -97,7 +97,8 @@ const ContractVersions = () => {
     );
   }
 
-  if (!contract && !contractLoading) {
+  // Only show "contract not found" if both contract and versions fail to load
+  if (!contract && !contractLoading && typedVersions.length === 0 && !versionsLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
@@ -117,23 +118,30 @@ const ContractVersions = () => {
   // Type the contract data
   const typedContract = contract as any;
 
-  // Combine current contract with versions
-  const currentVersion = {
-    id: 'current',
-    version: typedVersions.length + 1,
-    contractData: typedContract?.contractData,
-    ownerSignature: typedContract?.ownerSignature,
-    tenantSignature: typedContract?.tenantSignature,
-    ownerSignedAt: typedContract?.ownerSignedAt,
-    tenantSignedAt: typedContract?.tenantSignedAt,
-    status: 'current',
-    modificationReason: 'Version actuelle du contrat',
-    modifiedBy: typedContract?.ownerId,
-    createdAt: typedContract?.updatedAt,
-    fieldsModified: []
-  };
-
-  const allVersions = [currentVersion, ...typedVersions].sort((a, b) => b.version - a.version);
+  // Combine current contract with versions (if contract data exists)
+  const allVersions = typedVersions.length > 0 ? typedVersions.sort((a, b) => b.version - a.version) : [];
+  
+  // If we have a current contract that's not in versions, add it
+  if (typedContract && allVersions.length > 0) {
+    const hasCurrentVersion = allVersions.some(v => v.status === 'current');
+    if (!hasCurrentVersion) {
+      const currentVersion = {
+        id: 'current',
+        version: Math.max(...allVersions.map(v => v.version || 0)) + 1,
+        contractData: typedContract?.contractData,
+        ownerSignature: typedContract?.ownerSignature,
+        tenantSignature: typedContract?.tenantSignature,
+        ownerSignedAt: typedContract?.ownerSignedAt,
+        tenantSignedAt: typedContract?.tenantSignedAt,
+        status: 'current',
+        modificationReason: 'Version actuelle du contrat',
+        modifiedBy: typedContract?.ownerId,
+        createdAt: typedContract?.updatedAt,
+        fieldsModified: []
+      };
+      allVersions.unshift(currentVersion);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
