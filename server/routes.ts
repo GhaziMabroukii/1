@@ -1709,6 +1709,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get specific contract version details
+  app.get("/api/contracts/:contractId/versions/:versionId", async (req, res) => {
+    try {
+      const contractId = parseInt(req.params.contractId);
+      const versionId = req.params.versionId;
+      
+      if (versionId === 'current') {
+        // Return current contract as a version
+        const contract = await storage.getContract(contractId);
+        if (!contract) {
+          return res.status(404).json({ error: "Contract not found" });
+        }
+        
+        // Get the current version number
+        const existingVersions = await db
+          .select()
+          .from(contractVersions)
+          .where(eq(contractVersions.contractId, contractId))
+          .orderBy(desc(contractVersions.version));
+        
+        const currentVersionNumber = existingVersions.length > 0 ? existingVersions[0].version + 1 : 1;
+        
+        const currentVersion = {
+          id: 'current',
+          version: currentVersionNumber,
+          contractData: contract.contractData,
+          ownerSignature: contract.ownerSignature,
+          tenantSignature: contract.tenantSignature,
+          ownerSignedAt: contract.ownerSignedAt,
+          tenantSignedAt: contract.tenantSignedAt,
+          status: 'current',
+          modificationReason: contract.modificationSummary || 'Version actuelle du contrat',
+          modifiedBy: contract.ownerId,
+          createdAt: contract.updatedAt,
+          fieldsModified: []
+        };
+        
+        return res.json(currentVersion);
+      }
+      
+      // Fetch specific archived version
+      const [version] = await db
+        .select()
+        .from(contractVersions)
+        .where(eq(contractVersions.id, parseInt(versionId)));
+        
+      if (!version) {
+        return res.status(404).json({ error: "Version not found" });
+      }
+      
+      res.json(version);
+    } catch (error) {
+      console.error("Get contract version error:", error);
+      res.status(500).json({ error: "Failed to fetch contract version" });
+    }
+  });
+
   // Complete contract modification - Owner modifies and signs, creates new version
   app.post("/api/contracts/:id/complete-modification", async (req, res) => {
     try {
