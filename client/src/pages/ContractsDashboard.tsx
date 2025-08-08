@@ -90,9 +90,18 @@ export default function ContractsDashboard() {
     contract.status === 'terminated'
   );
   
-  const modifiedContracts = contracts.filter((contract: Contract) => 
-    contract.status === 'modified' || contract.modificationSummary?.includes('Version')
-  );
+  const modifiedContracts = contracts.filter((contract: Contract) => {
+    const hasModificationSummary = !!contract.modificationSummary;
+    const containsModificationKeyword = contract.modificationSummary && 
+      (contract.modificationSummary.includes('Version') || 
+       contract.modificationSummary.includes('modification') ||
+       contract.modificationSummary.includes('Modification') ||
+       contract.modificationSummary.includes('modifié'));
+    
+    console.log(`Contract ${contract.id} - hasModificationSummary: ${hasModificationSummary}, containsKeyword: ${containsModificationKeyword}, summary: "${contract.modificationSummary}"`);
+    
+    return hasModificationSummary && containsModificationKeyword;
+  });
 
   // Further categorize active contracts for better display
   const pendingOwnerSignature = activeContracts.filter((c: Contract) => c.status === 'draft' && !c.ownerSignature);
