@@ -13,6 +13,9 @@ const ContractVersions = () => {
   const [match, params] = useRoute("/contract/:id/versions");
   const contractId = params?.id;
   const [, navigate] = useLocation();
+  
+  // Debug logging
+  console.log('ContractVersions Debug:', { match, params, contractId });
 
   // Fetch main contract data
   const { data: contract, isLoading: contractLoading } = useQuery({
