@@ -74,13 +74,13 @@ export const contracts = pgTable("contracts", {
   tenantSignature: text("tenant_signature"), // Base64 signature data
   ownerSignedAt: timestamp("owner_signed_at"),
   tenantSignedAt: timestamp("tenant_signed_at"),
-  status: text("status").notNull().default("draft"), // draft, owner_signed, fully_signed, active, expired, cancelled, terminated, waiting_for_modification, modified
+  status: text("status").notNull().default("draft"), // draft, owner_signed, fully_signed, active, expired, cancelled, terminated
   tenantSignDeadline: timestamp("tenant_sign_deadline"), // 3 days from owner signature
   pdfUrl: text("pdf_url"),
   // Enhanced contract management fields
   contractStartDate: timestamp("contract_start_date"),
   contractEndDate: timestamp("contract_end_date"),
-  modificationSummary: text("modification_summary"), // Summary of modifications made
+
   terminationReason: text("termination_reason"), // Reason for early termination
   terminatedBy: integer("terminated_by").references(() => users.id), // User who initiated termination
   terminatedAt: timestamp("terminated_at"),
@@ -131,35 +131,7 @@ export const reviews = pgTable("reviews", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Contract versions table for tracking contract modifications
-export const contractVersions = pgTable("contract_versions", {
-  id: serial("id").primaryKey(),
-  contractId: integer("contract_id").notNull().references(() => contracts.id),
-  version: integer("version").notNull().default(1), // Version number (1, 2, 3, etc.)
-  contractData: jsonb("contract_data").notNull(), // Contract data for this version
-  ownerSignature: text("owner_signature"),
-  tenantSignature: text("tenant_signature"),
-  ownerSignedAt: timestamp("owner_signed_at"),
-  tenantSignedAt: timestamp("tenant_signed_at"),
-  status: text("status").notNull().default("draft"), // draft, owner_signed, fully_signed, active, superseded
-  modificationReason: text("modification_reason"), // Why this version was created
-  createdAt: timestamp("created_at").defaultNow(),
-});
 
-// Contract modification requests table
-export const contractModificationRequests = pgTable("contract_modification_requests", {
-  id: serial("id").primaryKey(),
-  contractId: integer("contract_id").notNull().references(() => contracts.id),
-  requestedBy: integer("requested_by").notNull().references(() => users.id), // Always owner
-  requestedChanges: jsonb("requested_changes").notNull(), // Details of requested changes
-  fieldsToModify: text("fields_to_modify").array(), // Fields owner wants to modify (name, cin, signature, address, etc.)
-  modificationReason: text("modification_reason").notNull(), // Reason for modification request
-  status: text("status").notNull().default("pending"), // pending, accepted, rejected, modification_in_progress, completed
-  tenantResponse: text("tenant_response"), // Optional message from tenant
-  respondedAt: timestamp("responded_at"),
-  modificationDeadline: timestamp("modification_deadline"), // 24h from acceptance
-  createdAt: timestamp("created_at").defaultNow(),
-});
 
 // Contract termination requests table
 export const contractTerminationRequests = pgTable("contract_termination_requests", {
@@ -208,10 +180,7 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
   user: one(users, { fields: [notifications.userId], references: [users.id] }),
 }));
 
-export const contractModificationRequestsRelations = relations(contractModificationRequests, ({ one }) => ({
-  contract: one(contracts, { fields: [contractModificationRequests.contractId], references: [contracts.id] }),
-  requestedBy: one(users, { fields: [contractModificationRequests.requestedBy], references: [users.id] }),
-}));
+
 
 export const contractTerminationRequestsRelations = relations(contractTerminationRequests, ({ one }) => ({
   contract: one(contracts, { fields: [contractTerminationRequests.contractId], references: [contracts.id] }),
@@ -271,12 +240,7 @@ export const insertReviewSchema = createInsertSchema(reviews).omit({
   createdAt: true,
 });
 
-export const insertContractModificationRequestSchema = createInsertSchema(contractModificationRequests).omit({
-  id: true,
-  createdAt: true,
-  respondedAt: true,
-  modificationDeadline: true,
-});
+
 
 export const insertContractTerminationRequestSchema = createInsertSchema(contractTerminationRequests).omit({
   id: true,
@@ -301,7 +265,6 @@ export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Review = typeof reviews.$inferSelect;
 export type InsertReview = z.infer<typeof insertReviewSchema>;
-export type ContractModificationRequest = typeof contractModificationRequests.$inferSelect;
-export type InsertContractModificationRequest = z.infer<typeof insertContractModificationRequestSchema>;
+
 export type ContractTerminationRequest = typeof contractTerminationRequests.$inferSelect;
 export type InsertContractTerminationRequest = z.infer<typeof insertContractTerminationRequestSchema>;

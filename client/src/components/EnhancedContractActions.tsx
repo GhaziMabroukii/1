@@ -33,10 +33,9 @@ interface ContractActionsProps {
 
 interface RequestStatus {
   id: number;
-  type: 'modification' | 'termination';
+  type: 'termination';
   status: 'pending' | 'accepted' | 'rejected';
   createdAt: string;
-  modificationDeadline?: string;
 }
 
 export function EnhancedContractActions({ contract, currentUserId, userType }: ContractActionsProps) {
@@ -44,13 +43,8 @@ export function EnhancedContractActions({ contract, currentUserId, userType }: C
   const queryClient = useQueryClient();
   const [location, navigate] = useLocation();
   const [showTerminationDialog, setShowTerminationDialog] = useState(false);
-  const [showModificationDialog, setShowModificationDialog] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [terminationReason, setTerminationReason] = useState('');
-  const [modificationReason, setModificationReason] = useState('');
-  const [selectedFields, setSelectedFields] = useState<string[]>([]);
-  const [showModifyContractDialog, setShowModifyContractDialog] = useState(false);
-  const [contractModifications, setContractModifications] = useState<any>({});
 
   // Fetch pending requests for this contract
   const { data: pendingRequests = [], isLoading: requestsLoading } = useQuery<RequestStatus[]>({
@@ -74,7 +68,7 @@ export function EnhancedContractActions({ contract, currentUserId, userType }: C
     contractId: contract.id,
     pendingRequests,
     requestsLoading,
-    modificationRequest: pendingRequests.find(r => r.type === 'modification'),
+    terminationRequest: pendingRequests.find(r => r.type === 'termination'),
     userType,
     currentUserId,
     queryKey: `/api/contracts/${contract.id}/pending-requests`
@@ -89,13 +83,6 @@ export function EnhancedContractActions({ contract, currentUserId, userType }: C
 
   // Find current request statuses
   const terminationRequest = pendingRequests.find(r => r.type === 'termination');
-  const modificationRequest = pendingRequests.find(r => r.type === 'modification');
-
-  // Helper function to check if modification deadline is still valid
-  const isWithinModificationDeadline = (deadline?: string): boolean => {
-    if (!deadline) return false;
-    return new Date(deadline) > new Date();
-  };
 
   // Early termination request mutation
   const terminationRequestMutation = useMutation({
@@ -128,72 +115,9 @@ export function EnhancedContractActions({ contract, currentUserId, userType }: C
     }
   });
 
-  // Modification request mutation
-  const modificationRequestMutation = useMutation({
-    mutationFn: async () => {
-      if (!modificationReason.trim()) {
-        throw new Error('La raison de la modification est obligatoire');
-      }
-      if (selectedFields.length === 0) {
-        throw new Error('Vous devez sélectionner au moins un champ à modifier');
-      }
-      return apiRequest(`/api/contracts/${contract.id}/request-modification`, {
-        method: 'POST',
-        body: JSON.stringify({
-          requestedBy: currentUserId,
-          modificationReason: modificationReason,
-          fieldsToModify: selectedFields,
-          requestedChanges: `Modification demandée pour: ${selectedFields.join(', ')}. Raison: ${modificationReason}`
-        })
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: "Demande envoyée",
-        description: "Votre demande de modification a été envoyée au locataire"
-      });
-      queryClient.invalidateQueries({ queryKey: [`/api/contracts/${contract.id}/pending-requests`] });
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
-      setShowModificationDialog(false);
-      setModificationReason('');
-      setSelectedFields([]);
-      setError(null);
-    },
-    onError: (error: any) => {
-      setError(error.message || "Erreur lors de l'envoi de la demande");
-      setShowModificationDialog(false);
-    }
-  });
 
-  // Contract modification mutation (for when modification is approved)
-  const contractModificationMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest(`/api/contracts/${contract.id}/modify`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          modifications: contractModifications,
-          modificationRequestId: modificationRequest?.id
-        })
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: "Contrat modifié",
-        description: "Les modifications ont été appliquées avec succès"
-      });
-      queryClient.invalidateQueries({ queryKey: [`/api/contracts/${contract.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/contracts/${contract.id}/pending-requests`] });
-      queryClient.invalidateQueries({ queryKey: ['/api/contracts'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
-      setShowModifyContractDialog(false);
-      setContractModifications({});
-      setError(null);
-    },
-    onError: (error: any) => {
-      setError(error.message || "Erreur lors de la modification du contrat");
-      setShowModifyContractDialog(false);
-    }
-  });
+
+
 
   const getRequestStatusBadge = (status: string, type: string) => {
     const baseClasses = "text-xs px-2 py-1 rounded-full font-medium";
@@ -220,20 +144,20 @@ export function EnhancedContractActions({ contract, currentUserId, userType }: C
     }
   };
 
-  const getButtonText = (requestType: 'modification' | 'termination', request?: RequestStatus) => {
+  const getButtonText = (requestType: 'termination', request?: RequestStatus) => {
     if (!request) {
-      return requestType === 'modification' ? 'Demander modification' : 'Arrêt anticipé';
+      return 'Arrêt anticipé';
     }
     
     switch (request.status) {
       case 'pending':
-        return `${requestType === 'modification' ? 'Modification' : 'Arrêt'} demandé`;
+        return 'Arrêt demandé';
       case 'accepted':
-        return `${requestType === 'modification' ? 'Modification' : 'Arrêt'} accepté`;
+        return 'Arrêt accepté';
       case 'rejected':
-        return `Renvoyer ${requestType === 'modification' ? 'modification' : 'arrêt'}`;
+        return 'Renvoyer arrêt';
       default:
-        return requestType === 'modification' ? 'Demander modification' : 'Arrêt anticipé';
+        return 'Arrêt anticipé';
     }
   };
 

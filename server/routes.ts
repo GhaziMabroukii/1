@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertPropertySchema, insertOfferSchema, insertContractSchema, insertNotificationSchema, insertConversationSchema, insertMessageSchema, insertReviewSchema, insertContractModificationRequestSchema, insertContractTerminationRequestSchema, contracts, users, conversations, messages, reviews, properties, offers, contractModificationRequests, contractTerminationRequests, contractVersions } from "@shared/schema";
+import { insertPropertySchema, insertOfferSchema, insertContractSchema, insertNotificationSchema, insertConversationSchema, insertMessageSchema, insertReviewSchema, insertContractTerminationRequestSchema, contracts, users, conversations, messages, reviews, properties, offers, contractTerminationRequests } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
@@ -626,226 +626,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Contract modification request - Owner requests modification from tenant
-  app.post("/api/contracts/:id/request-modification", async (req, res) => {
-    try {
-      const contractId = parseInt(req.params.id);
-      const { requestedBy, requestedChanges, fieldsToModify, modificationReason } = req.body;
-      
-      const contract = await storage.getContract(contractId);
-      if (!contract) {
-        return res.status(404).json({ error: "Contract not found" });
-      }
 
-      // Only allow modification requests for active contracts
-      if (contract.status !== 'active') {
-        return res.status(400).json({ error: "Can only request modifications for active contracts" });
-      }
 
-      // Only owner can request modifications
-      if (contract.ownerId !== requestedBy) {
-        return res.status(403).json({ error: "Only the owner can request contract modifications" });
-      }
 
-      // Validate required fields
-      if (!modificationReason || !fieldsToModify || fieldsToModify.length === 0) {
-        return res.status(400).json({ error: "Modification reason and fields to modify are required" });
-      }
 
-      // Create modification request
-      const [modificationRequest] = await db
-        .insert(contractModificationRequests)
-        .values({
-          contractId,
-          requestedBy,
-          requestedChanges,
-          fieldsToModify,
-          modificationReason,
-          status: 'pending'
-        })
-        .returning();
 
-      // Notify tenant of modification request
-      await storage.createNotification({
-        userId: contract.tenantId,
-        title: "Demande de modification de contrat",
-        message: `Le propriétaire demande des modifications au contrat. Raison: ${modificationReason}. Champs à modifier: ${fieldsToModify.join(', ')}.`,
-        type: "contract_modification_request",
-        relatedId: contractId,
-      });
 
-      res.status(201).json(modificationRequest);
-    } catch (error) {
-      console.error("Contract modification request error:", error);
-      res.status(500).json({ error: "Failed to create modification request" });
-    }
-  });
 
-  // Apply contract modifications - Owner can modify contract after modification request is pending
-  app.put("/api/contracts/:id/modify", async (req, res) => {
-    try {
-      const contractId = parseInt(req.params.id);
-      const { modifications, modificationRequestId } = req.body;
-      
-      const contract = await storage.getContract(contractId);
-      if (!contract) {
-        return res.status(404).json({ error: "Contract not found" });
-      }
-
-      // Only allow modifications for active contracts
-      if (contract.status !== 'active') {
-        return res.status(400).json({ error: "Can only modify active contracts" });
-      }
-
-      // Update contract data with modifications
-      const updatedContractData = { ...(contract.contractData || {}) };
-      
-      // Apply field modifications
-      if (modifications.tenant_name) updatedContractData.tenantName = modifications.tenant_name;
-      if (modifications.tenant_address) updatedContractData.propertyAddress = modifications.tenant_address;
-      if (modifications.monthly_rent) updatedContractData.monthlyRent = modifications.monthly_rent;
-      if (modifications.deposit) updatedContractData.deposit = modifications.deposit;
-      if (modifications.special_conditions) updatedContractData.specialConditions = modifications.special_conditions;
-      if (modifications.payment_terms) updatedContractData.paymentDueDate = modifications.payment_terms;
-      if (modifications.start_date) updatedContractData.startDate = modifications.start_date;
-      if (modifications.end_date) updatedContractData.endDate = modifications.end_date;
-
-      // Update contract in database
-      const [updatedContract] = await db
-        .update(contracts)
-        .set({
-          contractData: updatedContractData,
-          status: 'modified', // Set status to modified to indicate changes
-          updatedAt: new Date()
-        })
-        .where(eq(contracts.id, contractId))
-        .returning();
-
-      // Mark modification request as completed if provided
-      if (modificationRequestId) {
-        await db
-          .update(contractModificationRequests)
-          .set({
-            status: 'completed',
-            respondedAt: new Date()
-          })
-          .where(eq(contractModificationRequests.id, modificationRequestId));
-      }
-
-      // Notify tenant of completed modification
-      await storage.createNotification({
-        userId: contract.tenantId,
-        title: "Contrat modifié",
-        message: "Le propriétaire a appliqué les modifications demandées au contrat.",
-        type: "contract_modified",
-        relatedId: contractId,
-      });
-
-      res.json(updatedContract);
-    } catch (error) {
-      console.error("Contract modification error:", error);
-      res.status(500).json({ error: "Failed to modify contract" });
-    }
-  });
-
-  // Get individual contract modification request
-  app.get("/api/contract-modification-requests/:id", async (req, res) => {
-    try {
-      const requestId = parseInt(req.params.id);
-      
-      const [request] = await db
-        .select()
-        .from(contractModificationRequests)
-        .where(eq(contractModificationRequests.id, requestId));
-        
-      if (!request) {
-        return res.status(404).json({ error: "Modification request not found" });
-      }
-
-      res.json(request);
-    } catch (error) {
-      console.error("Get modification request error:", error);
-      res.status(500).json({ error: "Failed to fetch modification request" });
-    }
-  });
-
-  // Respond to contract modification request - Tenant responds
-  app.put("/api/contract-modification-requests/:id/respond", async (req, res) => {
-    try {
-      const requestId = parseInt(req.params.id);
-      const { response, tenantResponse, userId } = req.body; // response: 'accepted' | 'rejected'
-      
-      const [request] = await db
-        .select()
-        .from(contractModificationRequests)
-        .where(eq(contractModificationRequests.id, requestId));
-        
-      if (!request) {
-        return res.status(404).json({ error: "Modification request not found" });
-      }
-
-      const contract = await storage.getContract(request.contractId);
-      if (!contract || contract.tenantId !== userId) {
-        return res.status(403).json({ error: "Unauthorized" });
-      }
-
-      // Update request status
-      const [updatedRequest] = await db
-        .update(contractModificationRequests)
-        .set({
-          status: response,
-          tenantResponse,
-          respondedAt: new Date()
-        })
-        .where(eq(contractModificationRequests.id, requestId))
-        .returning();
-
-      if (response === 'accepted') {
-        // Set modification deadline to 24 hours from now
-        const modificationDeadline = new Date();
-        modificationDeadline.setHours(modificationDeadline.getHours() + 24);
-
-        // Update modification request with deadline
-        await db
-          .update(contractModificationRequests)
-          .set({ modificationDeadline })
-          .where(eq(contractModificationRequests.id, requestId));
-
-        // Update contract status to waiting for modification
-        await db
-          .update(contracts)
-          .set({ 
-            status: 'waiting_for_modification',
-            modificationSummary: `En attente de modification - Échéance: ${modificationDeadline.toLocaleString('fr-FR')}`,
-            updatedAt: new Date()
-          })
-          .where(eq(contracts.id, request.contractId));
-
-        // Notify owner that they can now modify the contract
-        await storage.createNotification({
-          userId: contract.ownerId,
-          title: "Modification acceptée - 24h pour modifier",
-          message: `Le locataire a accepté votre demande de modification. Vous avez 24 heures pour modifier le contrat (jusqu'au ${modificationDeadline.toLocaleString('fr-FR')}).`,
-          type: "contract_modification_accepted",
-          relatedId: request.contractId,
-        });
-      } else {
-        // Notify owner of rejection
-        await storage.createNotification({
-          userId: contract.ownerId,
-          title: "Modification refusée",
-          message: "Le locataire a refusé votre demande de modification. Le contrat reste inchangé.",
-          type: "contract_modification_rejected",
-          relatedId: request.contractId,
-        });
-      }
-
-      res.json(updatedRequest);
-    } catch (error) {
-      console.error("Contract modification response error:", error);
-      res.status(500).json({ error: "Failed to respond to modification request" });
-    }
-  });
 
   // Contract early termination request - Owner requests early termination
   app.post("/api/contracts/:id/request-termination", async (req, res) => {
@@ -922,120 +709,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Modify contract by owner (within 24h deadline)
-  app.put("/api/contracts/:id/modify", async (req, res) => {
-    try {
-      const contractId = parseInt(req.params.id);
-      const { contractData, userId, modificationReason } = req.body;
-      
-      const contract = await storage.getContract(contractId);
-      if (!contract) {
-        return res.status(404).json({ error: "Contract not found" });
-      }
 
-      // Only owner can modify contracts
-      if (contract.ownerId !== userId) {
-        return res.status(403).json({ error: "Only the owner can modify contracts" });
-      }
-
-      // Check if contract is in waiting_for_modification status
-      if (contract.status !== 'waiting_for_modification') {
-        return res.status(400).json({ error: "Contract is not in modification state" });
-      }
-
-      // Check if modification deadline has passed
-      const [modRequest] = await db
-        .select()
-        .from(contractModificationRequests)
-        .where(eq(contractModificationRequests.contractId, contractId))
-        .orderBy(desc(contractModificationRequests.id))
-        .limit(1);
-
-      if (modRequest?.modificationDeadline && new Date() > modRequest.modificationDeadline) {
-        return res.status(400).json({ error: "Modification deadline has passed" });
-      }
-
-      // Create new contract version
-      const currentVersion = await db
-        .select({ version: contractVersions.version })
-        .from(contractVersions)
-        .where(eq(contractVersions.contractId, contractId))
-        .orderBy(desc(contractVersions.version))
-        .limit(1);
-
-      const newVersion = (currentVersion[0]?.version || 0) + 1;
-
-      // Save current contract data as previous version
-      await db
-        .insert(contractVersions)
-        .values({
-          contractId,
-          version: newVersion - 1,
-          contractData: contract.contractData,
-          ownerSignature: contract.ownerSignature,
-          tenantSignature: contract.tenantSignature,
-          ownerSignedAt: contract.ownerSignedAt,
-          tenantSignedAt: contract.tenantSignedAt,
-          status: 'superseded',
-          modificationReason: 'Original version before modification'
-        });
-
-      // Update main contract with new data and reset signatures
-      await db
-        .update(contracts)
-        .set({
-          contractData,
-          ownerSignature: null,
-          tenantSignature: null,
-          ownerSignedAt: null,
-          tenantSignedAt: null,
-          status: 'draft',
-          modificationSummary: `Contrat modifié (Version ${newVersion}) - ${modificationReason || 'Modifications apportées'}`,
-          updatedAt: new Date()
-        })
-        .where(eq(contracts.id, contractId));
-
-      // Mark modification request as completed
-      if (modRequest) {
-        await db
-          .update(contractModificationRequests)
-          .set({ status: 'completed' })
-          .where(eq(contractModificationRequests.id, modRequest.id));
-      }
-
-      // Notify tenant of contract modification
-      await storage.createNotification({
-        userId: contract.tenantId,
-        title: "Contrat modifié - Signature requise",
-        message: `Le propriétaire a modifié le contrat. Veuillez examiner et signer la nouvelle version.`,
-        type: "contract_modified",
-        relatedId: contractId,
-      });
-
-      res.json({ success: true, newVersion });
-    } catch (error) {
-      console.error("Contract modification error:", error);
-      res.status(500).json({ error: "Failed to modify contract" });
-    }
-  });
-
-  // Get contract versions for a specific contract
-  app.get("/api/contracts/:id/versions", async (req, res) => {
-    try {
-      const contractId = parseInt(req.params.id);
-      
-      const versions = await db
-        .select()
-        .from(contractVersions)
-        .where(eq(contractVersions.contractId, contractId))
-        .orderBy(desc(contractVersions.version));
-        
-      res.json(versions);
-    } catch (error) {
-      console.error("Get contract versions error:", error);
-      res.status(500).json({ error: "Failed to fetch contract versions" });
-    }
-  });
 
   // Respond to contract termination request - Tenant responds
   app.put("/api/contract-termination-requests/:id/respond", async (req, res) => {
@@ -1235,25 +909,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get pending requests for a contract
+  // Get pending requests for a contract (only termination requests now)
   app.get("/api/contracts/:id/pending-requests", async (req, res) => {
     try {
       const contractId = parseInt(req.params.id);
       
-      // Get modification requests
-      const modificationRequests = await db
-        .select({
-          id: contractModificationRequests.id,
-          type: sql<string>`'modification'`,
-          status: contractModificationRequests.status,
-          createdAt: contractModificationRequests.createdAt,
-          modificationDeadline: contractModificationRequests.modificationDeadline,
-          fieldsToModify: contractModificationRequests.fieldsToModify,
-        })
-        .from(contractModificationRequests)
-        .where(eq(contractModificationRequests.contractId, contractId));
-
-      // Get termination requests
+      // Get termination requests only
       const terminationRequests = await db
         .select({
           id: contractTerminationRequests.id,
@@ -1264,33 +925,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(contractTerminationRequests)
         .where(eq(contractTerminationRequests.contractId, contractId));
 
-      const allRequests = [...modificationRequests, ...terminationRequests];
-      res.json(allRequests);
+      res.json(terminationRequests);
     } catch (error) {
       console.error("Failed to fetch pending requests:", error);
       res.status(500).json({ error: "Failed to fetch pending requests" });
     }
   });
 
-  // Get specific modification request
-  app.get("/api/contract-modification-requests/:id", async (req, res) => {
-    try {
-      const requestId = parseInt(req.params.id);
-      const [request] = await db
-        .select()
-        .from(contractModificationRequests)
-        .where(eq(contractModificationRequests.id, requestId));
-        
-      if (!request) {
-        return res.status(404).json({ error: "Request not found" });
-      }
 
-      res.json(request);
-    } catch (error) {
-      console.error("Failed to fetch modification request:", error);
-      res.status(500).json({ error: "Failed to fetch modification request" });
-    }
-  });
 
   // Get specific termination request
   app.get("/api/contract-termination-requests/:id", async (req, res) => {
@@ -1329,19 +971,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const contractIds = userContracts.map(c => c.id);
 
-      // Get modification requests for all user contracts
-      const modificationRequests = await db
-        .select({
-          id: contractModificationRequests.id,
-          type: sql<string>`'modification'`,
-          status: contractModificationRequests.status,
-          createdAt: contractModificationRequests.createdAt,
-          contractId: contractModificationRequests.contractId,
-        })
-        .from(contractModificationRequests)
-        .where(inArray(contractModificationRequests.contractId, contractIds));
-
-      // Get termination requests for all user contracts
+      // Get termination requests for all user contracts only
       const terminationRequests = await db
         .select({
           id: contractTerminationRequests.id,
@@ -1353,12 +983,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(contractTerminationRequests)
         .where(inArray(contractTerminationRequests.contractId, contractIds));
 
-      console.log(`Found ${modificationRequests.length} modification requests and ${terminationRequests.length} termination requests for user ${userId}`);
-      console.log("Modification requests:", modificationRequests);
+      console.log(`Found ${terminationRequests.length} termination requests for user ${userId}`);
       console.log("Termination requests:", terminationRequests);
-
-      const allRequests = [...modificationRequests, ...terminationRequests];
-      res.json(allRequests);
+      res.json(terminationRequests);
     } catch (error) {
       console.error("Failed to fetch tenant requests:", error);
       res.status(500).json({ error: "Failed to fetch tenant requests" });
@@ -1531,90 +1158,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get modification requests for a user (owner or tenant)
-  app.get("/api/modification-requests/:userId", async (req, res) => {
-    try {
-      const userId = parseInt(req.params.userId);
-      const userType = req.query.userType as string;
-      
-      if (userType === 'owner') {
-        // Owner sees their sent modification requests
-        const requests = await db
-          .select({
-            id: contractModificationRequests.id,
-            contractId: contractModificationRequests.contractId,
-            requestedChanges: contractModificationRequests.requestedChanges,
-            fieldsToModify: contractModificationRequests.fieldsToModify,
-            modificationReason: contractModificationRequests.modificationReason,
-            status: contractModificationRequests.status,
-            tenantResponse: contractModificationRequests.tenantResponse,
-            respondedAt: contractModificationRequests.respondedAt,
-            createdAt: contractModificationRequests.createdAt,
-            property: {
-              title: properties.title,
-              address: properties.address,
-            },
-            tenant: {
-              firstName: users.firstName,
-              lastName: users.lastName,
-              email: users.email,
-            }
-          })
-          .from(contractModificationRequests)
-          .leftJoin(contracts, eq(contractModificationRequests.contractId, contracts.id))
-          .leftJoin(properties, eq(contracts.propertyId, properties.id))
-          .leftJoin(users, eq(contracts.tenantId, users.id))
-          .where(eq(contractModificationRequests.requestedBy, userId))
-          .orderBy(desc(contractModificationRequests.createdAt));
-        
-        res.json(requests);
-      } else {
-        // Tenant sees modification requests received for their contracts
-        const userContracts = await db
-          .select({ id: contracts.id })
-          .from(contracts)
-          .where(eq(contracts.tenantId, userId));
-        
-        if (userContracts.length === 0) {
-          return res.json([]);
-        }
-        
-        const contractIds = userContracts.map(c => c.id);
-        const requests = await db
-          .select({
-            id: contractModificationRequests.id,
-            contractId: contractModificationRequests.contractId,
-            requestedChanges: contractModificationRequests.requestedChanges,
-            fieldsToModify: contractModificationRequests.fieldsToModify,
-            modificationReason: contractModificationRequests.modificationReason,
-            status: contractModificationRequests.status,
-            tenantResponse: contractModificationRequests.tenantResponse,
-            respondedAt: contractModificationRequests.respondedAt,
-            createdAt: contractModificationRequests.createdAt,
-            property: {
-              title: properties.title,
-              address: properties.address,
-            },
-            owner: {
-              firstName: users.firstName,
-              lastName: users.lastName,
-              email: users.email,
-            }
-          })
-          .from(contractModificationRequests)
-          .leftJoin(contracts, eq(contractModificationRequests.contractId, contracts.id))
-          .leftJoin(properties, eq(contracts.propertyId, properties.id))
-          .leftJoin(users, eq(contractModificationRequests.requestedBy, users.id))
-          .where(inArray(contractModificationRequests.contractId, contractIds))
-          .orderBy(desc(contractModificationRequests.createdAt));
-        
-        res.json(requests);
-      }
-    } catch (error) {
-      console.error("Get modification requests error:", error);
-      res.status(500).json({ error: "Failed to fetch modification requests" });
-    }
-  });
+
 
   // Get termination requests for a user (owner or tenant)
   app.get("/api/termination-requests/:userId", async (req, res) => {
@@ -1699,166 +1243,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get contract versions (history) for a contract
-  app.get("/api/contracts/:id/versions", async (req, res) => {
-    try {
-      const contractId = parseInt(req.params.id);
-      
-      const versions = await db
-        .select()
-        .from(contractVersions)
-        .where(eq(contractVersions.contractId, contractId))
-        .orderBy(desc(contractVersions.version));
-      
-      res.json(versions);
-    } catch (error) {
-      console.error("Get contract versions error:", error);
-      res.status(500).json({ error: "Failed to fetch contract versions" });
-    }
-  });
 
-  // Get specific contract version details
-  app.get("/api/contracts/:contractId/versions/:versionId", async (req, res) => {
-    try {
-      const contractId = parseInt(req.params.contractId);
-      const versionId = req.params.versionId;
-      
-      if (versionId === 'current') {
-        // Return current contract as a version
-        const contract = await storage.getContract(contractId);
-        if (!contract) {
-          return res.status(404).json({ error: "Contract not found" });
-        }
-        
-        // Get the current version number
-        const existingVersions = await db
-          .select()
-          .from(contractVersions)
-          .where(eq(contractVersions.contractId, contractId))
-          .orderBy(desc(contractVersions.version));
-        
-        const currentVersionNumber = existingVersions.length > 0 ? existingVersions[0].version + 1 : 1;
-        
-        const currentVersion = {
-          id: 'current',
-          version: currentVersionNumber,
-          contractData: contract.contractData,
-          ownerSignature: contract.ownerSignature,
-          tenantSignature: contract.tenantSignature,
-          ownerSignedAt: contract.ownerSignedAt,
-          tenantSignedAt: contract.tenantSignedAt,
-          status: 'current',
-          modificationReason: contract.modificationSummary || 'Version actuelle du contrat',
-          modifiedBy: contract.ownerId,
-          createdAt: contract.updatedAt,
-          fieldsModified: []
-        };
-        
-        return res.json(currentVersion);
-      }
-      
-      // Fetch specific archived version
-      const [version] = await db
-        .select()
-        .from(contractVersions)
-        .where(eq(contractVersions.id, parseInt(versionId)));
-        
-      if (!version) {
-        return res.status(404).json({ error: "Version not found" });
-      }
-      
-      res.json(version);
-    } catch (error) {
-      console.error("Get contract version error:", error);
-      res.status(500).json({ error: "Failed to fetch contract version" });
-    }
-  });
-
-  // Complete contract modification - Owner modifies and signs, creates new version
-  app.post("/api/contracts/:id/complete-modification", async (req, res) => {
-    try {
-      const contractId = parseInt(req.params.id);
-      const { modificationRequestId, modifiedContractData, ownerSignature, userId } = req.body;
-      
-      const contract = await storage.getContract(contractId);
-      if (!contract) {
-        return res.status(404).json({ error: "Contract not found" });
-      }
-
-      // Only owner can complete modifications
-      if (contract.ownerId !== userId) {
-        return res.status(403).json({ error: "Only the owner can complete contract modifications" });
-      }
-
-      // Verify modification request exists and is accepted
-      const [modificationRequest] = await db
-        .select()
-        .from(contractModificationRequests)
-        .where(eq(contractModificationRequests.id, modificationRequestId));
-
-      if (!modificationRequest || modificationRequest.status !== 'accepted') {
-        return res.status(400).json({ error: "Valid accepted modification request required" });
-      }
-
-      // Get current version number
-      const existingVersions = await db
-        .select()
-        .from(contractVersions)
-        .where(eq(contractVersions.contractId, contractId))
-        .orderBy(desc(contractVersions.version));
-
-      const newVersion = existingVersions.length > 0 ? existingVersions[0].version + 1 : 1;
-
-      // Create new contract version
-      const [newContractVersion] = await db
-        .insert(contractVersions)
-        .values({
-          contractId,
-          version: newVersion,
-          contractData: modifiedContractData,
-          ownerSignature,
-          ownerSignedAt: new Date(),
-          status: 'owner_signed',
-          modificationReason: modificationRequest.modificationReason,
-        })
-        .returning();
-
-      // Update main contract with modified data and status
-      await db
-        .update(contracts)
-        .set({
-          contractData: modifiedContractData,
-          ownerSignature,
-          ownerSignedAt: new Date(),
-          tenantSignature: null, // Reset tenant signature
-          tenantSignedAt: null,
-          status: 'modification_in_progress',
-          modificationSummary: `Version ${newVersion} - ${modificationRequest.modificationReason}`,
-          updatedAt: new Date()
-        })
-        .where(eq(contracts.id, contractId));
-
-      // Update modification request status
-      await db
-        .update(contractModificationRequests)
-        .set({ status: 'modification_in_progress' })
-        .where(eq(contractModificationRequests.id, modificationRequestId));
-
-      // Notify tenant to sign the modified contract
-      await storage.createNotification({
-        userId: contract.tenantId,
-        title: "Contrat modifié - Signature requise",
-        message: `Le propriétaire a modifié le contrat (Version ${newVersion}). Veuillez examiner et signer la nouvelle version.`,
-        type: "contract_modification_ready",
-        relatedId: contractId,
-      });
-
-      res.status(201).json(newContractVersion);
-    } catch (error) {
-      console.error("Complete contract modification error:", error);
-      res.status(500).json({ error: "Failed to complete contract modification" });
-    }
-  });
 
   const httpServer = createServer(app);
   return httpServer;
