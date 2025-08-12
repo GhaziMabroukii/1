@@ -133,17 +133,41 @@ export const reviews = pgTable("reviews", {
 
 
 
-// Contract termination requests table
+// Enhanced bilateral contract termination requests with password confirmation and digital signing
 export const contractTerminationRequests = pgTable("contract_termination_requests", {
   id: serial("id").primaryKey(),
   contractId: integer("contract_id").notNull().references(() => contracts.id),
-  requestedBy: integer("requested_by").notNull().references(() => users.id), // Owner requesting early termination
+  requestedBy: integer("requested_by").notNull().references(() => users.id), // Owner or tenant requesting termination
   reason: text("reason").notNull(), // Reason for termination request (required)
   detailedReason: text("detailed_reason"), // More detailed explanation
-  status: text("status").notNull().default("pending"), // pending, accepted, rejected
-  tenantResponse: text("tenant_response"), // Optional message from tenant
+  terminationType: text("termination_type").notNull(), // mutual, early_by_owner, early_by_tenant, dispute
+  proposedTerms: jsonb("proposed_terms").notNull(), // financial terms, timeline, etc.
+  status: text("status").notNull().default("pending"), // pending, negotiating, accepted, rejected, signed, completed
+  
+  // Bilateral response and negotiation
+  tenantResponse: text("tenant_response"), // Response message from tenant
+  ownerResponse: text("owner_response"), // Response message from owner
   respondedAt: timestamp("responded_at"),
+  
+  // Password confirmations (both parties must confirm with password)
+  ownerPasswordConfirmed: boolean("owner_password_confirmed").default(false),
+  tenantPasswordConfirmed: boolean("tenant_password_confirmed").default(false),
+  ownerConfirmedAt: timestamp("owner_confirmed_at"),
+  tenantConfirmedAt: timestamp("tenant_confirmed_at"),
+  
+  // Digital signatures (both parties must sign the termination document)
+  ownerSignature: text("owner_signature"),
+  tenantSignature: text("tenant_signature"),
+  ownerSignedAt: timestamp("owner_signed_at"),
+  tenantSignedAt: timestamp("tenant_signed_at"),
+  
+  // Document generation and final terms
+  terminationDocumentUrl: text("termination_document_url"), // PDF of signed termination agreement
+  finalTerms: jsonb("final_terms"), // Final agreed terms after any negotiation
+  terminationEffectiveDate: timestamp("termination_effective_date"), // When termination becomes effective
+  
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Relations

@@ -634,7 +634,233 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
 
-  // Contract early termination request - Owner requests early termination
+  // Enhanced bilateral contract termination endpoints
+  
+  // Get termination request for a contract
+  app.get('/api/contracts/:id/termination-request', async (req, res) => {
+    try {
+      const contractId = parseInt(req.params.id);
+      
+      const [terminationRequest] = await db
+        .select()
+        .from(contractTerminationRequests)
+        .where(eq(contractTerminationRequests.contractId, contractId));
+      
+      if (!terminationRequest) {
+        return res.status(404).json({ error: 'No termination request found' });
+      }
+      
+      res.json(terminationRequest);
+    } catch (error) {
+      console.error('Error getting termination request:', error);
+      res.status(500).json({ error: 'Failed to get termination request' });
+    }
+  });
+
+  // Create enhanced termination request
+  app.post('/api/contracts/:id/create-termination-request', async (req, res) => {
+    try {
+      const contractId = parseInt(req.params.id);
+      const { requestedBy, reason, detailedReason, terminationType, proposedTerms } = req.body;
+      
+      if (!requestedBy || !reason?.trim() || !terminationType || !proposedTerms) {
+        return res.status(400).json({ error: 'All required fields must be provided' });
+      }
+
+      // Check if there's already an active termination request
+      const [existingRequest] = await db
+        .select()
+        .from(contractTerminationRequests)
+        .where(
+          and(
+            eq(contractTerminationRequests.contractId, contractId),
+            eq(contractTerminationRequests.status, 'pending')
+          )
+        );
+        
+      if (existingRequest) {
+        return res.status(400).json({ error: 'Une demande d\'arrêt est déjà en cours pour ce contrat' });
+      }
+
+      const [terminationRequest] = await db
+        .insert(contractTerminationRequests)
+        .values({
+          contractId,
+          requestedBy,
+          reason: reason.trim(),
+          detailedReason: detailedReason?.trim(),
+          terminationType,
+          proposedTerms
+        })
+        .returning();
+
+      // Create notifications for both parties
+      const [contract] = await db
+        .select()
+        .from(contracts)
+        .where(eq(contracts.id, contractId));
+        
+      if (contract) {
+        const targetUserId = requestedBy === contract.ownerId ? contract.tenantId : contract.ownerId;
+        const initiatorType = requestedBy === contract.ownerId ? 'propriétaire' : 'locataire';
+        
+        await storage.createNotification({
+          userId: targetUserId,
+          title: 'Nouvelle demande d\'arrêt de contrat',
+          message: `Le ${initiatorType} a créé une demande d'arrêt de contrat avec signature bilatérale requise.`,
+          type: 'termination_request',
+          relatedId: terminationRequest.id
+        });
+        
+        await storage.createNotification({
+          userId: requestedBy,
+          title: 'Demande d\'arrêt créée',
+          message: `Votre demande d'arrêt de contrat a été créée. En attente de la réponse de l'autre partie.`,
+          type: 'termination_request',
+          relatedId: terminationRequest.id
+        });
+      }
+
+      res.json(terminationRequest);
+    } catch (error) {
+      console.error('Error creating termination request:', error);
+      res.status(500).json({ error: 'Failed to create termination request' });
+    }
+  });
+
+  // Confirm termination with password
+  app.post('/api/contracts/:id/confirm-termination-password', async (req, res) => {
+    try {
+      const contractId = parseInt(req.params.id);
+      const { password, userType } = req.body;
+      
+      if (!password?.trim() || !userType) {
+        return res.status(400).json({ error: 'Password and userType are required' });
+      }
+
+      const [terminationRequest] = await db
+        .select()
+        .from(contractTerminationRequests)
+        .where(eq(contractTerminationRequests.contractId, contractId));
+      
+      if (!terminationRequest) {
+        return res.status(404).json({ error: 'No termination request found' });
+      }
+
+      const [contract] = await db
+        .select()
+        .from(contracts)
+        .where(eq(contracts.id, contractId));
+        
+      if (!contract) {
+        return res.status(404).json({ error: 'Contract not found' });
+      }
+
+      // Get the user to verify password
+      const userId = userType === 'owner' ? contract.ownerId : contract.tenantId;
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId));
+      
+      if (!user || user.password !== password.trim()) {
+        return res.status(400).json({ error: 'Mot de passe incorrect' });
+      }
+
+      // Update password confirmation
+      const updateData: any = { updatedAt: new Date() };
+      
+      if (userType === 'owner') {
+        updateData.ownerPasswordConfirmed = true;
+        updateData.ownerConfirmedAt = new Date();
+      } else {
+        updateData.tenantPasswordConfirmed = true;
+        updateData.tenantConfirmedAt = new Date();
+      }
+      
+      // If both confirmed, update status
+      if ((userType === 'owner' && terminationRequest.tenantPasswordConfirmed) || 
+          (userType === 'tenant' && terminationRequest.ownerPasswordConfirmed)) {
+        updateData.status = 'accepted';
+      }
+
+      const [updatedRequest] = await db
+        .update(contractTerminationRequests)
+        .set(updateData)
+        .where(eq(contractTerminationRequests.id, terminationRequest.id))
+        .returning();
+
+      res.json(updatedRequest);
+    } catch (error) {
+      console.error('Error confirming password:', error);
+      res.status(500).json({ error: 'Failed to confirm password' });
+    }
+  });
+
+  // Submit digital signature
+  app.post('/api/contracts/:id/submit-termination-signature', async (req, res) => {
+    try {
+      const contractId = parseInt(req.params.id);
+      const { signature, userType } = req.body;
+      
+      if (!signature?.trim() || !userType) {
+        return res.status(400).json({ error: 'Signature and userType are required' });
+      }
+
+      const [terminationRequest] = await db
+        .select()
+        .from(contractTerminationRequests)
+        .where(eq(contractTerminationRequests.contractId, contractId));
+      
+      if (!terminationRequest) {
+        return res.status(404).json({ error: 'No termination request found' });
+      }
+
+      // Check if password was confirmed first
+      if ((userType === 'owner' && !terminationRequest.ownerPasswordConfirmed) ||
+          (userType === 'tenant' && !terminationRequest.tenantPasswordConfirmed)) {
+        return res.status(400).json({ error: 'Vous devez d\'abord confirmer avec votre mot de passe' });
+      }
+
+      // Update signature
+      const updateData: any = { updatedAt: new Date() };
+      
+      if (userType === 'owner') {
+        updateData.ownerSignature = signature.trim();
+        updateData.ownerSignedAt = new Date();
+      } else {
+        updateData.tenantSignature = signature.trim();
+        updateData.tenantSignedAt = new Date();
+      }
+
+      const [updatedRequest] = await db
+        .update(contractTerminationRequests)
+        .set(updateData)
+        .where(eq(contractTerminationRequests.id, terminationRequest.id))
+        .returning();
+
+      // Check if both parties have signed
+      const bothSigned = updatedRequest.ownerSignature && updatedRequest.tenantSignature;
+      
+      if (bothSigned) {
+        // Complete the termination
+        await db.update(contractTerminationRequests)
+          .set({ status: 'completed', terminationEffectiveDate: new Date() })
+          .where(eq(contractTerminationRequests.id, terminationRequest.id));
+          
+        await db.update(contracts)
+          .set({ status: 'terminated', terminationReason: terminationRequest.reason, terminatedAt: new Date() })
+          .where(eq(contracts.id, contractId));
+      }
+
+      res.json(updatedRequest);
+    } catch (error) {
+      console.error('Error submitting signature:', error);
+      res.status(500).json({ error: 'Failed to submit signature' });
+    }
+  });
+
+  // Legacy termination endpoint for compatibility  
   app.post("/api/contracts/:id/request-termination", async (req, res) => {
     try {
       const contractId = parseInt(req.params.id);
@@ -668,6 +894,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           requestedBy,
           reason,
           detailedReason,
+          terminationType: 'early_by_owner',
+          proposedTerms: {
+            financialTerms: 'Résiliation anticipée',
+            timeline: 'Immédiat',
+            depositHandling: 'Remboursement selon les termes du bail'
+          },
           status: 'pending'
         })
         .returning();
