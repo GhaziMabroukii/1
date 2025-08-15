@@ -842,18 +842,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(eq(contractTerminationRequests.id, terminationRequest.id))
         .returning();
 
-      // Check if both parties have signed
+      // Check if both parties have signed and confirmed passwords
       const bothSigned = updatedRequest.ownerSignature && updatedRequest.tenantSignature;
+      const bothConfirmed = updatedRequest.ownerPasswordConfirmed && updatedRequest.tenantPasswordConfirmed;
       
-      if (bothSigned) {
-        // Complete the termination
+      if (bothSigned && bothConfirmed) {
+        // Complete the termination - all 5 steps are now complete
         await db.update(contractTerminationRequests)
-          .set({ status: 'completed', terminationEffectiveDate: new Date() })
+          .set({ 
+            status: 'completed', 
+            terminationEffectiveDate: new Date(),
+            finalTerms: terminationRequest.proposedTerms,
+            updatedAt: new Date()
+          })
           .where(eq(contractTerminationRequests.id, terminationRequest.id));
           
         await db.update(contracts)
-          .set({ status: 'terminated', terminationReason: terminationRequest.reason, terminatedAt: new Date() })
+          .set({ 
+            status: 'terminated', 
+            terminationReason: terminationRequest.reason, 
+            terminatedBy: terminationRequest.requestedBy,
+            terminatedAt: new Date(),
+            updatedAt: new Date()
+          })
           .where(eq(contracts.id, contractId));
+
+        // Update property status to available
+        const [contract] = await db
+          .select()
+          .from(contracts)
+          .where(eq(contracts.id, contractId));
+          
+        if (contract) {
+          await storage.updatePropertyStatus(contract.propertyId, 'Disponible');
+          
+          // Notify both parties of completion
+          await storage.createNotification({
+            userId: contract.ownerId,
+            title: "Contrat résilié",
+            message: "Le contrat a été officiellement résilié. Toutes les signatures ont été complétées.",
+            type: "contract_terminated",
+            relatedId: contractId,
+          });
+          
+          await storage.createNotification({
+            userId: contract.tenantId,
+            title: "Contrat résilié", 
+            message: "Le contrat a été officiellement résilié. Toutes les signatures ont été complétées.",
+            type: "contract_terminated",
+            relatedId: contractId,
+          });
+        }
       }
 
       res.json(updatedRequest);

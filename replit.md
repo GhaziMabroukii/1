@@ -53,7 +53,15 @@ Preferred communication style: Simple, everyday language.
     - Prevents multiple active contracts for same property.
     - Hourly background job for expiring contracts.
     - Owners create contracts only after tenant requests.
-    - Modification/termination requests by owners require tenant approval.
+    - **Enhanced 5-Step Termination Workflow**: 
+        1. Demande créée (Request created)
+        2. Confirmation propriétaire (Owner password confirmation)
+        3. Confirmation locataire (Tenant password confirmation)
+        4. Signature propriétaire (Owner digital signature)
+        5. Signature locataire (Tenant digital signature)
+    - All steps must be completed before contract termination becomes effective.
+    - Bilateral termination system supports multiple types: mutual, early_by_owner, early_by_tenant, dispute.
+    - Both parties receive "Mes demandes" functionality with real-time updates.
 - **Notification System**: User preference-based, multi-channel delivery.
 - **Offer Management**:
     - Complete offers page for sent/received offers with status tracking.
