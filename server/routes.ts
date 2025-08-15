@@ -5,6 +5,7 @@ import { insertPropertySchema, insertOfferSchema, insertContractSchema, insertNo
 import { db } from "./db";
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
+import bcrypt from "bcrypt";
 
 // Alias tables for clarity in joins
 const offersTable = offers;
@@ -1239,9 +1240,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid credentials" });
       }
       
-      // In real implementation, you'd verify password hash here
-      // For testing, we'll check if the password matches what's stored in the database
-      if (password !== user.password) {
+      // Verify password hash using bcrypt
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      if (!isValidPassword) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
       
