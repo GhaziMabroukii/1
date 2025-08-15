@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TenantRequestsDropdown } from "./TenantRequestsDropdown";
+import { OwnerRequestsDropdown } from "./OwnerRequestsDropdown";
 
 const Header = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -135,6 +136,18 @@ const Header = () => {
                   console.log("Header: Rendering TenantRequestsDropdown for userId:", userId, "userType:", userType);
                   return (
                     <TenantRequestsDropdown 
+                      userId={userId} 
+                      userType={userType} 
+                    />
+                  );
+                })()}
+                
+                {userType === "owner" && (() => {
+                  const userData = localStorage.getItem("userData");
+                  const userId = userData ? JSON.parse(userData).id : 1;
+                  console.log("Header: Rendering OwnerRequestsDropdown for userId:", userId, "userType:", userType);
+                  return (
+                    <OwnerRequestsDropdown 
                       userId={userId} 
                       userType={userType} 
                     />

@@ -24,6 +24,7 @@ import EditProperty from "./pages/EditProperty";
 import MapView from "./pages/MapView";
 import Offers from "./pages/Offers";
 import TenantRequestResponse from "./pages/TenantRequestResponse";
+import OwnerRequestResponse from "./pages/OwnerRequestResponse";
 import ContractVersions from "./pages/ContractVersions";
 import ContractVersionView from "./pages/ContractVersionView";
 
@@ -57,6 +58,7 @@ const App = () => (
           <Route path="/notifications" component={Notifications} />
           <Route path="/offers" component={Offers} />
           <Route path="/tenant-requests/:type/:id" component={TenantRequestResponse} />
+          <Route path="/owner-request-response/:type/:id" component={OwnerRequestResponse} />
           <Route component={NotFound} />
         </Switch>
       </Router>

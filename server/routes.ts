@@ -764,7 +764,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(users)
         .where(eq(users.id, userId));
       
-      if (!user || user.password !== password.trim()) {
+      // Verify password using bcrypt
+      const isValidPassword = await bcrypt.compare(password.trim(), user.password);
+      if (!user || !isValidPassword) {
         return res.status(400).json({ error: 'Mot de passe incorrect' });
       }
 
@@ -944,11 +946,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
 
-  // Respond to contract termination request - Tenant responds
+  // Respond to contract termination request - Both tenant and owner can respond
   app.put("/api/contract-termination-requests/:id/respond", async (req, res) => {
     try {
       const requestId = parseInt(req.params.id);
-      const { response, tenantResponse, userId } = req.body; // response: 'accepted' | 'rejected'
+      const { response, tenantResponse, ownerResponse, userId } = req.body; // response: 'accepted' | 'rejected'
       
       const [request] = await db
         .select()
@@ -960,18 +962,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const contract = await storage.getContract(request.contractId);
-      if (!contract || contract.tenantId !== userId) {
+      if (!contract) {
+        return res.status(404).json({ error: "Contract not found" });
+      }
+
+      // Check if user is either tenant or owner
+      const isTenant = contract.tenantId === userId;
+      const isOwner = contract.ownerId === userId;
+      
+      if (!isTenant && !isOwner) {
         return res.status(403).json({ error: "Unauthorized" });
       }
 
-      // Update request status
+      // Update request status with appropriate response
+      const updateData: any = {
+        status: response,
+        respondedAt: new Date()
+      };
+
+      if (isTenant && tenantResponse) {
+        updateData.tenantResponse = tenantResponse;
+      }
+      if (isOwner && ownerResponse) {
+        updateData.ownerResponse = ownerResponse;
+      }
+
       const [updatedRequest] = await db
         .update(contractTerminationRequests)
-        .set({
-          status: response,
-          tenantResponse,
-          respondedAt: new Date()
-        })
+        .set(updateData)
         .where(eq(contractTerminationRequests.id, requestId))
         .returning();
 
@@ -1222,6 +1240,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Failed to fetch tenant requests:", error);
       res.status(500).json({ error: "Failed to fetch tenant requests" });
+    }
+  });
+
+  // Get owner's requests
+  app.get("/api/owner-requests/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      // Get termination requests created by this owner
+      const terminationRequests = await db
+        .select({
+          id: contractTerminationRequests.id,
+          type: sql<string>`'termination'`,
+          status: contractTerminationRequests.status,
+          createdAt: contractTerminationRequests.createdAt,
+          contractId: contractTerminationRequests.contractId,
+        })
+        .from(contractTerminationRequests)
+        .where(eq(contractTerminationRequests.requestedBy, userId));
+
+      console.log(`Found ${terminationRequests.length} termination requests created by owner ${userId}`);
+      console.log("Owner termination requests:", terminationRequests);
+      res.json(terminationRequests);
+    } catch (error) {
+      console.error("Failed to fetch owner requests:", error);
+      res.status(500).json({ error: "Failed to fetch owner requests" });
     }
   });
 
