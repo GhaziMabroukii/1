@@ -69,6 +69,12 @@ Preferred communication style: Simple, everyday language.
     - Prevents duplicate pending offers from tenants.
     - Real-time status updates and notifications for offer lifecycle (creation, acceptance, rejection, contract request).
 - **Role-Based UI**: Dynamic interface elements and notifications based on user role (tenant/owner).
+- **Page-by-Page Termination Workflow**:
+    - Tenant-initiated requests with comprehensive form (reason, details, proposed terms).
+    - Owner detailed review page with accept/decline functionality and response capability.
+    - Smart navigation system directing users to appropriate workflow pages based on request status.
+    - Real-time "Mes demandes" dropdowns for both tenants and owners with 5-second refresh.
+    - Complete step-by-step progression through all 5 validation stages with visual indicators.
 
 ## External Dependencies
 ### Core Frameworks

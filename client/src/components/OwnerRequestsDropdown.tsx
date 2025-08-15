@@ -128,7 +128,11 @@ export function OwnerRequestsDropdown({ userId, userType }: OwnerRequestsDropdow
 
   const handleRequestClick = (requestType: string, requestId: number) => {
     console.log("OwnerRequestsDropdown: Navigating to request", { requestType, requestId });
-    navigate(`/owner-request-response/${requestType}/${requestId}`);
+    if (requestType === 'termination') {
+      navigate(`/owner-termination-review/${requestId}`);
+    } else {
+      navigate(`/owner-request-response/${requestType}/${requestId}`);
+    }
   };
 
   return (
