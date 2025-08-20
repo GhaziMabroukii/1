@@ -67,7 +67,7 @@ const App = () => (
           <Route path="/tenant-termination-request/:contractId" component={TenantTerminationRequestWrapper} />
           <Route path="/owner-termination-review/:requestId" component={OwnerTerminationReview} />
           <Route path="/owner-termination-workflow/:requestId" component={OwnerTerminationWorkflow} />
-          <Route path="/tenant-termination-workflow/:requestId" component={TenantTerminationWorkflow} />
+          <Route path="/tenant-termination-workflow/:requestId?" component={TenantTerminationWorkflow} />
           <Route path="/contract-termination" component={ContractTermination} />
           <Route component={NotFound} />
         </Switch>
