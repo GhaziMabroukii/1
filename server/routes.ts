@@ -1574,6 +1574,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
+      // Check if users already exist
+      const existingTenant = await storage.getUserByUsername('student_ahmed');
+      const existingOwner = await storage.getUserByUsername('owner_fatma');
+      
+      if (existingTenant && existingOwner) {
+        return res.json({
+          message: 'Test users already exist',
+          users: [
+            { username: 'student_ahmed', password: 'tenant123', type: 'tenant', name: 'Ahmed Ben Ali' },
+            { username: 'owner_fatma', password: 'owner123', type: 'owner', name: 'Fatma Trabelsi' }
+          ]
+        });
+      }
+
       // Create tenant user
       const tenantPassword = await bcrypt.hash('tenant123', 10);
       const tenant = await storage.createUser({
@@ -1658,6 +1672,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error creating test users:', error);
       res.status(500).json({ error: 'Failed to create test users' });
+    }
+  });
+
+  // Debug endpoint to check users
+  app.get("/api/dev/debug-users", async (req, res) => {
+    if (process.env.NODE_ENV !== 'development') {
+      return res.status(403).json({ error: "Only available in development" });
+    }
+
+    try {
+      const tenant = await storage.getUserByUsername('student_ahmed');
+      const owner = await storage.getUserByUsername('owner_fatma');
+      
+      res.json({
+        tenant: tenant ? { id: tenant.id, username: tenant.username, userType: tenant.userType } : null,
+        owner: owner ? { id: owner.id, username: owner.username, userType: owner.userType } : null,
+        message: 'Current user status'
+      });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to check users', details: error });
     }
   });
 
