@@ -12,11 +12,11 @@ interface CurrentUser {
 }
 
 export function OwnerTerminationWorkflow() {
-  const [match, params] = useRoute("/owner-termination-workflow/:requestId");
+  const [match, params] = useRoute("/owner-termination-workflow/:requestId?");
   const requestId = params?.requestId;
   const [, navigate] = useLocation();
   
-  const currentUser: CurrentUser = JSON.parse(localStorage.getItem('currentUser') || '{"id": 0, "name": ""}');
+  const currentUserId = Number(localStorage.getItem("userId")) || 0;
 
   // Fetch termination request details
   const { data: request, isLoading } = useQuery({
@@ -35,13 +35,26 @@ export function OwnerTerminationWorkflow() {
     );
   }
 
+  if (!requestId) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container mx-auto px-4 py-8 text-center">
+          <h1 className="text-2xl font-bold mb-4">Aucune demande spécifiée</h1>
+          <Button onClick={() => navigate("/dashboard")}>Retour au tableau de bord</Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!request) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
         <div className="container mx-auto px-4 py-8 text-center">
           <h1 className="text-2xl font-bold mb-4">Demande introuvable</h1>
-          <Button onClick={() => navigate("/")}>Retour à l'accueil</Button>
+          <p className="text-gray-600 mb-4">Cette demande n'existe pas ou a été supprimée.</p>
+          <Button onClick={() => navigate("/dashboard")}>Retour au tableau de bord</Button>
         </div>
       </div>
     );
@@ -69,7 +82,7 @@ export function OwnerTerminationWorkflow() {
         <ContractTerminationWorkflow
           request={request}
           currentUserType="owner"
-          currentUserId={currentUser.id}
+          currentUserId={currentUserId}
         />
       </div>
     </div>
