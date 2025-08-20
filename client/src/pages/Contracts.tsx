@@ -13,7 +13,6 @@ import {
   Plus,
   Download,
   Eye,
-  Edit,
   Send,
   Calendar,
   DollarSign,
@@ -47,11 +46,6 @@ const Contracts = () => {
     enabled: !!currentUserId
   });
   
-  // Fetch contract modification requests
-  const { data: modificationRequests = [], isLoading: modRequestsLoading } = useQuery({
-    queryKey: ['/api/contract-modification-requests'],
-    enabled: !!currentUserId
-  });
   
   // Fetch contract termination requests  
   const { data: terminationRequests = [], isLoading: termRequestsLoading } = useQuery({
@@ -85,9 +79,6 @@ const Contracts = () => {
   });
   
   // Filter requests based on user type
-  const userModificationRequests = (modificationRequests as any[]).filter((req: any) => 
-    userType === 'owner' ? req.requestedBy !== currentUserId : req.requestedBy === currentUserId
-  );
   
   const userTerminationRequests = (terminationRequests as any[]).filter((req: any) => 
     userType === 'owner' ? req.requestedBy !== currentUserId : req.requestedBy === currentUserId
@@ -263,11 +254,8 @@ const Contracts = () => {
 
         {/* Main Content with Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="contracts">Mes Contrats</TabsTrigger>
-            <TabsTrigger value="modification-requests">
-              {userType === 'owner' ? 'Demandes de modification reçues' : 'Mes demandes de modification'}
-            </TabsTrigger>
             <TabsTrigger value="termination-requests">
               {userType === 'owner' ? 'Demandes de résiliation reçues' : 'Mes demandes de résiliation'}
             </TabsTrigger>
@@ -389,60 +377,6 @@ const Contracts = () => {
                 </div>
               </CardContent>
             </Card>
-              ))
-            )}
-          </TabsContent>
-
-          <TabsContent value="modification-requests" className="space-y-4 mt-6">
-            {modRequestsLoading ? (
-              <div className="text-center py-8">Chargement des demandes...</div>
-            ) : userModificationRequests.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                {userType === 'owner' ? 'Aucune demande de modification reçue' : 'Aucune demande de modification envoyée'}
-              </div>
-            ) : (
-              userModificationRequests.map((request: any) => (
-                <Card key={request.id} className="glass-card">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <Edit className="h-5 w-5 text-primary" />
-                          <h3 className="font-semibold">Demande de modification de contrat</h3>
-                          <Badge variant={request.status === 'pending' ? 'warning' : request.status === 'accepted' ? 'success' : 'destructive'}>
-                            {request.status === 'pending' ? 'En attente' : request.status === 'accepted' ? 'Acceptée' : 'Refusée'}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-2">
-                          Contrat ID: {request.contractId}
-                        </p>
-                        <p className="text-sm mb-2">
-                          <strong>Raison:</strong> {request.reason || 'Non spécifiée'}
-                        </p>
-                        {request.fieldsToModify && (
-                          <p className="text-sm mb-2">
-                            <strong>Champs à modifier:</strong> {request.fieldsToModify}
-                          </p>
-                        )}
-                        <p className="text-xs text-muted-foreground">
-                          Demandé le {new Date(request.createdAt).toLocaleDateString('fr-FR')}
-                        </p>
-                      </div>
-                      <div className="flex flex-col space-y-2">
-                        {request.status === 'pending' && userType === 'tenant' && request.requestedBy !== currentUserId && (
-                          <>
-                            <Button size="sm" variant="default">
-                              Accepter
-                            </Button>
-                            <Button size="sm" variant="outline">
-                              Refuser
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
               ))
             )}
           </TabsContent>
