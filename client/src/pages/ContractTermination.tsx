@@ -54,9 +54,19 @@ const ContractTermination = () => {
   });
   
   
-  // Fetch contract termination requests  
-  const { data: terminationRequests = [], isLoading: termRequestsLoading } = useQuery({
-    queryKey: ['/api/contract-termination-requests'],
+  // Get requests that user SENT (created by them)
+  const { data: sentRequests = [], isLoading: sentRequestsLoading } = useQuery({
+    queryKey: userType === 'owner' 
+      ? [`/api/owner-requests/${currentUserId}`] 
+      : [`/api/tenant-requests/${currentUserId}`],
+    enabled: !!currentUserId
+  });
+
+  // Get requests that user RECEIVED (from the opposite user type)
+  const { data: receivedRequests = [], isLoading: receivedRequestsLoading } = useQuery({
+    queryKey: userType === 'owner' 
+      ? [`/api/tenant-requests/${currentUserId}`] 
+      : [`/api/owner-requests/${currentUserId}`],
     enabled: !!currentUserId
   });
 
@@ -82,17 +92,12 @@ const ContractTermination = () => {
     return isUserContract && isActiveStatus;
   });
   
-  // Split requests into SENT (created by user) and RECEIVED (need user's response)
-  const sentRequests = (terminationRequests as any[]).filter((req: any) => 
-    req.requestedBy === currentUserId
-  );
-  
-  const receivedRequests = (terminationRequests as any[]).filter((req: any) => 
-    req.requestedBy !== currentUserId
-  );
+  // Data is already split by the API calls above
+  // sentRequests = requests created by current user
+  // receivedRequests = requests created by other users that current user needs to respond to
 
   // Filter sent requests based on search and status  
-  const filteredSentRequests = sentRequests.filter((request: any) => {
+  const filteredSentRequests = (sentRequests as any[]).filter((request: any) => {
     const matchesSearch = request.reason?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          request.contractId?.toString().includes(searchQuery);
     const matchesStatus = statusFilter === "" || statusFilter === "all" || request.status === statusFilter;
@@ -100,7 +105,7 @@ const ContractTermination = () => {
   });
 
   // Filter received requests based on search and status
-  const filteredReceivedRequests = receivedRequests.filter((request: any) => {
+  const filteredReceivedRequests = (receivedRequests as any[]).filter((request: any) => {
     const matchesSearch = request.reason?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          request.contractId?.toString().includes(searchQuery);
     const matchesStatus = statusFilter === "" || statusFilter === "all" || request.status === statusFilter;
@@ -128,7 +133,7 @@ const ContractTermination = () => {
   };
 
   // Calculate stats
-  const allUserRequests = [...sentRequests, ...receivedRequests];
+  const allUserRequests = [...(sentRequests as any[]), ...(receivedRequests as any[])];
   const stats = {
     activeContracts: activeContracts.length,
     totalRequests: allUserRequests.length,
@@ -367,7 +372,7 @@ const ContractTermination = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {termRequestsLoading ? (
+                  {receivedRequestsLoading ? (
                     <div className="text-center py-8">Chargement des demandes...</div>
                   ) : filteredReceivedRequests.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
@@ -469,7 +474,7 @@ const ContractTermination = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {termRequestsLoading ? (
+                  {sentRequestsLoading ? (
                     <div className="text-center py-8">Chargement des demandes...</div>
                   ) : filteredSentRequests.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
