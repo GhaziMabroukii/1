@@ -664,7 +664,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const contractId = parseInt(req.params.id);
       const { requestedBy, reason, detailedReason, terminationType, proposedTerms } = req.body;
       
+      console.log('Termination request debug:', {
+        contractId,
+        requestedBy,
+        reason,
+        reasonTrimmed: reason?.trim(),
+        terminationType,
+        proposedTerms,
+        hasRequestedBy: !!requestedBy,
+        hasReason: !!reason?.trim(),
+        hasTerminationType: !!terminationType,
+        hasProposedTerms: !!proposedTerms
+      });
+      
       if (!requestedBy || !reason?.trim() || !terminationType || !proposedTerms) {
+        console.log('Validation failed:', {
+          requestedByFail: !requestedBy,
+          reasonFail: !reason?.trim(),
+          terminationTypeFail: !terminationType,
+          proposedTermsFail: !proposedTerms
+        });
         return res.status(400).json({ error: 'All required fields must be provided' });
       }
 
