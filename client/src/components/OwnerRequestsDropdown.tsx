@@ -13,10 +13,12 @@ interface OwnerRequestsDropdownProps {
 
 interface Request {
   id: number;
-  type: 'modification' | 'termination';
   status: 'pending' | 'accepted' | 'rejected';
   createdAt: string;
   contractId: number;
+  reason?: string;
+  terminationType?: string;
+  requestedChanges?: string;
 }
 
 export function OwnerRequestsDropdown({ userId, userType }: OwnerRequestsDropdownProps) {
@@ -126,12 +128,26 @@ export function OwnerRequestsDropdown({ userId, userType }: OwnerRequestsDropdow
     }
   };
 
-  const handleRequestClick = (requestType: string, requestId: number) => {
-    console.log("OwnerRequestsDropdown: Navigating to request", { requestType, requestId });
+  const determineRequestType = (request: Request): string => {
+    // If it has terminationType or reason (termination-specific fields), it's a termination request
+    if (request.terminationType || request.reason) {
+      return 'termination';
+    }
+    // If it has requestedChanges, it's a modification request
+    if (request.requestedChanges) {
+      return 'modification';
+    }
+    // Default fallback
+    return 'termination'; // Most requests in this system are termination requests
+  };
+
+  const handleRequestClick = (request: Request) => {
+    const requestType = determineRequestType(request);
+    console.log("OwnerRequestsDropdown: Navigating to request", { requestType, requestId: request.id, request });
     if (requestType === 'termination') {
-      navigate(`/owner-termination-review/${requestId}`);
+      navigate(`/owner-termination-review/${request.id}`);
     } else {
-      navigate(`/owner-request-response/${requestType}/${requestId}`);
+      navigate(`/owner-request-response/${requestType}/${request.id}`);
     }
   };
 
@@ -170,7 +186,7 @@ export function OwnerRequestsDropdown({ userId, userType }: OwnerRequestsDropdow
             {allRequests.slice(0, 5).map((request) => (
               <DropdownMenuItem 
                 key={request.id}
-                onClick={() => handleRequestClick(request.type, request.id)}
+                onClick={() => handleRequestClick(request)}
                 className="cursor-pointer"
                 data-testid={`menu-item-request-${request.id}`}
               >
@@ -178,7 +194,7 @@ export function OwnerRequestsDropdown({ userId, userType }: OwnerRequestsDropdow
                   {getStatusIcon(request.status)}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900">
-                      {getTypeText(request.type)}
+                      {getTypeText(determineRequestType(request))}
                     </p>
                     <p className="text-sm text-gray-500">
                       {getStatusText(request.status)}
