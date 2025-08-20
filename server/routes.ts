@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertPropertySchema, insertOfferSchema, insertContractSchema, insertNotificationSchema, insertConversationSchema, insertMessageSchema, insertReviewSchema, insertContractTerminationRequestSchema, contracts, users, conversations, messages, reviews, properties, offers, contractTerminationRequests } from "@shared/schema";
-import { db } from "./db";
+// db will be imported conditionally in functions that need it
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcrypt";

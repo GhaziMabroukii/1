@@ -4,7 +4,8 @@ import {
   type Offer, type InsertOffer, type Contract, type InsertContract,
   type Notification, type InsertNotification 
 } from "@shared/schema";
-import { db } from "./db";
+// Database is only available in production
+let db: any = null;
 import { eq, desc, and, lt, or } from "drizzle-orm";
 
 export interface IStorage {
@@ -274,4 +275,280 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage = new DatabaseStorage();
+// In-memory storage implementation for development
+export class MemStorage implements IStorage {
+  private users: User[] = [];
+  private properties: Property[] = [];
+  private offers: Offer[] = [];
+  private contracts: Contract[] = [];
+  private notifications: Notification[] = [];
+  private nextId = 1;
+
+  private getNextId() {
+    return this.nextId++;
+  }
+
+  // User operations
+  async getUser(id: number): Promise<User | undefined> {
+    return this.users.find(user => user.id === id);
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    return this.users.find(user => user.username === username);
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const user: User = {
+      id: this.getNextId(),
+      ...insertUser,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.users.push(user);
+    return user;
+  }
+
+  // Property operations
+  async getProperties(ownerId?: number): Promise<Property[]> {
+    if (ownerId) {
+      return this.properties.filter(p => p.ownerId === ownerId);
+    }
+    return [...this.properties].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getProperty(id: number): Promise<Property | undefined> {
+    return this.properties.find(p => p.id === id);
+  }
+
+  async createProperty(insertProperty: InsertProperty): Promise<Property> {
+    const property: Property = {
+      id: this.getNextId(),
+      ...insertProperty,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.properties.push(property);
+    return property;
+  }
+
+  async updateProperty(id: number, updates: Partial<InsertProperty>): Promise<Property | undefined> {
+    const index = this.properties.findIndex(p => p.id === id);
+    if (index === -1) return undefined;
+    
+    this.properties[index] = {
+      ...this.properties[index],
+      ...updates,
+      updatedAt: new Date()
+    };
+    return this.properties[index];
+  }
+
+  async deleteProperty(id: number): Promise<boolean> {
+    const index = this.properties.findIndex(p => p.id === id);
+    if (index === -1) return false;
+    this.properties.splice(index, 1);
+    return true;
+  }
+
+  // Offer operations
+  async getOffers(userId: number, type: 'sent' | 'received'): Promise<Offer[]> {
+    const field = type === 'sent' ? 'tenantId' : 'ownerId';
+    return this.offers
+      .filter(offer => offer[field] === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getOffer(id: number): Promise<Offer | undefined> {
+    return this.offers.find(offer => offer.id === id);
+  }
+
+  async getOffersByTenantAndProperty(tenantId: number, propertyId: number): Promise<Offer[]> {
+    return this.offers.filter(offer => 
+      offer.tenantId === tenantId && offer.propertyId === propertyId
+    );
+  }
+
+  async createOffer(insertOffer: InsertOffer): Promise<Offer> {
+    const offer: Offer = {
+      id: this.getNextId(),
+      ...insertOffer,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.offers.push(offer);
+    return offer;
+  }
+
+  async updateOfferStatus(id: number, status: string): Promise<Offer | undefined> {
+    const index = this.offers.findIndex(offer => offer.id === id);
+    if (index === -1) return undefined;
+    
+    this.offers[index] = {
+      ...this.offers[index],
+      status,
+      updatedAt: new Date()
+    };
+    return this.offers[index];
+  }
+
+  // Contract operations
+  async getContracts(userId: number): Promise<Contract[]> {
+    return this.contracts
+      .filter(contract => contract.ownerId === userId || contract.tenantId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getOwnerContracts(ownerId: number): Promise<Contract[]> {
+    return this.contracts
+      .filter(contract => contract.ownerId === ownerId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getContract(id: number): Promise<Contract | undefined> {
+    return this.contracts.find(contract => contract.id === id);
+  }
+
+  async createContract(insertContract: InsertContract): Promise<Contract> {
+    const contract: Contract = {
+      id: this.getNextId(),
+      ...insertContract,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.contracts.push(contract);
+    return contract;
+  }
+
+  async updateContract(id: number, updates: Partial<InsertContract>): Promise<Contract | undefined> {
+    const index = this.contracts.findIndex(contract => contract.id === id);
+    if (index === -1) return undefined;
+    
+    this.contracts[index] = {
+      ...this.contracts[index],
+      ...updates,
+      updatedAt: new Date()
+    };
+    return this.contracts[index];
+  }
+
+  async updateContractSignature(id: number, signatureType: 'owner' | 'tenant', signatureData: string): Promise<Contract | undefined> {
+    const index = this.contracts.findIndex(contract => contract.id === id);
+    if (index === -1) return undefined;
+    
+    const updateData = signatureType === 'owner' ? 
+      { ownerSignature: signatureData, ownerSignedAt: new Date(), status: 'owner_signed' } :
+      { tenantSignature: signatureData, tenantSignedAt: new Date(), status: 'fully_signed' };
+    
+    this.contracts[index] = {
+      ...this.contracts[index],
+      ...updateData,
+      updatedAt: new Date()
+    };
+    return this.contracts[index];
+  }
+
+  async updateContractDeadline(id: number, deadline: Date): Promise<void> {
+    const index = this.contracts.findIndex(contract => contract.id === id);
+    if (index !== -1) {
+      this.contracts[index] = {
+        ...this.contracts[index],
+        tenantSignDeadline: deadline,
+        updatedAt: new Date()
+      };
+    }
+  }
+
+  async updateContractStatus(id: number, status: string): Promise<void> {
+    const index = this.contracts.findIndex(contract => contract.id === id);
+    if (index !== -1) {
+      this.contracts[index] = {
+        ...this.contracts[index],
+        status,
+        updatedAt: new Date()
+      };
+    }
+  }
+
+  async getActiveContractForProperty(propertyId: number): Promise<Contract | undefined> {
+    return this.contracts.find(contract => 
+      contract.propertyId === propertyId && contract.status === 'active'
+    );
+  }
+
+  async updatePropertyStatus(propertyId: number, status: string): Promise<void> {
+    const index = this.properties.findIndex(property => property.id === propertyId);
+    if (index !== -1) {
+      this.properties[index] = {
+        ...this.properties[index],
+        status,
+        updatedAt: new Date()
+      };
+    }
+  }
+
+  async expireContracts(): Promise<void> {
+    const now = new Date();
+    const expiredContracts = this.contracts.filter(contract => 
+      contract.status === 'owner_signed' && 
+      contract.tenantSignDeadline && 
+      contract.tenantSignDeadline < now
+    );
+
+    for (const contract of expiredContracts) {
+      await this.updateContractStatus(contract.id, 'expired');
+      await this.updatePropertyStatus(contract.propertyId, 'Disponible');
+      
+      // Create notifications
+      await this.createNotification({
+        userId: contract.ownerId,
+        title: "Contrat expiré",
+        message: "Le contrat a expiré car le locataire n'a pas signé dans les délais.",
+        type: "contract_expired",
+        relatedId: contract.id,
+      });
+
+      await this.createNotification({
+        userId: contract.tenantId,
+        title: "Contrat expiré",
+        message: "Vous avez dépassé le délai de signature. Le contrat a expiré.",
+        type: "contract_expired",
+        relatedId: contract.id,
+      });
+    }
+  }
+
+  // Notification operations
+  async getNotifications(userId: number): Promise<Notification[]> {
+    return this.notifications
+      .filter(notification => notification.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async createNotification(insertNotification: InsertNotification): Promise<Notification> {
+    const notification: Notification = {
+      id: this.getNextId(),
+      ...insertNotification,
+      read: false,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.notifications.push(notification);
+    return notification;
+  }
+
+  async markNotificationRead(id: number): Promise<boolean> {
+    const index = this.notifications.findIndex(notification => notification.id === id);
+    if (index === -1) return false;
+    
+    this.notifications[index] = {
+      ...this.notifications[index],
+      read: true
+    };
+    return true;
+  }
+}
+
+// Use in-memory storage for development, database storage for production
+export const storage = process.env.NODE_ENV === 'production' 
+  ? new DatabaseStorage() 
+  : new MemStorage();
