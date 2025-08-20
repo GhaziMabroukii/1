@@ -117,8 +117,49 @@ const ContractTermination = () => {
     completedRequests: userTerminationRequests.filter(req => req.status === 'completed').length,
   };
   
-  const handleStartTermination = (contractId: number) => {
-    navigate(`/tenant-termination-request/${contractId}`);
+  const handleStartTermination = async (contractId: number) => {
+    if (userType === 'owner') {
+      // For owners, check if there's already a termination request for this contract
+      try {
+        const response = await fetch(`/api/contracts/${contractId}/termination-request`);
+        if (response.ok) {
+          const existingRequest = await response.json();
+          if (existingRequest && existingRequest.id) {
+            // Redirect to owner termination workflow
+            navigate(`/owner-termination-workflow/${existingRequest.id}`);
+          } else {
+            // Create a new termination request for the owner
+            const createResponse = await fetch(`/api/contracts/${contractId}/create-termination-request`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                reason: 'Résiliation demandée par le propriétaire',
+                detailedReason: 'Demande de résiliation initiée par le propriétaire',
+                terminationType: 'mutual',
+                proposedTerms: {
+                  timeline: 'À convenir entre les parties',
+                  rentRefund: '',
+                  financialTerms: 'Selon les termes du contrat',
+                  depositHandling: 'Remboursement du dépôt de garantie',
+                  additionalConditions: 'Aucune condition supplémentaire'
+                }
+              })
+            });
+            
+            if (createResponse.ok) {
+              const newRequest = await createResponse.json();
+              navigate(`/owner-termination-workflow/${newRequest.id}`);
+            } else {
+              console.error('Failed to create termination request');
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error handling owner termination:', error);
+      }
+    } else {
+      navigate(`/tenant-termination-request/${contractId}`);
+    }
   };
 
   return (
