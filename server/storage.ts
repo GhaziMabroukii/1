@@ -22,7 +22,7 @@ export interface IStorage {
   deleteProperty(id: number): Promise<boolean>;
   
   // Offer operations
-  getOffers(userId: number, type: 'sent' | 'received'): Promise<Offer[]>;
+  getOffers(): Promise<Offer[]>;
   getOffer(id: number): Promise<Offer | undefined>;
   getOffersByTenantAndProperty(tenantId: number, propertyId: number): Promise<Offer[]>;
   createOffer(offer: InsertOffer): Promise<Offer>;
@@ -351,11 +351,8 @@ export class MemStorage implements IStorage {
   }
 
   // Offer operations
-  async getOffers(userId: number, type: 'sent' | 'received'): Promise<Offer[]> {
-    const field = type === 'sent' ? 'tenantId' : 'ownerId';
-    return this.offers
-      .filter(offer => offer[field] === userId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  async getOffers(): Promise<Offer[]> {
+    return [...this.offers].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
   async getOffer(id: number): Promise<Offer | undefined> {

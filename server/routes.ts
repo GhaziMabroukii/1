@@ -75,89 +75,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`Fetching offers for userId: ${userId}, userType: ${userType}, status: ${statusFilter}`);
       
-      let whereCondition;
-      let offers;
+      // Get offers using storage interface
+      const allOffers = await storage.getOffers();
+      
+      // Filter offers based on user type and criteria
+      let filteredOffers = [];
       
       if (userType === 'owner') {
-        // Base condition for owner
-        whereCondition = eq(offersTable.ownerId, userId);
-        
-        // Add status filter if provided
-        if (statusFilter) {
-          whereCondition = and(whereCondition, eq(offersTable.status, statusFilter));
-        }
-
         // Owners see offers received for their properties
-        offers = await db.select({
-          id: offersTable.id,
-          propertyId: offersTable.propertyId,
-          tenantId: offersTable.tenantId,
-          ownerId: offersTable.ownerId,
-          startDate: offersTable.startDate,
-          endDate: offersTable.endDate,
-          monthlyRent: offersTable.monthlyRent,
-          deposit: offersTable.deposit,
-          conditions: offersTable.conditions,
-          status: offersTable.status,
-          createdAt: offersTable.createdAt,
-          updatedAt: offersTable.updatedAt,
-          property: {
-            title: properties.title,
-            address: properties.address,
-          },
-          tenant: {
-            firstName: users.firstName,
-            lastName: users.lastName,
-            email: users.email,
-          }
-        })
-        .from(offersTable)
-        .leftJoin(properties, eq(offersTable.propertyId, properties.id))
-        .leftJoin(users, eq(offersTable.tenantId, users.id))
-        .where(whereCondition)
-        .orderBy(desc(offersTable.createdAt));
+        filteredOffers = allOffers.filter(offer => offer.ownerId === userId);
       } else {
-        // Base condition for tenant
-        whereCondition = eq(offersTable.tenantId, userId);
-        
-        // Add status filter if provided
-        if (statusFilter) {
-          whereCondition = and(whereCondition, eq(offersTable.status, statusFilter));
-        }
-
         // Tenants see offers they sent
-        offers = await db.select({
-          id: offersTable.id,
-          propertyId: offersTable.propertyId,
-          tenantId: offersTable.tenantId,
-          ownerId: offersTable.ownerId,
-          startDate: offersTable.startDate,
-          endDate: offersTable.endDate,
-          monthlyRent: offersTable.monthlyRent,
-          deposit: offersTable.deposit,
-          conditions: offersTable.conditions,
-          status: offersTable.status,
-          createdAt: offersTable.createdAt,
-          updatedAt: offersTable.updatedAt,
-          property: {
-            title: properties.title,
-            address: properties.address,
-          },
-          owner: {
-            firstName: users.firstName,
-            lastName: users.lastName,
-            email: users.email,
-          }
-        })
-        .from(offersTable)
-        .leftJoin(properties, eq(offersTable.propertyId, properties.id))
-        .leftJoin(users, eq(offersTable.ownerId, users.id))
-        .where(whereCondition)
-        .orderBy(desc(offersTable.createdAt));
+        filteredOffers = allOffers.filter(offer => offer.tenantId === userId);
       }
       
-      console.log(`Found ${offers.length} offers for user ${userId} (${userType}) with status: ${statusFilter || 'all'}`);
-      res.json(offers);
+      // Apply status filter if provided
+      if (statusFilter) {
+        filteredOffers = filteredOffers.filter(offer => offer.status === statusFilter);
+      }
+      
+      // Enrich offers with property and user data
+      const enrichedOffers = await Promise.all(
+        filteredOffers.map(async (offer) => {
+          const property = await storage.getProperty(offer.propertyId);
+          const tenant = await storage.getUser(offer.tenantId);
+          const owner = await storage.getUser(offer.ownerId);
+          
+          return {
+            ...offer,
+            property: property ? {
+              title: property.title,
+              address: property.address,
+            } : null,
+            tenant: tenant ? {
+              firstName: tenant.firstName,
+              lastName: tenant.lastName,
+              email: tenant.email,
+            } : null,
+            owner: owner ? {
+              firstName: owner.firstName,
+              lastName: owner.lastName,
+              email: owner.email,
+            } : null
+          };
+        })
+      );
+      
+      // Sort by creation date (newest first)
+      enrichedOffers.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      console.log(`Found ${enrichedOffers.length} offers for user ${userId} (${userType}) with status: ${statusFilter || 'all'}`);
+      res.json(enrichedOffers);
     } catch (error) {
       console.error("Failed to fetch offers:", error);
       res.status(500).json({ error: "Failed to fetch offers" });
