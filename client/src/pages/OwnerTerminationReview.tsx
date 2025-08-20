@@ -188,7 +188,7 @@ export function OwnerTerminationReview() {
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Demandée par</p>
-                  <p className="font-semibold">{tenant?.name || 'Locataire'}</p>
+                  <p className="font-semibold">{tenant?.firstName && tenant?.lastName ? `${tenant.firstName} ${tenant.lastName}` : 'Locataire'}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-600">Date de demande</p>
@@ -331,7 +331,7 @@ export function OwnerTerminationReview() {
                     </span>
                   </div>
                   <p className="text-sm text-gray-600">
-                    {format(new Date(request.respondedAt), 'dd MMMM yyyy à HH:mm', { locale: fr })}
+                    {request.respondedAt ? format(new Date(request.respondedAt), 'dd MMMM yyyy à HH:mm', { locale: fr }) : 'Date non disponible'}
                   </p>
                   {request.ownerResponse && (
                     <div className="mt-3 p-3 bg-gray-50 rounded-lg">

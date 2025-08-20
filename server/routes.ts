@@ -1033,26 +1033,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .returning();
 
       if (response === 'accepted') {
-        // Terminate contract immediately and make property available
-        await db
-          .update(contracts)
-          .set({ 
-            status: 'terminated',
-            terminationReason: request.reason || 'Early termination accepted by tenant',
-            terminatedBy: contract.ownerId,
-            terminatedAt: new Date(),
-            updatedAt: new Date()
-          })
-          .where(eq(contracts.id, request.contractId));
-
-        // Update property status to available
-        await storage.updatePropertyStatus(contract.propertyId, 'Disponible');
-
-        // Notify owner that termination was accepted
+        // DO NOT terminate contract immediately - follow the 5-step workflow
+        // Only notify owner that tenant accepted and next steps are needed
         await storage.createNotification({
           userId: contract.ownerId,
-          title: "Arrêt anticipé accepté",
-          message: "Le locataire a accepté l'arrêt anticipé du contrat. La propriété est maintenant disponible.",
+          title: "Demande d'arrêt acceptée",
+          message: "Le locataire a accepté votre demande d'arrêt. Veuillez procéder aux étapes de validation.",
           type: "contract_termination_accepted",
           relatedId: request.contractId,
         });
