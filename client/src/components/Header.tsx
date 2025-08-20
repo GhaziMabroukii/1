@@ -256,10 +256,16 @@ const Header = () => {
                      </>
                    )}
                    {userType === "tenant" && (
-                     <DropdownMenuItem onClick={() => navigate("/contracts")}>
-                       <FileText className="mr-2 h-4 w-4" />
-                       Mes contrats
-                     </DropdownMenuItem>
+                     <>
+                       <DropdownMenuItem onClick={() => navigate("/contracts")}>
+                         <FileText className="mr-2 h-4 w-4" />
+                         Mes contrats
+                       </DropdownMenuItem>
+                       <DropdownMenuItem onClick={() => navigate("/contract-termination")}>
+                         <AlertCircle className="mr-2 h-4 w-4" />
+                         Arrêt de Contrat
+                       </DropdownMenuItem>
+                     </>
                    )}
                    <DropdownMenuItem onClick={() => navigate("/notifications")}>
                      <Bell className="mr-2 h-4 w-4" />
