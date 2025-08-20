@@ -6,6 +6,13 @@ Ekrili is a modern property rental platform for the Tunisian market, focusing on
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+- **January 20, 2025**: Successfully migrated Ekrili from Replit Agent to standard Replit environment
+- **Migration completed**: All functionality working with real user authentication
+- **Test users created**: Both tenant and owner accounts with real credentials (no mock data)
+- **Auto-initialization**: Test users are automatically created on server startup in development mode
+- **Authentication verified**: Login system working for both user types with proper password hashing
+
 ## System Architecture
 ### Frontend
 - **Framework**: React 18 with TypeScript (SPA)

@@ -60,6 +60,29 @@ app.use((req, res, next) => {
   // Start the contract expiration scheduler
   startContractExpirationScheduler();
 
+  // Initialize test users in development mode
+  if (process.env.NODE_ENV === 'development') {
+    try {
+      // Make a request to initialize test users
+      setTimeout(async () => {
+        try {
+          const response = await fetch('http://localhost:5000/api/dev/init-users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          if (response.ok) {
+            const data = await response.json();
+            log('✓ Test users initialized automatically');
+          }
+        } catch (error) {
+          log('Note: Test users will need to be created manually via /api/dev/init-users');
+        }
+      }, 1000); // Wait 1 second for server to be ready
+    } catch (error) {
+      log('Could not auto-initialize test users');
+    }
+  }
+
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
