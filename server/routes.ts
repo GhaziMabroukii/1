@@ -683,20 +683,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Une demande d\'arrêt est déjà en cours pour ce contrat' });
       }
 
-      // Get contract to determine roles
-      const [contract] = await db
-        .select()
-        .from(contracts)
-        .where(eq(contracts.id, contractId));
-        
-      if (!contract) {
-        return res.status(404).json({ error: 'Contract not found' });
-      }
-
-      // Auto-confirm password for the person who creates the request
-      const isOwnerCreating = requestedBy === contract.ownerId;
-      const isTenantCreating = requestedBy === contract.tenantId;
-      
       const [terminationRequest] = await db
         .insert(contractTerminationRequests)
         .values({
@@ -705,16 +691,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           reason: reason.trim(),
           detailedReason: detailedReason?.trim(),
           terminationType,
-          proposedTerms,
-          // Auto-confirm password for the person creating the request
-          ownerPasswordConfirmed: isOwnerCreating,
-          tenantPasswordConfirmed: isTenantCreating,
-          ownerConfirmedAt: isOwnerCreating ? new Date() : undefined,
-          tenantConfirmedAt: isTenantCreating ? new Date() : undefined
+          proposedTerms
         })
         .returning();
 
       // Create notifications for both parties
+      const [contract] = await db
+        .select()
+        .from(contracts)
+        .where(eq(contracts.id, contractId));
+        
       if (contract) {
         const targetUserId = requestedBy === contract.ownerId ? contract.tenantId : contract.ownerId;
         const initiatorType = requestedBy === contract.ownerId ? 'propriétaire' : 'locataire';
