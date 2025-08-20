@@ -600,6 +600,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create termination request (simplified endpoint)
+  app.post('/api/contracts/:id/termination-request', async (req, res) => {
+    try {
+      const contractId = parseInt(req.params.id);
+      const { requestedBy, reason, detailedReason, terminationType, proposedTerms } = req.body;
+      
+      console.log('Creating termination request:', { contractId, requestedBy, reason, terminationType });
+      
+      // Validate required fields
+      if (requestedBy === undefined || requestedBy === null || !reason?.trim() || !terminationType) {
+        return res.status(400).json({ error: 'All required fields must be provided' });
+      }
+
+      // Create termination request using storage interface
+      const terminationRequest = {
+        contractId,
+        requestedBy,
+        reason: reason.trim(),
+        detailedReason: detailedReason?.trim(),
+        terminationType,
+        proposedTerms,
+        status: 'pending' as const,
+        ownerPasswordConfirmed: false,
+        tenantPasswordConfirmed: false,
+        ownerSignature: null,
+        tenantSignature: null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      // Get contract to validate and get user info
+      const contract = await storage.getContract(contractId);
+      if (!contract) {
+        return res.status(404).json({ error: 'Contract not found' });
+      }
+
+      // Create termination request using storage interface
+      const createdRequest = await storage.createTerminationRequest(terminationRequest);
+
+      // Create notifications for both parties
+      const targetUserId = requestedBy === contract.ownerId ? contract.tenantId : contract.ownerId;
+      const initiatorType = requestedBy === contract.ownerId ? 'propriétaire' : 'locataire';
+      
+      await storage.createNotification({
+        userId: targetUserId,
+        title: 'Nouvelle demande d\'arrêt de contrat',
+        message: `Le ${initiatorType} a créé une demande d'arrêt de contrat avec signature bilatérale requise.`,
+        type: 'termination_request',
+        relatedId: contractId
+      });
+      
+      await storage.createNotification({
+        userId: requestedBy,
+        title: 'Demande d\'arrêt créée',
+        message: `Votre demande d'arrêt de contrat a été créée. En attente de la réponse de l'autre partie.`,
+        type: 'termination_request',
+        relatedId: contractId
+      });
+
+      // Return success response with request ID for redirection
+      res.status(201).json({ 
+        message: 'Termination request created successfully',
+        requestId: createdRequest.id,
+        contractId,
+        status: 'pending'
+      });
+    } catch (error) {
+      console.error('Error creating termination request:', error);
+      res.status(500).json({ error: 'Failed to create termination request' });
+    }
+  });
+
   // Create enhanced termination request
   app.post('/api/contracts/:id/create-termination-request', async (req, res) => {
     try {
