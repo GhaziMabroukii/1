@@ -226,7 +226,7 @@ const ContractTermination = () => {
                     </div>
                   ) : (
                     activeContracts.map((contract: any) => {
-                      const contractData = contract.contractData ? JSON.parse(contract.contractData) : {};
+                      const contractData = contract.contractData || {};
                       return (
                         <Card key={contract.id} className="border-l-4 border-l-primary hover:shadow-md transition-shadow">
                           <CardContent className="p-6">
