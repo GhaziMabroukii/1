@@ -18,7 +18,9 @@ import {
   Search,
   Filter,
   Plus,
-  DollarSign
+  DollarSign,
+  Send,
+  CheckCircle
 } from "lucide-react";
 
 const ContractTermination = () => {
@@ -80,13 +82,25 @@ const ContractTermination = () => {
     return isUserContract && isActiveStatus;
   });
   
-  // Filter requests based on user type
-  const userTerminationRequests = (terminationRequests as any[]).filter((req: any) => 
-    userType === 'owner' ? req.requestedBy !== currentUserId : req.requestedBy === currentUserId
+  // Split requests into SENT (created by user) and RECEIVED (need user's response)
+  const sentRequests = (terminationRequests as any[]).filter((req: any) => 
+    req.requestedBy === currentUserId
+  );
+  
+  const receivedRequests = (terminationRequests as any[]).filter((req: any) => 
+    req.requestedBy !== currentUserId
   );
 
-  // Filter based on search and status
-  const filteredRequests = userTerminationRequests.filter((request: any) => {
+  // Filter sent requests based on search and status  
+  const filteredSentRequests = sentRequests.filter((request: any) => {
+    const matchesSearch = request.reason?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         request.contractId?.toString().includes(searchQuery);
+    const matchesStatus = statusFilter === "" || statusFilter === "all" || request.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  // Filter received requests based on search and status
+  const filteredReceivedRequests = receivedRequests.filter((request: any) => {
     const matchesSearch = request.reason?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          request.contractId?.toString().includes(searchQuery);
     const matchesStatus = statusFilter === "" || statusFilter === "all" || request.status === statusFilter;
@@ -114,12 +128,13 @@ const ContractTermination = () => {
   };
 
   // Calculate stats
+  const allUserRequests = [...sentRequests, ...receivedRequests];
   const stats = {
     activeContracts: activeContracts.length,
-    totalRequests: userTerminationRequests.length,
-    pendingRequests: userTerminationRequests.filter(req => req.status === 'pending').length,
-    acceptedRequests: userTerminationRequests.filter(req => req.status === 'accepted').length,
-    completedRequests: userTerminationRequests.filter(req => req.status === 'completed').length,
+    totalRequests: allUserRequests.length,
+    pendingRequests: allUserRequests.filter(req => req.status === 'pending').length,
+    acceptedRequests: allUserRequests.filter(req => req.status === 'accepted').length,
+    completedRequests: allUserRequests.filter(req => req.status === 'completed').length,
   };
   
   const handleStartTermination = async (contractId: number) => {
@@ -342,26 +357,24 @@ const ContractTermination = () => {
               </CardContent>
             </Card>
 
-            {/* Termination Requests */}
-            <Card className="glass-card">
+            {/* Received Requests Section */}
+            <Card className="glass-card mb-6">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <AlertCircle className="h-5 w-5 text-destructive" />
-                  <span>
-                    {userType === 'owner' ? 'Demandes de résiliation reçues' : 'Mes demandes de résiliation'}
-                  </span>
+                  <span>Demandes de résiliation reçues</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {termRequestsLoading ? (
                     <div className="text-center py-8">Chargement des demandes...</div>
-                  ) : filteredRequests.length === 0 ? (
+                  ) : filteredReceivedRequests.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
-                      {userType === 'owner' ? 'Aucune demande de résiliation reçue' : 'Aucune demande de résiliation envoyée'}
+                      Aucune demande de résiliation reçue
                     </div>
                   ) : (
-                    filteredRequests.map((request: any) => (
+                    filteredReceivedRequests.map((request: any) => (
                       <Card key={request.id} className="border-l-4 border-l-destructive">
                         <CardContent className="p-6">
                           <div className="flex items-start justify-between">
@@ -410,7 +423,7 @@ const ContractTermination = () => {
                             </div>
                             
                             <div className="flex flex-col space-y-2">
-                              {request.status === 'pending' && userType === 'owner' && request.requestedBy !== currentUserId && (
+                              {request.status === 'pending' && (
                                 <>
                                   <Button size="sm" variant="destructive">
                                     Accepter
@@ -420,6 +433,98 @@ const ContractTermination = () => {
                                   </Button>
                                 </>
                               )}
+                              {request.status === 'accepted' && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => navigate(`/${userType}-termination-workflow/${request.id}`)}
+                                >
+                                  Continuer le processus
+                                </Button>
+                              )}
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                                onClick={() => navigate(`/contract/${request.contractId}`)}
+                              >
+                                Voir le contrat
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Sent Requests Section */}
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Send className="h-5 w-5 text-primary" />
+                  <span>Demandes de résiliation envoyées</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {termRequestsLoading ? (
+                    <div className="text-center py-8">Chargement des demandes...</div>
+                  ) : filteredSentRequests.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      Aucune demande de résiliation envoyée
+                    </div>
+                  ) : (
+                    filteredSentRequests.map((request: any) => (
+                      <Card key={request.id} className="border-l-4 border-l-primary">
+                        <CardContent className="p-6">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2 mb-3">
+                                <Send className="h-5 w-5 text-primary" />
+                                <h3 className="font-semibold text-lg">Demande de résiliation #{request.id}</h3>
+                                <Badge variant={getStatusVariant(request.status)}>
+                                  {getStatusText(request.status)}
+                                </Badge>
+                              </div>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                  <p className="text-sm text-muted-foreground mb-1">Contrat concerné</p>
+                                  <p className="font-medium flex items-center space-x-1">
+                                    <FileText className="h-3 w-3" />
+                                    <span>Contrat #{request.contractId}</span>
+                                  </p>
+                                </div>
+
+                                <div>
+                                  <p className="text-sm text-muted-foreground mb-1">Date de demande</p>
+                                  <p className="font-medium flex items-center space-x-1">
+                                    <Calendar className="h-3 w-3" />
+                                    <span>{new Date(request.createdAt).toLocaleDateString('fr-FR')}</span>
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="mb-4">
+                                <p className="text-sm text-muted-foreground mb-1">Raison de la résiliation</p>
+                                <p className="text-sm bg-muted p-3 rounded">
+                                  {request.reason || 'Aucune raison spécifiée'}
+                                </p>
+                              </div>
+
+                              {request.detailedExplanation && (
+                                <div className="mb-4">
+                                  <p className="text-sm text-muted-foreground mb-1">Explication détaillée</p>
+                                  <p className="text-sm bg-muted p-3 rounded">
+                                    {request.detailedExplanation}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="flex flex-col space-y-2">
                               {request.status === 'accepted' && (
                                 <Button 
                                   size="sm" 
