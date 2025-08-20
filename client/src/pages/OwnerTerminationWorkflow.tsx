@@ -21,7 +21,7 @@ export function OwnerTerminationWorkflow() {
   // Fetch termination request details
   const { data: request, isLoading } = useQuery({
     queryKey: [`/api/contract-termination-requests/${requestId}`],
-    enabled: !!requestId
+    enabled: !!requestId && !!currentUserId
   });
 
   if (isLoading) {
