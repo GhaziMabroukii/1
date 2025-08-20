@@ -133,6 +133,7 @@ const ContractTermination = () => {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
+                requestedBy: currentUserId,
                 reason: 'Résiliation demandée par le propriétaire',
                 detailedReason: 'Demande de résiliation initiée par le propriétaire',
                 terminationType: 'mutual',
