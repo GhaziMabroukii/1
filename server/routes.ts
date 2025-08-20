@@ -1002,11 +1002,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const requestId = parseInt(req.params.id);
       const { response, tenantResponse, ownerResponse, userId } = req.body; // response: 'accepted' | 'rejected'
       
-      const [request] = await db
-        .select()
-        .from(contractTerminationRequests)
-        .where(eq(contractTerminationRequests.id, requestId));
-        
+      const request = await storage.getTerminationRequest(requestId);
       if (!request) {
         return res.status(404).json({ error: "Termination request not found" });
       }
@@ -1024,24 +1020,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Unauthorized" });
       }
 
-      // Update request status with appropriate response
-      const updateData: any = {
-        status: response,
-        respondedAt: new Date()
-      };
-
-      if (isTenant && tenantResponse) {
-        updateData.tenantResponse = tenantResponse;
-      }
-      if (isOwner && ownerResponse) {
-        updateData.ownerResponse = ownerResponse;
-      }
-
-      const [updatedRequest] = await db
-        .update(contractTerminationRequests)
-        .set(updateData)
-        .where(eq(contractTerminationRequests.id, requestId))
-        .returning();
+      // Update request status using storage interface
+      await storage.updateTerminationRequestStatus(requestId, response);
+      
+      // Get the updated request
+      const updatedRequest = await storage.getTerminationRequest(requestId);
 
       if (response === 'accepted') {
         // DO NOT terminate contract immediately - follow the 5-step workflow
