@@ -54,10 +54,25 @@ const ContractTermination = () => {
 
   // Filter active contracts for the current user
   const activeContracts = (contracts as any[]).filter((contract: any) => {
+    console.log('Contract debug:', {
+      contractId: contract.id,
+      status: contract.status,
+      ownerId: contract.ownerId,
+      tenantId: contract.tenantId,
+      currentUserId,
+      userType
+    });
+    
     const isUserContract = userType === 'owner' ? 
       contract.ownerId === currentUserId : 
       contract.tenantId === currentUserId;
-    return isUserContract && contract.status === 'active';
+    // Include contracts that are available for termination
+    const isActiveStatus = contract.status === 'active' || 
+                          contract.status === 'fully_signed' || 
+                          contract.status === 'owner_signed';
+    
+    console.log('Filter result:', { isUserContract, isActiveStatus, result: isUserContract && isActiveStatus });
+    return isUserContract && isActiveStatus;
   });
   
   // Filter requests based on user type
