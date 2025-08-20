@@ -933,6 +933,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Owner-specific termination request endpoint
+  app.post('/api/contracts/:id/owner-termination-request', async (req, res) => {
+    try {
+      const contractId = parseInt(req.params.id);
+      const { requestedBy, reason, detailedReason, terminationType, proposedTerms } = req.body;
+      
+      console.log('Creating OWNER termination request:', { contractId, requestedBy, reason, terminationType });
+      
+      // Validate required fields
+      if (requestedBy === undefined || requestedBy === null || !reason?.trim() || !terminationType) {
+        return res.status(400).json({ error: 'All required fields must be provided' });
+      }
+
+      // Get contract to validate ownership
+      const contract = await storage.getContract(contractId);
+      if (!contract) {
+        return res.status(404).json({ error: 'Contract not found' });
+      }
+
+      // Verify the requester is the owner
+      if (contract.ownerId !== requestedBy) {
+        return res.status(403).json({ error: 'Only the property owner can use this endpoint' });
+      }
+
+      // Create termination request using storage interface
+      const terminationRequest = {
+        contractId,
+        requestedBy,
+        reason: reason.trim(),
+        detailedReason: detailedReason?.trim(),
+        terminationType,
+        proposedTerms,
+        status: 'pending' as const,
+        ownerPasswordConfirmed: false,
+        tenantPasswordConfirmed: false,
+        ownerSignature: null,
+        tenantSignature: null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      const createdRequest = await storage.createTerminationRequest(terminationRequest);
+
+      // Create notifications - notify TENANT about OWNER's request
+      await storage.createNotification({
+        userId: contract.tenantId,
+        title: 'Demande d\'arrêt de contrat du propriétaire',
+        message: `Le propriétaire a créé une demande d'arrêt de contrat. Veuillez examiner et répondre à cette demande.`,
+        type: 'termination_request',
+        relatedId: contractId
+      });
+      
+      // Confirm to owner that request was created
+      await storage.createNotification({
+        userId: requestedBy,
+        title: 'Demande d\'arrêt créée',
+        message: `Votre demande d'arrêt de contrat a été créée. En attente de la réponse du locataire.`,
+        type: 'termination_request',
+        relatedId: contractId
+      });
+
+      res.status(201).json({
+        message: 'Owner termination request created successfully',
+        requestId: createdRequest.id,
+        contractId: contractId,
+        status: 'pending'
+      });
+    } catch (error) {
+      console.error('Error creating owner termination request:', error);
+      res.status(500).json({ error: 'Failed to create owner termination request' });
+    }
+  });
+
+  // Tenant-specific termination request endpoint  
+  app.post('/api/contracts/:id/tenant-termination-request', async (req, res) => {
+    try {
+      const contractId = parseInt(req.params.id);
+      const { requestedBy, reason, detailedReason, terminationType, proposedTerms } = req.body;
+      
+      console.log('Creating TENANT termination request:', { contractId, requestedBy, reason, terminationType });
+      
+      // Validate required fields
+      if (requestedBy === undefined || requestedBy === null || !reason?.trim() || !terminationType) {
+        return res.status(400).json({ error: 'All required fields must be provided' });
+      }
+
+      // Get contract to validate tenancy
+      const contract = await storage.getContract(contractId);
+      if (!contract) {
+        return res.status(404).json({ error: 'Contract not found' });
+      }
+
+      // Verify the requester is the tenant
+      if (contract.tenantId !== requestedBy) {
+        return res.status(403).json({ error: 'Only the tenant can use this endpoint' });
+      }
+
+      // Create termination request using storage interface
+      const terminationRequest = {
+        contractId,
+        requestedBy,
+        reason: reason.trim(),
+        detailedReason: detailedReason?.trim(),
+        terminationType,
+        proposedTerms,
+        status: 'pending' as const,
+        ownerPasswordConfirmed: false,
+        tenantPasswordConfirmed: false,
+        ownerSignature: null,
+        tenantSignature: null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      const createdRequest = await storage.createTerminationRequest(terminationRequest);
+
+      // Create notifications - notify OWNER about TENANT's request
+      await storage.createNotification({
+        userId: contract.ownerId,
+        title: 'Demande d\'arrêt de contrat du locataire',
+        message: `Le locataire a créé une demande d'arrêt de contrat. Veuillez examiner et répondre à cette demande.`,
+        type: 'termination_request',
+        relatedId: contractId
+      });
+      
+      // Confirm to tenant that request was created
+      await storage.createNotification({
+        userId: requestedBy,
+        title: 'Demande d\'arrêt créée',
+        message: `Votre demande d'arrêt de contrat a été créée. En attente de la réponse du propriétaire.`,
+        type: 'termination_request',
+        relatedId: contractId
+      });
+
+      res.status(201).json({
+        message: 'Tenant termination request created successfully', 
+        requestId: createdRequest.id,
+        contractId: contractId,
+        status: 'pending'
+      });
+    } catch (error) {
+      console.error('Error creating tenant termination request:', error);
+      res.status(500).json({ error: 'Failed to create tenant termination request' });
+    }
+  });
+
   // Legacy termination endpoint for compatibility  
   app.post("/api/contracts/:id/request-termination", async (req, res) => {
     try {
