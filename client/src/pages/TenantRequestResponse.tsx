@@ -19,7 +19,16 @@ interface Request {
   createdAt: string;
   requestedChanges?: string;
   reason?: string;
+  detailedReason?: string;
+  terminationType?: string;
+  proposedTerms?: {
+    timeline?: string;
+    financialTerms?: string;
+    depositHandling?: string;
+    additionalConditions?: string;
+  };
   tenantResponse?: string;
+  ownerResponse?: string;
 }
 
 export default function TenantRequestResponse() {
@@ -213,11 +222,70 @@ export default function TenantRequestResponse() {
                 </p>
               )}
               {!isModificationRequest && request?.reason && (
-                <p className="text-blue-700">
-                  <strong>Raison:</strong> {request.reason}
-                </p>
+                <div className="space-y-2">
+                  <p className="text-blue-700">
+                    <strong>Raison:</strong> {request.reason}
+                  </p>
+                  {request?.detailedReason && (
+                    <p className="text-blue-700">
+                      <strong>Explication détaillée:</strong> {request.detailedReason}
+                    </p>
+                  )}
+                  {request?.terminationType && (
+                    <p className="text-blue-700">
+                      <strong>Type d'arrêt:</strong> {
+                        request.terminationType === 'mutual' ? 'Arrêt mutuel' :
+                        request.terminationType === 'early_by_owner' ? 'Arrêt par le propriétaire' :
+                        request.terminationType === 'early_by_tenant' ? 'Arrêt par le locataire' :
+                        request.terminationType === 'dispute' ? 'Litige' : 
+                        request.terminationType
+                      }
+                    </p>
+                  )}
+                </div>
               )}
             </div>
+
+            {/* Proposed Terms Section for Termination Requests */}
+            {!isModificationRequest && request?.proposedTerms && (
+              <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
+                <h3 className="font-semibold text-lg mb-3 text-amber-800">
+                  Conditions Proposées par le Propriétaire
+                </h3>
+                <div className="space-y-2">
+                  {request.proposedTerms.timeline && (
+                    <p className="text-amber-700">
+                      <strong>Délai souhaité:</strong> {request.proposedTerms.timeline}
+                    </p>
+                  )}
+                  {request.proposedTerms.financialTerms && (
+                    <p className="text-amber-700">
+                      <strong>Conditions financières:</strong> {request.proposedTerms.financialTerms}
+                    </p>
+                  )}
+                  {request.proposedTerms.depositHandling && (
+                    <p className="text-amber-700">
+                      <strong>Gestion de la caution:</strong> {request.proposedTerms.depositHandling}
+                    </p>
+                  )}
+                  {request.proposedTerms.additionalConditions && (
+                    <p className="text-amber-700">
+                      <strong>Conditions supplémentaires:</strong> {request.proposedTerms.additionalConditions}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Owner Response Section */}
+            {!isModificationRequest && request?.ownerResponse && (
+              <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                <h3 className="font-semibold text-lg mb-2 text-purple-800">
+                  Message du Propriétaire
+                </h3>
+                <p className="text-purple-700">{request.ownerResponse}</p>
+              </div>
+            )}
 
             {/* Response Section */}
             {request?.status === 'pending' ? (
