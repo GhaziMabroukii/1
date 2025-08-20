@@ -45,13 +45,28 @@ export function TenantTerminationRequest({ contractId, currentUserId }: TenantTe
         })
       });
     },
-    onSuccess: (data) => {
+    onSuccess: async (response) => {
+      // Parse the response to get the request ID
+      let result;
+      try {
+        const responseText = await response.text();
+        result = responseText ? JSON.parse(responseText) : {};
+      } catch (e) {
+        result = {};
+      }
+      
       toast({
         title: "Demande d'arrêt envoyée",
         description: "Votre demande a été envoyée au propriétaire. Vous recevrez une notification de sa réponse.",
       });
       queryClient.invalidateQueries({ queryKey: [`/api/tenant-requests/${currentUserId}`] });
-      navigate('/tenant-termination-workflow');
+      
+      // Redirect to workflow page with request ID if available
+      if (result.requestId) {
+        navigate(`/tenant-termination-workflow/${result.requestId}`);
+      } else {
+        navigate('/tenant-termination-workflow');
+      }
     },
     onError: (error: any) => {
       toast({

@@ -993,26 +993,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get individual contract termination request
-  app.get("/api/contract-termination-requests/:id", async (req, res) => {
-    try {
-      const requestId = parseInt(req.params.id);
-      
-      const [request] = await db
-        .select()
-        .from(contractTerminationRequests)
-        .where(eq(contractTerminationRequests.id, requestId));
-        
-      if (!request) {
-        return res.status(404).json({ error: "Termination request not found" });
-      }
-
-      res.json(request);
-    } catch (error) {
-      console.error("Get termination request error:", error);
-      res.status(500).json({ error: "Failed to fetch termination request" });
-    }
-  });
 
 
 
@@ -1245,15 +1225,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/contract-termination-requests/:id", async (req, res) => {
     try {
       const requestId = parseInt(req.params.id);
-      const [request] = await db
-        .select()
-        .from(contractTerminationRequests)
-        .where(eq(contractTerminationRequests.id, requestId));
-        
+      console.log(`Fetching termination request ${requestId}`);
+      
+      const request = await storage.getTerminationRequest(requestId);
       if (!request) {
+        console.log(`Termination request ${requestId} not found`);
         return res.status(404).json({ error: "Request not found" });
       }
 
+      console.log(`Found termination request ${requestId}:`, request);
       res.json(request);
     } catch (error) {
       console.error("Failed to fetch termination request:", error);
