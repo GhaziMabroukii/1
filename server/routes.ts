@@ -646,12 +646,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: new Date()
       };
 
-      // For now, we'll create a simple termination request since the storage interface
-      // doesn't have specific termination request methods implemented
+      // Get contract to validate and get user info
       const contract = await storage.getContract(contractId);
       if (!contract) {
         return res.status(404).json({ error: 'Contract not found' });
       }
+
+      // Create termination request using storage interface
+      const createdRequest = await storage.createTerminationRequest(terminationRequest);
 
       // Create notifications for both parties
       const targetUserId = requestedBy === contract.ownerId ? contract.tenantId : contract.ownerId;
@@ -673,9 +675,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         relatedId: contractId
       });
 
-      // Return success response
+      // Return success response with request ID for redirection
       res.status(201).json({ 
         message: 'Termination request created successfully',
+        requestId: createdRequest.id,
         contractId,
         status: 'pending'
       });
@@ -1191,11 +1194,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = parseInt(req.params.userId);
       
-      // Since termination requests are not fully implemented in storage yet,
-      // return empty array for now. This prevents the persistent error.
-      // In the future, this would query termination requests from storage
-      console.log(`Fetching tenant requests for user ${userId} - returning empty array (termination requests not implemented in storage)`);
-      res.json([]);
+      console.log(`Fetching tenant requests for user ${userId}`);
+      const requests = await storage.getTerminationRequestsByUser(userId, 'tenant');
+      res.json(requests);
     } catch (error) {
       console.error("Failed to fetch tenant requests:", error);
       res.status(500).json({ error: "Failed to fetch tenant requests" });
@@ -1207,21 +1208,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = parseInt(req.params.userId);
       
-      // Get termination requests created by this owner
-      const terminationRequests = await db
-        .select({
-          id: contractTerminationRequests.id,
-          type: sql<string>`'termination'`,
-          status: contractTerminationRequests.status,
-          createdAt: contractTerminationRequests.createdAt,
-          contractId: contractTerminationRequests.contractId,
-        })
-        .from(contractTerminationRequests)
-        .where(eq(contractTerminationRequests.requestedBy, userId));
-
-      console.log(`Found ${terminationRequests.length} termination requests created by owner ${userId}`);
-      console.log("Owner termination requests:", terminationRequests);
-      res.json(terminationRequests);
+      console.log(`Fetching owner requests for user ${userId}`);
+      const requests = await storage.getTerminationRequestsByUser(userId, 'owner');
+      res.json(requests);
     } catch (error) {
       console.error("Failed to fetch owner requests:", error);
       res.status(500).json({ error: "Failed to fetch owner requests" });

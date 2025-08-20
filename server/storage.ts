@@ -41,6 +41,12 @@ export interface IStorage {
   updatePropertyStatus(propertyId: number, status: string): Promise<void>;
   expireContracts(): Promise<void>;
   
+  // Termination request operations
+  createTerminationRequest(request: any): Promise<any>;
+  getTerminationRequestsByUser(userId: number, userType: string): Promise<any[]>;
+  getTerminationRequest(id: number): Promise<any | undefined>;
+  updateTerminationRequestStatus(id: number, status: string): Promise<any | undefined>;
+  
   // Notification operations
   getNotifications(userId: number): Promise<Notification[]>;
   createNotification(notification: InsertNotification): Promise<Notification>;
@@ -273,6 +279,27 @@ export class DatabaseStorage implements IStorage {
       });
     }
   }
+
+  // Termination request operations (database implementation)
+  async createTerminationRequest(request: any): Promise<any> {
+    // For now return a mock object since we don't have database setup
+    return { id: Math.floor(Math.random() * 1000), ...request };
+  }
+
+  async getTerminationRequestsByUser(userId: number, userType: string): Promise<any[]> {
+    // For now return empty array since we don't have database setup
+    return [];
+  }
+
+  async getTerminationRequest(id: number): Promise<any | undefined> {
+    // For now return undefined since we don't have database setup
+    return undefined;
+  }
+
+  async updateTerminationRequestStatus(id: number, status: string): Promise<any | undefined> {
+    // For now return undefined since we don't have database setup
+    return undefined;
+  }
 }
 
 // In-memory storage implementation for development
@@ -282,6 +309,7 @@ export class MemStorage implements IStorage {
   private offers: Offer[] = [];
   private contracts: Contract[] = [];
   private notifications: Notification[] = [];
+  private terminationRequests: any[] = [];
   private nextId = 1;
 
   private getNextId() {
@@ -542,6 +570,47 @@ export class MemStorage implements IStorage {
       read: true
     };
     return true;
+  }
+
+  // Termination request operations
+  async createTerminationRequest(request: any): Promise<any> {
+    const terminationRequest = {
+      id: this.getNextId(),
+      ...request,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.terminationRequests.push(terminationRequest);
+    return terminationRequest;
+  }
+
+  async getTerminationRequestsByUser(userId: number, userType: string): Promise<any[]> {
+    if (userType === 'owner') {
+      return this.terminationRequests.filter(req => req.requestedBy === userId)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    } else {
+      // For tenants, find contracts where they are the tenant and get termination requests
+      const tenantContracts = this.contracts.filter(c => c.tenantId === userId);
+      const contractIds = tenantContracts.map(c => c.id);
+      return this.terminationRequests.filter(req => contractIds.includes(req.contractId))
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    }
+  }
+
+  async getTerminationRequest(id: number): Promise<any | undefined> {
+    return this.terminationRequests.find(req => req.id === id);
+  }
+
+  async updateTerminationRequestStatus(id: number, status: string): Promise<any | undefined> {
+    const index = this.terminationRequests.findIndex(req => req.id === id);
+    if (index === -1) return undefined;
+    
+    this.terminationRequests[index] = {
+      ...this.terminationRequests[index],
+      status,
+      updatedAt: new Date()
+    };
+    return this.terminationRequests[index];
   }
 }
 

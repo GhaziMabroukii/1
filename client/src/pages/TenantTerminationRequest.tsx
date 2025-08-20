@@ -37,7 +37,7 @@ export function TenantTerminationRequest({ contractId, currentUserId }: TenantTe
 
   const createTerminationMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      return apiRequest(`/api/contracts/${contractId}/create-termination-request`, {
+      return apiRequest(`/api/contracts/${contractId}/termination-request`, {
         method: 'POST',
         body: JSON.stringify({
           requestedBy: currentUserId,
@@ -51,7 +51,7 @@ export function TenantTerminationRequest({ contractId, currentUserId }: TenantTe
         description: "Votre demande a été envoyée au propriétaire. Vous recevrez une notification de sa réponse.",
       });
       queryClient.invalidateQueries({ queryKey: [`/api/tenant-requests/${currentUserId}`] });
-      navigate(`/contract/${contractId}`);
+      navigate('/tenant-termination-workflow');
     },
     onError: (error: any) => {
       toast({
