@@ -1634,6 +1634,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create test contract for testing termination workflow
+  app.post("/api/dev/create-test-contract", async (req, res) => {
+    if (process.env.NODE_ENV !== 'development') {
+      return res.status(403).json({ error: "Only available in development" });
+    }
+
+    try {
+      // Get the first available property from the owner
+      const properties = await storage.getProperties();
+      const ownerProperty = properties.find(p => p.ownerId === 2 && p.status === 'Disponible');
+      
+      if (!ownerProperty) {
+        return res.status(400).json({ error: "No available property found for owner" });
+      }
+
+      // First create an offer
+      const offerData = {
+        propertyId: ownerProperty.id,
+        tenantId: 1, // student_ahmed
+        monthlyRent: parseInt(ownerProperty.price),
+        deposit: parseInt(ownerProperty.deposit || '0'),
+        message: 'Je suis intéressé par cette propriété pour un bail de 12 mois.',
+        status: 'contract_requested'
+      };
+
+      const offer = await storage.createOffer(offerData);
+
+      // Now create a contract with realistic data
+      const contractData = {
+        offerId: offer.id,
+        propertyId: ownerProperty.id,
+        ownerId: 2, // owner_fatma
+        tenantId: 1, // student_ahmed
+        status: 'fully_signed',
+        ownerSignature: 'Owner Signature Data',
+        tenantSignature: 'Tenant Signature Data',
+        ownerSignedAt: new Date(),
+        tenantSignedAt: new Date(),
+        contractData: {
+          propertyTitle: ownerProperty.title,
+          propertyAddress: ownerProperty.address,
+          landlordName: 'Fatma Trabelsi',
+          tenantName: 'Ahmed Ben Ali',
+          monthlyRent: ownerProperty.price,
+          deposit: ownerProperty.deposit,
+          startDate: new Date(),
+          endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+          terms: [
+            "Le locataire s'engage à payer le loyer avant le 5 de chaque mois",
+            "Aucun animal domestique autorisé",
+            "Interdiction de fumer dans les locaux",
+            "Durée du bail: 12 mois renouvelable"
+          ]
+        }
+      };
+
+      const contract = await storage.createContract(contractData);
+      
+      // Update property status to rented
+      await storage.updatePropertyStatus(ownerProperty.id, 'Loué');
+
+      res.json({ 
+        message: 'Test contract created successfully',
+        contract: contract,
+        offer: offer
+      });
+    } catch (error) {
+      console.error('Error creating test contract:', error);
+      res.status(500).json({ error: 'Failed to create test contract', details: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
