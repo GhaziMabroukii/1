@@ -33,9 +33,19 @@ const ContractTermination = () => {
   
   // Fetch contracts
   const { data: contracts = [], isLoading: contractsLoading } = useQuery({
-    queryKey: ['/api/contracts'],
+    queryKey: ['/api/contracts', currentUserId, userType],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        userId: currentUserId.toString(),
+        ownerOnly: (userType === 'owner').toString()
+      });
+      const response = await fetch(`/api/contracts?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch contracts');
+      return response.json();
+    },
     enabled: !!currentUserId
   });
+  
   
   // Fetch contract termination requests  
   const { data: terminationRequests = [], isLoading: termRequestsLoading } = useQuery({
@@ -54,15 +64,6 @@ const ContractTermination = () => {
 
   // Filter active contracts for the current user
   const activeContracts = (contracts as any[]).filter((contract: any) => {
-    console.log('Contract debug:', {
-      contractId: contract.id,
-      status: contract.status,
-      ownerId: contract.ownerId,
-      tenantId: contract.tenantId,
-      currentUserId,
-      userType
-    });
-    
     const isUserContract = userType === 'owner' ? 
       contract.ownerId === currentUserId : 
       contract.tenantId === currentUserId;
@@ -71,7 +72,6 @@ const ContractTermination = () => {
                           contract.status === 'fully_signed' || 
                           contract.status === 'owner_signed';
     
-    console.log('Filter result:', { isUserContract, isActiveStatus, result: isUserContract && isActiveStatus });
     return isUserContract && isActiveStatus;
   });
   
