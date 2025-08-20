@@ -65,6 +65,13 @@ export function EnhancedBilateralContractTermination({ contract, currentUserId, 
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
+  console.log('EnhancedBilateralContractTermination - Props:', {
+    contractId: contract?.id,
+    currentUserId,
+    userType,
+    currentUserIdType: typeof currentUserId
+  });
+  
   // Form states
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);

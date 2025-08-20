@@ -146,14 +146,25 @@ const ContractView = () => {
     const userId = localStorage.getItem("userId");
     const userType = localStorage.getItem("userType");
     
+    console.log("ContractView - localStorage data:", {
+      userData,
+      userId,
+      userType,
+      hasUserData: !!userData,
+      hasUserId: !!userId,
+      hasUserType: !!userType
+    });
+    
     if (userData && userId && userType) {
       try {
         const user = JSON.parse(userData);
-        return {
+        const result = {
           id: parseInt(userId),
           userType: userType,
           ...user
         };
+        console.log("ContractView - parsed user:", result);
+        return result;
       } catch (error) {
         console.error("Error parsing user data:", error);
         return null;
@@ -166,7 +177,11 @@ const ContractView = () => {
   const currentUserId = currentUser?.id || 0;
   
   // Debug current user info
-  console.log("Current user from localStorage:", currentUser);
+  console.log("ContractView - final values:", {
+    currentUser,
+    currentUserId,
+    currentUserIdType: typeof currentUserId
+  });
   console.log("Current user ID:", currentUserId);
   console.log("Contract owner ID:", contract?.ownerId);
   console.log("Contract tenant ID:", contract?.tenantId);
