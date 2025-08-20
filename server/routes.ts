@@ -1443,10 +1443,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Hash password before storing
+      const hashedPassword = await bcrypt.hash(password, 10);
+      
       // Create user
       const newUser = await storage.createUser({
         username,
-        password, // In production, hash this password
+        password: hashedPassword,
         email,
         firstName,
         lastName,
@@ -1564,7 +1567,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Development route to initialize test users
+  app.post("/api/dev/init-users", async (req, res) => {
+    if (process.env.NODE_ENV !== 'development') {
+      return res.status(403).json({ error: "Only available in development" });
+    }
 
+    try {
+      // Create tenant user
+      const tenantPassword = await bcrypt.hash('tenant123', 10);
+      const tenant = await storage.createUser({
+        username: 'student_ahmed',
+        password: tenantPassword,
+        email: 'ahmed.student@enis.tn',
+        firstName: 'Ahmed',
+        lastName: 'Ben Ali',
+        phone: '+216 20 123 456',
+        userType: 'tenant'
+      });
+
+      // Create owner user
+      const ownerPassword = await bcrypt.hash('owner123', 10);
+      const owner = await storage.createUser({
+        username: 'owner_fatma',
+        password: ownerPassword,
+        email: 'fatma.immobilier@gmail.com',
+        firstName: 'Fatma',
+        lastName: 'Trabelsi',
+        phone: '+216 98 765 432',
+        userType: 'owner'
+      });
+
+      // Create sample properties for the owner
+      const property1 = await storage.createProperty({
+        ownerId: owner.id,
+        title: 'Studio moderne près de l\'INSAT',
+        description: 'Studio entièrement meublé, parfait pour étudiants. Proche des transports en commun.',
+        type: 'studio',
+        price: '400',
+        priceType: 'mois',
+        surface: 30,
+        rooms: 1,
+        bathrooms: 1,
+        address: 'Rue de la Liberté, Tunis',
+        latitude: '36.8065',
+        longitude: '10.1815',
+        amenities: ['wifi', 'cuisine_equipee', 'climatisation'],
+        rules: ['non_fumeur', 'pas_animaux'],
+        images: [],
+        status: 'Disponible',
+        deposit: '200',
+        utilities: 'Électricité incluse',
+        utilitiesIncluded: true,
+        categories: ['Étudiant'],
+        geographicHighlight: 'À 500m de l\'INSAT'
+      });
+
+      const property2 = await storage.createProperty({
+        ownerId: owner.id,
+        title: 'Appartement familial 3 pièces',
+        description: 'Appartement spacieux avec balcon, idéal pour famille. Quartier calme et sécurisé.',
+        type: 'apartment',
+        price: '800',
+        priceType: 'mois',
+        surface: 85,
+        rooms: 3,
+        bathrooms: 2,
+        address: 'Avenue Habib Bourguiba, Sfax',
+        latitude: '34.7406',
+        longitude: '10.7603',
+        amenities: ['parking', 'ascenseur', 'balcon', 'chauffage'],
+        rules: ['famille_preferee'],
+        images: [],
+        status: 'Disponible',
+        deposit: '400',
+        utilities: 'Eau incluse',
+        utilitiesIncluded: false,
+        categories: ['Famille'],
+        geographicHighlight: 'Centre ville de Sfax'
+      });
+
+      res.json({
+        message: 'Test users and properties created successfully',
+        users: [
+          { username: 'student_ahmed', password: 'tenant123', type: 'tenant', name: 'Ahmed Ben Ali' },
+          { username: 'owner_fatma', password: 'owner123', type: 'owner', name: 'Fatma Trabelsi' }
+        ],
+        properties: [property1.title, property2.title]
+      });
+    } catch (error) {
+      console.error('Error creating test users:', error);
+      res.status(500).json({ error: 'Failed to create test users' });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;
