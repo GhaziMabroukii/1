@@ -124,38 +124,8 @@ const ContractTermination = () => {
   
   const handleStartTermination = async (contractId: number) => {
     if (userType === 'owner') {
-      // Owner creates termination request directly
-      try {
-        const createResponse = await fetch(`/api/contracts/${contractId}/owner-termination-request`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            requestedBy: currentUserId,
-            reason: 'Résiliation demandée par le propriétaire',
-            detailedReason: 'Demande de résiliation initiée par le propriétaire',
-            terminationType: 'early_by_owner',
-            proposedTerms: {
-              timeline: 'À convenir entre les parties',
-              rentRefund: '',
-              financialTerms: 'Selon les termes du contrat',
-              depositHandling: 'Remboursement du dépôt de garantie',
-              additionalConditions: 'Aucune condition supplémentaire'
-            }
-          })
-        });
-        
-        if (createResponse.ok) {
-          const newRequest = await createResponse.json();
-          // Redirect to "mes demandes" section
-          setActiveTab("my-requests");
-          // Optionally navigate to make sure the tab is visible
-          navigate('/contract-termination');
-        } else {
-          console.error('Failed to create owner termination request');
-        }
-      } catch (error) {
-        console.error('Error creating owner termination:', error);
-      }
+      // Owner goes to termination request form
+      navigate(`/owner-termination-request/${contractId}`);
     } else {
       navigate(`/tenant-termination-request/${contractId}`);
     }
