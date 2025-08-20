@@ -31,6 +31,7 @@ import TenantTerminationRequestWrapper from "./pages/TenantTerminationRequestWra
 import OwnerTerminationReview from "./pages/OwnerTerminationReview";
 import OwnerTerminationWorkflow from "./pages/OwnerTerminationWorkflow";
 import TenantTerminationWorkflow from "./pages/TenantTerminationWorkflow";
+import ContractTermination from "./pages/ContractTermination";
 
 const queryClient = new QueryClient();
 
@@ -67,6 +68,7 @@ const App = () => (
           <Route path="/owner-termination-review/:requestId" component={OwnerTerminationReview} />
           <Route path="/owner-termination-workflow/:requestId" component={OwnerTerminationWorkflow} />
           <Route path="/tenant-termination-workflow/:requestId" component={TenantTerminationWorkflow} />
+          <Route path="/contract-termination" component={ContractTermination} />
           <Route component={NotFound} />
         </Switch>
       </Router>

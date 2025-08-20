@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { MapPin, Menu, Bell, Heart, User, Search, LogOut, Home, Settings, FileText } from "lucide-react";
+import { MapPin, Menu, Bell, Heart, User, Search, LogOut, Home, Settings, FileText, AlertCircle } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { 
   DropdownMenu,
@@ -248,6 +248,10 @@ const Header = () => {
                        <DropdownMenuItem onClick={() => navigate("/contracts")}>
                          <FileText className="mr-2 h-4 w-4" />
                          Contrats
+                       </DropdownMenuItem>
+                       <DropdownMenuItem onClick={() => navigate("/contract-termination")}>
+                         <AlertCircle className="mr-2 h-4 w-4" />
+                         Arrêt de Contrat
                        </DropdownMenuItem>
                      </>
                    )}

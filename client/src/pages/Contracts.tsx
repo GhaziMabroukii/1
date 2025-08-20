@@ -47,11 +47,6 @@ const Contracts = () => {
   });
   
   
-  // Fetch contract termination requests  
-  const { data: terminationRequests = [], isLoading: termRequestsLoading } = useQuery({
-    queryKey: ['/api/contract-termination-requests'],
-    enabled: !!currentUserId
-  });
 
   useEffect(() => {
     // Check authentication
@@ -78,11 +73,6 @@ const Contracts = () => {
     return matchesSearch && matchesStatus;
   });
   
-  // Filter requests based on user type
-  
-  const userTerminationRequests = (terminationRequests as any[]).filter((req: any) => 
-    userType === 'owner' ? req.requestedBy !== currentUserId : req.requestedBy === currentUserId
-  );
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -254,11 +244,8 @@ const Contracts = () => {
 
         {/* Main Content with Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-1">
             <TabsTrigger value="contracts">Mes Contrats</TabsTrigger>
-            <TabsTrigger value="termination-requests">
-              {userType === 'owner' ? 'Demandes de résiliation reçues' : 'Mes demandes de résiliation'}
-            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="contracts" className="space-y-4 mt-6">
@@ -381,54 +368,6 @@ const Contracts = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="termination-requests" className="space-y-4 mt-6">
-            {termRequestsLoading ? (
-              <div className="text-center py-8">Chargement des demandes...</div>
-            ) : userTerminationRequests.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                {userType === 'owner' ? 'Aucune demande de résiliation reçue' : 'Aucune demande de résiliation envoyée'}
-              </div>
-            ) : (
-              userTerminationRequests.map((request: any) => (
-                <Card key={request.id} className="glass-card">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <AlertCircle className="h-5 w-5 text-destructive" />
-                          <h3 className="font-semibold">Demande de résiliation de contrat</h3>
-                          <Badge variant={request.status === 'pending' ? 'warning' : request.status === 'accepted' ? 'success' : 'destructive'}>
-                            {request.status === 'pending' ? 'En attente' : request.status === 'accepted' ? 'Acceptée' : 'Refusée'}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-2">
-                          Contrat ID: {request.contractId}
-                        </p>
-                        <p className="text-sm mb-2">
-                          <strong>Raison:</strong> {request.reason || 'Non spécifiée'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Demandé le {new Date(request.createdAt).toLocaleDateString('fr-FR')}
-                        </p>
-                      </div>
-                      <div className="flex flex-col space-y-2">
-                        {request.status === 'pending' && userType === 'tenant' && request.requestedBy !== currentUserId && (
-                          <>
-                            <Button size="sm" variant="destructive">
-                              Accepter
-                            </Button>
-                            <Button size="sm" variant="outline">
-                              Refuser
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </TabsContent>
         </Tabs>
       </div>
     </div>
