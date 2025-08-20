@@ -89,7 +89,7 @@ export default function OwnerRequestResponse() {
         })
       });
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       console.log("OwnerRequestResponse: Response submitted successfully", data);
       queryClient.invalidateQueries({ queryKey: [`/api/owner-requests/${currentUser?.id}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/contract-${requestType}-requests/${requestId}`] });
@@ -99,7 +99,13 @@ export default function OwnerRequestResponse() {
         description: "Votre réponse a été envoyée avec succès.",
       });
       
-      navigate('/contracts');
+      // If accepted a termination request, redirect to the termination workflow
+      if (variables.response === 'accepted' && requestType === 'termination') {
+        navigate(`/owner-termination-workflow/${requestId}`);
+      } else {
+        // Otherwise navigate back to contracts
+        navigate('/contracts');
+      }
     },
     onError: (error) => {
       console.error("OwnerRequestResponse: Error submitting response", error);

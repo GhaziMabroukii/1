@@ -115,8 +115,13 @@ export default function TenantRequestResponse() {
       queryClient.invalidateQueries({ queryKey: [`/api/contract-${requestType}-requests/${requestId}`] });
       queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
       
-      // Navigate back to contracts or dashboard
-      navigate('/contracts');
+      // If accepted a termination request, redirect to the termination workflow
+      if (responseType === 'accepted' && requestType === 'termination') {
+        navigate(`/tenant-termination-workflow/${requestId}`);
+      } else {
+        // Otherwise navigate back to contracts 
+        navigate('/contracts');
+      }
     },
     onError: (error: any) => {
       toast({
