@@ -2,10 +2,19 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertPropertySchema, insertOfferSchema, insertContractSchema, insertNotificationSchema, insertConversationSchema, insertMessageSchema, insertReviewSchema, insertContractTerminationRequestSchema, contracts, users, conversations, messages, reviews, properties, offers, contractTerminationRequests } from "@shared/schema";
-// db will be imported conditionally in functions that need it
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcrypt";
+
+// Conditionally import db only if DATABASE_URL is available
+let db: any = null;
+if (process.env.DATABASE_URL) {
+  try {
+    db = require("./db").db;
+  } catch (error) {
+    console.log("Database not available, using in-memory storage only");
+  }
+}
 
 // Alias tables for clarity in joins
 const offersTable = offers;
@@ -610,9 +619,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hasProposedTerms: !!proposedTerms
       });
       
-      if (!requestedBy || !reason?.trim() || !terminationType || !proposedTerms) {
+      if (requestedBy === undefined || requestedBy === null || !reason?.trim() || !terminationType || !proposedTerms) {
         console.log('Validation failed:', {
-          requestedByFail: !requestedBy,
+          requestedByFail: requestedBy === undefined || requestedBy === null,
           reasonFail: !reason?.trim(),
           terminationTypeFail: !terminationType,
           proposedTermsFail: !proposedTerms
