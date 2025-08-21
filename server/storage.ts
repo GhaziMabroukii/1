@@ -44,6 +44,8 @@ export interface IStorage {
   // Termination request operations
   createTerminationRequest(request: any): Promise<any>;
   getTerminationRequestsByUser(userId: number, userType: string): Promise<any[]>;
+  getTerminationRequestsByTenant(userId: number): Promise<any[]>;
+  getTerminationRequestsByOwner(userId: number): Promise<any[]>;
   getTerminationRequest(id: number): Promise<any | undefined>;
   updateTerminationRequestStatus(id: number, status: string): Promise<any | undefined>;
   
@@ -287,6 +289,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTerminationRequestsByUser(userId: number, userType: string): Promise<any[]> {
+    // For now return empty array since we don't have database setup
+    return [];
+  }
+
+  async getTerminationRequestsByTenant(userId: number): Promise<any[]> {
+    // For now return empty array since we don't have database setup
+    return [];
+  }
+
+  async getTerminationRequestsByOwner(userId: number): Promise<any[]> {
     // For now return empty array since we don't have database setup
     return [];
   }
@@ -585,16 +597,60 @@ export class MemStorage implements IStorage {
   }
 
   async getTerminationRequestsByUser(userId: number, userType: string): Promise<any[]> {
+    // Legacy method - use specific methods instead
     if (userType === 'owner') {
-      return this.terminationRequests.filter(req => req.requestedBy === userId)
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      return this.getTerminationRequestsByOwner(userId);
     } else {
-      // For tenants, find contracts where they are the tenant and get termination requests
-      const tenantContracts = this.contracts.filter(c => c.tenantId === userId);
-      const contractIds = tenantContracts.map(c => c.id);
-      return this.terminationRequests.filter(req => contractIds.includes(req.contractId))
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      return this.getTerminationRequestsByTenant(userId);
     }
+  }
+
+  // Returns termination requests created by tenants
+  // For /api/tenant-requests/:userId
+  async getTerminationRequestsByTenant(userId: number): Promise<any[]> {
+    // Find all contracts where the given userId is either the tenant (for sent requests)
+    // or the owner (for received requests from tenants)
+    const userContracts = this.contracts.filter(c => c.tenantId === userId || c.ownerId === userId);
+    const contractIds = userContracts.map(c => c.id);
+    
+    // Get termination requests for these contracts where a tenant was the requester
+    const tenantRequests = [];
+    
+    for (const request of this.terminationRequests) {
+      if (contractIds.includes(request.contractId)) {
+        // Find the contract to determine who is tenant/owner
+        const contract = this.contracts.find(c => c.id === request.contractId);
+        if (contract && contract.tenantId === request.requestedBy) {
+          tenantRequests.push(request);
+        }
+      }
+    }
+    
+    return tenantRequests.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  // Returns termination requests created by owners
+  // For /api/owner-requests/:userId  
+  async getTerminationRequestsByOwner(userId: number): Promise<any[]> {
+    // Find all contracts where the given userId is either the owner (for sent requests)
+    // or the tenant (for received requests from owners)
+    const userContracts = this.contracts.filter(c => c.ownerId === userId || c.tenantId === userId);
+    const contractIds = userContracts.map(c => c.id);
+    
+    // Get termination requests for these contracts where an owner was the requester
+    const ownerRequests = [];
+    
+    for (const request of this.terminationRequests) {
+      if (contractIds.includes(request.contractId)) {
+        // Find the contract to determine who is tenant/owner
+        const contract = this.contracts.find(c => c.id === request.contractId);
+        if (contract && contract.ownerId === request.requestedBy) {
+          ownerRequests.push(request);
+        }
+      }
+    }
+    
+    return ownerRequests.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
   async getTerminationRequest(id: number): Promise<any | undefined> {

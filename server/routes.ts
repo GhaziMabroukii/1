@@ -1376,7 +1376,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = parseInt(req.params.userId);
       
       console.log(`Fetching tenant requests for user ${userId}`);
-      const requests = await storage.getTerminationRequestsByUser(userId, 'tenant');
+      const requests = await storage.getTerminationRequestsByTenant(userId);
       res.json(requests);
     } catch (error) {
       console.error("Failed to fetch tenant requests:", error);
@@ -1390,7 +1390,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = parseInt(req.params.userId);
       
       console.log(`Fetching owner requests for user ${userId}`);
-      const requests = await storage.getTerminationRequestsByUser(userId, 'owner');
+      const requests = await storage.getTerminationRequestsByOwner(userId);
       res.json(requests);
     } catch (error) {
       console.error("Failed to fetch owner requests:", error);
@@ -1660,23 +1660,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       // Check if users already exist
-      const existingTenant = await storage.getUserByUsername('student_ahmed');
-      const existingOwner = await storage.getUserByUsername('owner_fatma');
+      const existingTenant = await storage.getUserByUsername('locataire@test.com');
+      const existingOwner = await storage.getUserByUsername('proprietaire@test.com');
       
       if (existingTenant && existingOwner) {
         return res.json({
           message: 'Test users already exist',
           users: [
-            { username: 'student_ahmed', password: 'tenant123', type: 'tenant', name: 'Ahmed Ben Ali' },
-            { username: 'owner_fatma', password: 'owner123', type: 'owner', name: 'Fatma Trabelsi' }
+            { username: 'locataire@test.com', password: 'password123', type: 'tenant', name: 'Ahmed Ben Ali' },
+            { username: 'proprietaire@test.com', password: 'password123', type: 'owner', name: 'Fatma Trabelsi' }
           ]
         });
       }
 
       // Create tenant user
-      const tenantPassword = await bcrypt.hash('tenant123', 10);
+      const tenantPassword = await bcrypt.hash('password123', 10);
       const tenant = await storage.createUser({
-        username: 'student_ahmed',
+        username: 'locataire@test.com',
         password: tenantPassword,
         email: 'ahmed.student@enis.tn',
         firstName: 'Ahmed',
@@ -1686,9 +1686,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Create owner user
-      const ownerPassword = await bcrypt.hash('owner123', 10);
+      const ownerPassword = await bcrypt.hash('password123', 10);
       const owner = await storage.createUser({
-        username: 'owner_fatma',
+        username: 'proprietaire@test.com',
         password: ownerPassword,
         email: 'fatma.immobilier@gmail.com',
         firstName: 'Fatma',
@@ -1749,8 +1749,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         message: 'Test users and properties created successfully',
         users: [
-          { username: 'student_ahmed', password: 'tenant123', type: 'tenant', name: 'Ahmed Ben Ali' },
-          { username: 'owner_fatma', password: 'owner123', type: 'owner', name: 'Fatma Trabelsi' }
+          { username: 'locataire@test.com', password: 'password123', type: 'tenant', name: 'Ahmed Ben Ali' },
+          { username: 'proprietaire@test.com', password: 'password123', type: 'owner', name: 'Fatma Trabelsi' }
         ],
         properties: [property1.title, property2.title]
       });
@@ -1767,8 +1767,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const tenant = await storage.getUserByUsername('student_ahmed');
-      const owner = await storage.getUserByUsername('owner_fatma');
+      const tenant = await storage.getUserByUsername('locataire@test.com');
+      const owner = await storage.getUserByUsername('proprietaire@test.com');
       
       res.json({
         tenant: tenant ? { id: tenant.id, username: tenant.username, userType: tenant.userType } : null,
