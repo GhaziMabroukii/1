@@ -6,6 +6,26 @@ import heroImage from "@/assets/hero-tunisia-modern.jpg";
 const HeroSection = () => {
   const [activeUserType, setActiveUserType] = useState<"student" | "family" | null>(null);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [searchLocation, setSearchLocation] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+
+  const handleSearchClick = () => {
+    const isAuth = localStorage.getItem("isAuthenticated");
+    const searchParams = new URLSearchParams();
+    
+    if (searchLocation) searchParams.set('location', searchLocation);
+    if (maxPrice) searchParams.set('maxPrice', maxPrice);
+    if (activeUserType) searchParams.set('userType', activeUserType);
+    
+    const queryString = searchParams.toString();
+    const url = queryString ? `/search?${queryString}` : '/search';
+    
+    if (isAuth) {
+      window.location.href = url;
+    } else {
+      window.location.href = "/login";
+    }
+  };
 
   return (
     <section className="relative min-h-[80vh] overflow-hidden">
@@ -66,18 +86,24 @@ const HeroSection = () => {
                     type="text"
                     placeholder="Où cherchez-vous ? (ex: Ariana, Tunis, Sousse...)"
                     className="glass-input w-full text-base"
+                    value={searchLocation}
+                    onChange={(e) => setSearchLocation(e.target.value)}
                   />
                 </div>
                 
                 {/* Price Range */}
                 <div className="lg:w-48">
-                  <select className="glass-input w-full text-base">
-                    <option>Prix max</option>
-                    <option>300 TND/mois</option>
-                    <option>500 TND/mois</option>
-                    <option>800 TND/mois</option>
-                    <option>1200 TND/mois</option>
-                    <option>2000+ TND/mois</option>
+                  <select 
+                    className="glass-input w-full text-base"
+                    value={maxPrice}
+                    onChange={(e) => setMaxPrice(e.target.value)}
+                  >
+                    <option value="">Prix max</option>
+                    <option value="300">300 TND/mois</option>
+                    <option value="500">500 TND/mois</option>
+                    <option value="800">800 TND/mois</option>
+                    <option value="1200">1200 TND/mois</option>
+                    <option value="2000">2000+ TND/mois</option>
                   </select>
                 </div>
 
@@ -85,14 +111,7 @@ const HeroSection = () => {
                   variant="default" 
                   size="lg" 
                   className="lg:w-auto"
-                  onClick={() => {
-                    const isAuth = localStorage.getItem("isAuthenticated");
-                    if (isAuth) {
-                      window.location.href = "/search";
-                    } else {
-                      window.location.href = "/login";
-                    }
-                  }}
+                  onClick={handleSearchClick}
                 >
                   <Search className="h-5 w-5 mr-2" />
                   Rechercher

@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   ArrowLeft,
   MapPin, 
@@ -22,42 +23,108 @@ const MapView = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [properties, setProperties] = useState<any[]>([]);
+  const [filteredProperties, setFilteredProperties] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [propertyType, setPropertyType] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [equipmentFilters, setEquipmentFilters] = useState({
+    furnished: false,
+    unfurnished: false,
+    parking: false
+  });
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
-  // Mock properties data with coordinates
-  const properties = [
-    {
-      id: 1,
-      title: "Studio moderne près INSAT",
-      price: 450,
-      location: "Ariana, Raoued",
-      coordinates: { lat: 36.8622, lng: 10.1958 },
-      type: "studio",
-      rating: 4.8,
-      reviews: 24
-    },
-    {
-      id: 2,
-      title: "Appartement 2 pièces",
-      price: 680,
-      location: "Tunis, Manouba",
-      coordinates: { lat: 36.8083, lng: 10.0963 },
-      type: "apartment",
-      rating: 4.5,
-      reviews: 18
-    },
-    {
-      id: 3,
-      title: "Villa avec jardin",
-      price: 1200,
-      location: "Sidi Bou Saïd",
-      coordinates: { lat: 36.8704, lng: 10.3472 },
-      type: "villa",
-      rating: 4.9,
-      reviews: 31
+  // Fetch real properties data
+  useEffect(() => {
+    fetchProperties();
+  }, []);
+
+  const fetchProperties = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch("/api/properties");
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch properties");
+      }
+      
+      const fetchedProperties = await response.json();
+      
+      // Process properties with map coordinates
+      const propertiesWithCoordinates = fetchedProperties.map((property: any) => ({
+        ...property,
+        coordinates: {
+          lat: parseFloat(property.latitude) || 36.8065,
+          lng: parseFloat(property.longitude) || 10.1815
+        },
+        location: property.address,
+        price: parseFloat(property.price) || 0,
+        rating: 4.5, // Default rating
+        reviews: Math.floor(Math.random() * 30) + 5 // Random review count
+      }));
+      
+      setProperties(propertiesWithCoordinates);
+      setFilteredProperties(propertiesWithCoordinates);
+    } catch (error) {
+      console.error("Error fetching properties:", error);
+      setProperties([]);
+      setFilteredProperties([]);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  // Filter properties based on filters
+  useEffect(() => {
+    let filtered = properties;
+
+    // Filter by search query
+    if (searchQuery) {
+      filtered = filtered.filter(property => 
+        property.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        property.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        property.address?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Filter by property type
+    if (propertyType) {
+      filtered = filtered.filter(property => property.type === propertyType);
+    }
+
+    // Filter by max price
+    if (maxPrice) {
+      const price = parseInt(maxPrice);
+      filtered = filtered.filter(property => parseFloat(property.price) <= price);
+    }
+
+    // Filter by equipment
+    if (equipmentFilters.furnished || equipmentFilters.unfurnished || equipmentFilters.parking) {
+      filtered = filtered.filter(property => {
+        const amenities = property.amenities || [];
+        
+        let matchesFurnishing = true;
+        if (equipmentFilters.furnished && equipmentFilters.unfurnished) {
+          // Both selected - show all
+          matchesFurnishing = true;
+        } else if (equipmentFilters.furnished) {
+          matchesFurnishing = amenities.includes('Meublé') || amenities.includes('furnished');
+        } else if (equipmentFilters.unfurnished) {
+          matchesFurnishing = !amenities.includes('Meublé') && !amenities.includes('furnished');
+        }
+
+        const hasParking = equipmentFilters.parking 
+          ? amenities.includes('Parking') || amenities.includes('parking')
+          : true;
+
+        return matchesFurnishing && hasParking;
+      });
+    }
+
+    setFilteredProperties(filtered);
+  }, [properties, searchQuery, propertyType, maxPrice, equipmentFilters]);
 
   const handlePropertyClick = (property: any) => {
     setSelectedProperty(property);
@@ -100,6 +167,9 @@ const MapView = () => {
               <MapPin className="h-8 w-8 text-primary" />
               <span>Carte Interactive</span>
             </h1>
+            <p className="text-muted-foreground mt-2">
+              {loading ? 'Chargement des propriétés...' : `${filteredProperties.length} propriété${filteredProperties.length > 1 ? 's' : ''} trouvée${filteredProperties.length > 1 ? 's' : ''}`}
+            </p>
           </div>
         </div>
 
@@ -127,39 +197,67 @@ const MapView = () => {
             
             {showFilters && (
               <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Select>
+                <Select value={propertyType} onValueChange={setPropertyType}>
                   <SelectTrigger>
                     <SelectValue placeholder="Type de bien" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="">Tous types</SelectItem>
                     <SelectItem value="studio">Studio</SelectItem>
                     <SelectItem value="apartment">Appartement</SelectItem>
                     <SelectItem value="villa">Villa</SelectItem>
-                    <SelectItem value="vacation">Maison de vacances</SelectItem>
+                    <SelectItem value="maison">Maison</SelectItem>
                   </SelectContent>
                 </Select>
                 
-                <Select>
+                <Select value={maxPrice} onValueChange={setMaxPrice}>
                   <SelectTrigger>
                     <SelectValue placeholder="Prix max" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="">Tous prix</SelectItem>
                     <SelectItem value="500">Jusqu'à 500 TND</SelectItem>
                     <SelectItem value="1000">Jusqu'à 1000 TND</SelectItem>
                     <SelectItem value="1500">Jusqu'à 1500 TND</SelectItem>
+                    <SelectItem value="2000">Jusqu'à 2000 TND</SelectItem>
                   </SelectContent>
                 </Select>
                 
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Surface" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="50">Jusqu'à 50m²</SelectItem>
-                    <SelectItem value="100">Jusqu'à 100m²</SelectItem>
-                    <SelectItem value="150">Plus de 150m²</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div>
+                  <label className="text-sm font-semibold mb-2 block">Équipements</label>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="map-furnished" 
+                        checked={equipmentFilters.furnished}
+                        onCheckedChange={(checked) => 
+                          setEquipmentFilters(prev => ({ ...prev, furnished: checked === true }))
+                        }
+                      />
+                      <label htmlFor="map-furnished" className="text-sm">🛏️ Meublé</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="map-unfurnished" 
+                        checked={equipmentFilters.unfurnished}
+                        onCheckedChange={(checked) => 
+                          setEquipmentFilters(prev => ({ ...prev, unfurnished: checked === true }))
+                        }
+                      />
+                      <label htmlFor="map-unfurnished" className="text-sm">🏠 Non meublé</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="map-parking" 
+                        checked={equipmentFilters.parking}
+                        onCheckedChange={(checked) => 
+                          setEquipmentFilters(prev => ({ ...prev, parking: checked === true }))
+                        }
+                      />
+                      <label htmlFor="map-parking" className="text-sm">🚗 Parking</label>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </CardContent>
@@ -174,7 +272,7 @@ const MapView = () => {
                   <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-accent/20"></div>
                   
                   {/* Map Markers */}
-                  {properties.map((property) => (
+                  {filteredProperties.map((property) => (
                     <div
                       key={property.id}
                       className="absolute cursor-pointer transform -translate-x-1/2 -translate-y-1/2 z-10"

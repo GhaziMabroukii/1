@@ -41,6 +41,11 @@ const Search = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [userLocation, setUserLocation] = useState<GeolocationPosition | null>(null);
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [equipmentFilters, setEquipmentFilters] = useState({
+    furnished: false,
+    unfurnished: false,
+    parking: false
+  });
   const [, navigate] = useLocation();
 
   const [properties, setProperties] = useState<any[]>([]);
@@ -48,6 +53,23 @@ const Search = () => {
 
   useEffect(() => {
     fetchProperties();
+    
+    // Handle URL parameters from HeroSection search
+    const urlParams = new URLSearchParams(window.location.search);
+    const locationParam = urlParams.get('location');
+    const maxPriceParam = urlParams.get('maxPrice');
+    const userTypeParam = urlParams.get('userType');
+    
+    if (locationParam) {
+      setSearchQuery(locationParam);
+    }
+    if (maxPriceParam) {
+      const price = parseInt(maxPriceParam);
+      setPriceRange([0, price]);
+    }
+    if (userTypeParam) {
+      setCategoryFilter(userTypeParam === 'student' ? 'student' : userTypeParam === 'family' ? 'family' : '');
+    }
   }, []);
 
   const fetchProperties = async () => {
@@ -170,17 +192,22 @@ const Search = () => {
   const handleSearch = () => {
     let filtered = properties;
 
+    // Text search
     if (searchQuery) {
       filtered = filtered.filter(p => 
         p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.location.toLowerCase().includes(searchQuery.toLowerCase())
+        p.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.address?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
+    // Property type filter
     if (propertyType && propertyType !== "all") {
       filtered = filtered.filter(p => p.type === propertyType);
     }
 
+    // Category filter
     if (categoryFilter && categoryFilter !== "all") {
       filtered = filtered.filter(p => 
         p.categories?.includes(categoryFilter) ||
@@ -189,7 +216,29 @@ const Search = () => {
       );
     }
 
-    filtered = filtered.filter(p => parseFloat(p.price) >= priceRange[0] && parseFloat(p.price) <= priceRange[1]);
+    // Price range filter
+    filtered = filtered.filter(p => {
+      const price = parseFloat(p.price) || 0;
+      return price >= priceRange[0] && price <= priceRange[1];
+    });
+
+    // Equipment filters
+    if (equipmentFilters.furnished && equipmentFilters.unfurnished) {
+      // Both selected means show all (no filter)
+    } else if (equipmentFilters.furnished) {
+      filtered = filtered.filter(p => p.furnished === true);
+    } else if (equipmentFilters.unfurnished) {
+      filtered = filtered.filter(p => p.furnished === false);
+    }
+
+    if (equipmentFilters.parking) {
+      filtered = filtered.filter(p => 
+        p.amenities?.some((amenity: string) => 
+          amenity.toLowerCase().includes('parking') || 
+          amenity.toLowerCase().includes('garage')
+        )
+      );
+    }
 
     setFilteredProperties(filtered);
   };
@@ -273,7 +322,7 @@ const Search = () => {
 
   useEffect(() => {
     handleSearch();
-  }, [searchQuery, propertyType, categoryFilter, priceRange]);
+  }, [searchQuery, propertyType, categoryFilter, priceRange, equipmentFilters]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
@@ -372,15 +421,33 @@ const Search = () => {
                   <label className="text-sm font-semibold mb-3 block text-gray-700">Équipements</label>
                   <div className="space-y-3">
                     <div className="flex items-center space-x-2">
-                      <Checkbox id="wifi" />
-                      <label htmlFor="wifi" className="text-sm">📶 Wi-Fi inclus</label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox id="furnished" />
+                      <Checkbox 
+                        id="furnished" 
+                        checked={equipmentFilters.furnished}
+                        onCheckedChange={(checked) => 
+                          setEquipmentFilters(prev => ({ ...prev, furnished: checked === true }))
+                        }
+                      />
                       <label htmlFor="furnished" className="text-sm">🛏️ Meublé</label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Checkbox id="parking" />
+                      <Checkbox 
+                        id="unfurnished" 
+                        checked={equipmentFilters.unfurnished}
+                        onCheckedChange={(checked) => 
+                          setEquipmentFilters(prev => ({ ...prev, unfurnished: checked === true }))
+                        }
+                      />
+                      <label htmlFor="unfurnished" className="text-sm">🏠 Non meublé</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="parking" 
+                        checked={equipmentFilters.parking}
+                        onCheckedChange={(checked) => 
+                          setEquipmentFilters(prev => ({ ...prev, parking: checked === true }))
+                        }
+                      />
                       <label htmlFor="parking" className="text-sm">🚗 Parking</label>
                     </div>
                   </div>
