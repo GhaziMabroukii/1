@@ -19,7 +19,21 @@ import {
   Car,
   Bed,
   Bath,
-  Square
+  Square,
+  GraduationCap,
+  Users,
+  Waves,
+  Mountain,
+  Tent,
+  Sofa,
+  ChefHat,
+  Tv,
+  Shirt,
+  Navigation,
+  Map,
+  Type,
+  Heart,
+  Star
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -35,21 +49,32 @@ const AddProperty = () => {
     bathrooms: "",
     address: "",
     location: { lat: 0, lng: 0 },
+    locationMethod: "" as "current" | "map" | "text",
     amenities: [] as string[],
     rules: [] as string[],
     images: [] as File[],
+    category: "" as "student" | "family" | "summer" | "mountain" | "camping",
+    categoryDetails: {
+      faculty: "",
+      distanceToFaculty: "",
+      distanceUnit: "km" as "m" | "km" | "min_walk" | "min_car",
+      beach: "",
+      mountainInfo: "",
+      campingInfo: ""
+    },
+    furnished: false,
+    furniture: [] as Array<{item: string, condition: "excellent" | "bon" | "acceptable"}>,
     availability: {
       available: true,
       availableFrom: "",
       minimumStay: "",
       maximumStay: ""
     },
-        pricing: {
-          deposit: "",
-          fees: "",
-          utilities: "",
-          utilitiesIncluded: false
-        }
+    pricing: {
+      deposit: "",
+      utilities: "",
+      utilitiesIncluded: false
+    }
   });
 
   const [newRule, setNewRule] = useState("");
@@ -79,7 +104,6 @@ const AddProperty = () => {
 
   const availableAmenities = [
     { id: "wifi", label: "Wi-Fi gratuit", icon: <Wifi className="h-4 w-4" /> },
-    { id: "furnished", label: "Meublé", icon: <Home className="h-4 w-4" /> },
     { id: "parking", label: "Parking", icon: <Car className="h-4 w-4" /> },
     { id: "AC", label: "Climatisation", icon: <span>❄️</span> },
     { id: "washing_machine", label: "Lave-linge", icon: <span>🫧</span> },
@@ -87,7 +111,27 @@ const AddProperty = () => {
     { id: "security", label: "Sécurité", icon: <span>🔒</span> },
     { id: "elevator", label: "Ascenseur", icon: <span>🛗</span> },
     { id: "balcony", label: "Balcon", icon: <span>🏠</span> },
-    { id: "kitchen", label: "Cuisine équipée", icon: <span>🍳</span> }
+    { id: "kitchen", label: "Cuisine équipée", icon: <ChefHat className="h-4 w-4" /> }
+  ];
+
+  const propertyCategories = [
+    { id: "student", label: "Étudiant", icon: <GraduationCap className="h-5 w-5" />, description: "Logement pour étudiants" },
+    { id: "family", label: "Famille", icon: <Users className="h-5 w-5" />, description: "Logement familial" },
+    { id: "summer", label: "Maison d'été", icon: <Waves className="h-5 w-5" />, description: "Résidence de vacances" },
+    { id: "mountain", label: "Montagne", icon: <Mountain className="h-5 w-5" />, description: "Logement en montagne" },
+    { id: "camping", label: "Camping", icon: <Tent className="h-5 w-5" />, description: "Emplacement camping" }
+  ];
+
+  const furnitureItems = [
+    { id: "bed", label: "Lit", icon: <Bed className="h-4 w-4" /> },
+    { id: "sofa", label: "Canapé", icon: <Sofa className="h-4 w-4" /> },
+    { id: "table", label: "Table", icon: <span>🪑</span> },
+    { id: "chairs", label: "Chaises", icon: <span>🪑</span> },
+    { id: "wardrobe", label: "Armoire", icon: <Shirt className="h-4 w-4" /> },
+    { id: "tv", label: "Télévision", icon: <Tv className="h-4 w-4" /> },
+    { id: "fridge", label: "Réfrigérateur", icon: <span>🧊</span> },
+    { id: "microwave", label: "Micro-ondes", icon: <span>📱</span> },
+    { id: "desk", label: "Bureau", icon: <span>🖥️</span> }
   ];
 
   const propertyTypes = [
@@ -157,29 +201,63 @@ const AddProperty = () => {
     }));
   };
 
-  const handleLocationClick = () => {
-    // Mock location picker - in real app would open map
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          handleInputChange('location', {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-          toast({
-            title: "Localisation mise à jour",
-            description: "Position actuelle utilisée",
-          });
-        },
-        () => {
-          toast({
-            title: "Erreur de géolocalisation",
-            description: "Impossible d'obtenir votre position",
-            variant: "destructive",
-          });
-        }
-      );
+  const handleLocationMethod = (method: "current" | "map" | "text") => {
+    handleInputChange('locationMethod', method);
+    
+    if (method === "current") {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            handleInputChange('location', {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            });
+            toast({
+              title: "Position définie",
+              description: "Votre position actuelle a été utilisée",
+            });
+          },
+          () => {
+            toast({
+              title: "Erreur de géolocalisation",
+              description: "Impossible d'obtenir votre position actuelle",
+              variant: "destructive",
+            });
+          }
+        );
+      }
+    } else if (method === "map") {
+      // In a real app, this would open a map picker
+      toast({
+        title: "Sélection sur carte",
+        description: "Fonctionnalité de carte à venir",
+      });
     }
+  };
+
+  const addFurniture = (itemId: string) => {
+    if (!formData.furniture.find(f => f.item === itemId)) {
+      setFormData(prev => ({
+        ...prev,
+        furniture: [...prev.furniture, { item: itemId, condition: "bon" }]
+      }));
+    }
+  };
+
+  const removeFurniture = (itemId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      furniture: prev.furniture.filter(f => f.item !== itemId)
+    }));
+  };
+
+  const updateFurnitureCondition = (itemId: string, condition: "excellent" | "bon" | "acceptable") => {
+    setFormData(prev => ({
+      ...prev,
+      furniture: prev.furniture.map(f => 
+        f.item === itemId ? { ...f, condition } : f
+      )
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -213,19 +291,27 @@ const AddProperty = () => {
         title: formData.title,
         description: formData.description,
         type: formData.type,
-        price: formData.price, // Keep as string for decimal type
+        price: formData.price,
         priceType: formData.priceType,
         surface: formData.surface ? parseInt(formData.surface) : null,
         rooms: formData.rooms ? parseInt(formData.rooms) : null,
         bathrooms: formData.bathrooms ? parseInt(formData.bathrooms) : null,
         address: formData.address,
+        latitude: formData.location.lat !== 0 ? formData.location.lat.toString() : null,
+        longitude: formData.location.lng !== 0 ? formData.location.lng.toString() : null,
         amenities: formData.amenities.length > 0 ? formData.amenities : null,
         rules: formData.rules.length > 0 ? formData.rules : null,
-        deposit: formData.pricing.deposit || null, // Keep as string for decimal type
-        fees: formData.pricing.fees || null, // Keep as string for decimal type
+        categories: formData.category ? [formData.category] : null,
+        deposit: formData.pricing.deposit || null,
         utilities: formData.pricing.utilities || null,
         utilitiesIncluded: formData.pricing.utilitiesIncluded,
-        status: "Disponible"
+        status: "Disponible",
+        // Add category-specific details to description
+        geographicHighlight: formData.category === 'student' && formData.categoryDetails.faculty ? 
+          `À ${formData.categoryDetails.distanceToFaculty}${formData.categoryDetails.distanceUnit === 'min_walk' ? ' min à pied' : formData.categoryDetails.distanceUnit === 'min_car' ? ' min en voiture' : formData.categoryDetails.distanceUnit} de ${formData.categoryDetails.faculty}` :
+          formData.category === 'summer' && formData.categoryDetails.beach ? `Près de la plage ${formData.categoryDetails.beach}` :
+          formData.category === 'mountain' && formData.categoryDetails.mountainInfo ? formData.categoryDetails.mountainInfo :
+          formData.category === 'camping' && formData.categoryDetails.campingInfo ? formData.categoryDetails.campingInfo : null
       };
 
       console.log("Property data being sent to API:", JSON.stringify(propertyData, null, 2));
@@ -373,12 +459,179 @@ const AddProperty = () => {
               </CardContent>
             </Card>
 
+            {/* Category Selection */}
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle>Catégorie du bien</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {propertyCategories.map((category) => (
+                    <button
+                      key={category.id}
+                      type="button"
+                      onClick={() => handleInputChange('category', category.id)}
+                      className={`p-4 border-2 rounded-lg transition-all hover:shadow-md ${
+                        formData.category === category.id
+                          ? "border-primary bg-primary/5"
+                          : "border-gray-200 hover:border-primary/50"
+                      }`}
+                    >
+                      <div className="flex flex-col items-center text-center space-y-2">
+                        <div className={`p-2 rounded-full ${
+                          formData.category === category.id ? "bg-primary text-white" : "bg-gray-100"
+                        }`}>
+                          {category.icon}
+                        </div>
+                        <h3 className="font-semibold">{category.label}</h3>
+                        <p className="text-xs text-muted-foreground">{category.description}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Category-specific fields */}
+                {formData.category === 'student' && (
+                  <div className="mt-6 p-4 bg-blue-50 rounded-lg space-y-4">
+                    <h4 className="font-semibold text-blue-800 flex items-center">
+                      <GraduationCap className="h-4 w-4 mr-2" />
+                      Informations étudiant
+                    </h4>
+                    <div>
+                      <Label htmlFor="faculty">Faculté/École la plus proche</Label>
+                      <Input
+                        id="faculty"
+                        value={formData.categoryDetails.faculty}
+                        onChange={(e) => handleInputChange('categoryDetails.faculty', e.target.value)}
+                        placeholder="INSAT, ENIT, FST..."
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label htmlFor="distance">Distance</Label>
+                        <Input
+                          id="distance"
+                          value={formData.categoryDetails.distanceToFaculty}
+                          onChange={(e) => handleInputChange('categoryDetails.distanceToFaculty', e.target.value)}
+                          placeholder="10"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="unit">Unité</Label>
+                        <Select value={formData.categoryDetails.distanceUnit} onValueChange={(value) => handleInputChange('categoryDetails.distanceUnit', value)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="m">mètres</SelectItem>
+                            <SelectItem value="km">kilomètres</SelectItem>
+                            <SelectItem value="min_walk">min à pied</SelectItem>
+                            <SelectItem value="min_car">min en voiture</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {formData.category === 'summer' && (
+                  <div className="mt-6 p-4 bg-cyan-50 rounded-lg space-y-4">
+                    <h4 className="font-semibold text-cyan-800 flex items-center">
+                      <Waves className="h-4 w-4 mr-2" />
+                      Informations vacances
+                    </h4>
+                    <div>
+                      <Label htmlFor="beach">Plage la plus proche</Label>
+                      <Input
+                        id="beach"
+                        value={formData.categoryDetails.beach}
+                        onChange={(e) => handleInputChange('categoryDetails.beach', e.target.value)}
+                        placeholder="Sidi Bou Said, Hammamet, Sousse..."
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {formData.category === 'mountain' && (
+                  <div className="mt-6 p-4 bg-green-50 rounded-lg space-y-4">
+                    <h4 className="font-semibold text-green-800 flex items-center">
+                      <Mountain className="h-4 w-4 mr-2" />
+                      Informations montagne
+                    </h4>
+                    <div>
+                      <Label htmlFor="mountainInfo">Informations sur la région</Label>
+                      <Input
+                        id="mountainInfo"
+                        value={formData.categoryDetails.mountainInfo}
+                        onChange={(e) => handleInputChange('categoryDetails.mountainInfo', e.target.value)}
+                        placeholder="Région de Zaghouan, vue sur les montagnes..."
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {formData.category === 'camping' && (
+                  <div className="mt-6 p-4 bg-amber-50 rounded-lg space-y-4">
+                    <h4 className="font-semibold text-amber-800 flex items-center">
+                      <Tent className="h-4 w-4 mr-2" />
+                      Informations camping
+                    </h4>
+                    <div>
+                      <Label htmlFor="campingInfo">Détails du camping</Label>
+                      <Input
+                        id="campingInfo"
+                        value={formData.categoryDetails.campingInfo}
+                        onChange={(e) => handleInputChange('categoryDetails.campingInfo', e.target.value)}
+                        placeholder="Emplacement avec électricité, sanitaires..."
+                      />
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Location */}
             <Card className="glass-card">
               <CardHeader>
                 <CardTitle>Localisation</CardTitle>
+                <p className="text-sm text-muted-foreground">Choisissez la méthode de localisation</p>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Button
+                    type="button"
+                    variant={formData.locationMethod === 'current' ? 'default' : 'outline'}
+                    onClick={() => handleLocationMethod('current')}
+                    className="h-auto p-4 flex flex-col items-center space-y-2"
+                  >
+                    <Navigation className="h-6 w-6" />
+                    <span className="text-sm font-medium">Position actuelle</span>
+                    <span className="text-xs text-center">Utiliser ma position</span>
+                  </Button>
+                  
+                  <Button
+                    type="button"
+                    variant={formData.locationMethod === 'map' ? 'default' : 'outline'}
+                    onClick={() => handleLocationMethod('map')}
+                    className="h-auto p-4 flex flex-col items-center space-y-2"
+                  >
+                    <Map className="h-6 w-6" />
+                    <span className="text-sm font-medium">Sur la carte</span>
+                    <span className="text-xs text-center">Pointer sur carte</span>
+                  </Button>
+                  
+                  <Button
+                    type="button"
+                    variant={formData.locationMethod === 'text' ? 'default' : 'outline'}
+                    onClick={() => handleLocationMethod('text')}
+                    className="h-auto p-4 flex flex-col items-center space-y-2"
+                  >
+                    <Type className="h-6 w-6" />
+                    <span className="text-sm font-medium">Saisie manuelle</span>
+                    <span className="text-xs text-center">Écrire l'adresse</span>
+                  </Button>
+                </div>
+
                 <div>
                   <Label htmlFor="address">Adresse complète *</Label>
                   <Input
@@ -390,27 +643,75 @@ const AddProperty = () => {
                   />
                 </div>
 
-                <div className="space-y-4">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={handleLocationClick}
-                    className="w-full"
-                  >
-                    <MapPin className="h-4 w-4 mr-2" />
-                    Définir la position exacte
-                  </Button>
-                  
-                  {formData.location.lat !== 0 && (
-                    <p className="text-sm text-success">
-                      ✓ Position définie: {formData.location.lat.toFixed(4)}, {formData.location.lng.toFixed(4)}
+                {formData.location.lat !== 0 && (
+                  <div className="p-3 bg-green-50 rounded-lg">
+                    <p className="text-sm text-green-700 flex items-center">
+                      <MapPin className="h-4 w-4 mr-2" />
+                      ✓ Position GPS définie: {formData.location.lat.toFixed(4)}, {formData.location.lng.toFixed(4)}
                     </p>
-                  )}
-                  
-                  <div className="text-xs text-muted-foreground">
-                    Note: La position sur carte est prioritaire si elle est définie. Sinon, l'adresse manuelle est utilisée.
                   </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Furnished Section */}
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle>Ameublement</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="furnished"
+                    checked={formData.furnished}
+                    onCheckedChange={(checked) => handleInputChange('furnished', checked)}
+                  />
+                  <Label htmlFor="furnished" className="flex items-center space-x-2">
+                    <Home className="h-4 w-4" />
+                    <span>Bien meublé</span>
+                  </Label>
                 </div>
+
+                {formData.furnished && (
+                  <div className="space-y-4 p-4 bg-orange-50 rounded-lg">
+                    <h4 className="font-semibold text-orange-800">Sélectionner les meubles (optionnel)</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {furnitureItems.map((item) => {
+                        const isSelected = formData.furniture.find(f => f.item === item.id);
+                        return (
+                          <div key={item.id} className="space-y-2">
+                            <button
+                              type="button"
+                              onClick={() => isSelected ? removeFurniture(item.id) : addFurniture(item.id)}
+                              className={`w-full p-2 border rounded-lg text-sm flex items-center space-x-2 transition-colors ${
+                                isSelected ? "border-orange-500 bg-orange-100" : "border-gray-200 hover:border-orange-300"
+                              }`}
+                            >
+                              {item.icon}
+                              <span>{item.label}</span>
+                              {isSelected && <Heart className="h-3 w-3 text-orange-600 ml-auto" />}
+                            </button>
+                            {isSelected && (
+                              <Select
+                                value={isSelected.condition}
+                                onValueChange={(value) => updateFurnitureCondition(item.id, value as any)}
+                              >
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="excellent">🌟 Excellent</SelectItem>
+                                  <SelectItem value="bon">👍 Bon état</SelectItem>
+                                  <SelectItem value="acceptable">⚠️ Acceptable</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -474,41 +775,69 @@ const AddProperty = () => {
               </CardContent>
             </Card>
 
-            {/* Images */}
+            {/* Images and Videos */}
             <Card className="glass-card">
               <CardHeader>
-                <CardTitle>Photos</CardTitle>
+                <CardTitle>Photos & Vidéos</CardTitle>
+                <p className="text-sm text-muted-foreground">Ajoutez jusqu'à 10 photos/vidéos pour mettre en valeur votre bien</p>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="images">Ajouter des photos</Label>
-                  <Input
-                    id="images"
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                  />
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-primary transition-colors">
+                  <div className="text-center space-y-4">
+                    <Upload className="h-10 w-10 mx-auto text-gray-400" />
+                    <div>
+                      <Label htmlFor="images" className="text-base font-medium cursor-pointer hover:text-primary">
+                        Cliquez pour ajouter des fichiers
+                      </Label>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        PNG, JPG, MP4 jusqu'à 50MB chacun
+                      </p>
+                    </div>
+                    <Input
+                      id="images"
+                      type="file"
+                      multiple
+                      accept="image/*,video/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                  </div>
                 </div>
 
                 {formData.images.length > 0 && (
-                  <div className="grid grid-cols-3 gap-4">
-                    {formData.images.map((image, index) => (
-                      <div key={index} className="relative">
-                        <div className="aspect-square bg-muted rounded-lg flex items-center justify-center">
-                          <Upload className="h-6 w-6 text-muted-foreground" />
+                  <div>
+                    <h4 className="font-medium mb-3 flex items-center">
+                      <Upload className="h-4 w-4 mr-2" />
+                      Fichiers ajoutés ({formData.images.length}/10)
+                    </h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {formData.images.map((file, index) => (
+                        <div key={index} className="relative group">
+                          <div className="aspect-square bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg flex flex-col items-center justify-center p-4 border">
+                            {file.type.startsWith('image/') ? (
+                              <span className="text-2xl">🖼️</span>
+                            ) : (
+                              <span className="text-2xl">🎥</span>
+                            )}
+                            <span className="text-xs text-center mt-2 font-medium truncate w-full">
+                              {file.name}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {(file.size / 1024 / 1024).toFixed(1)} MB
+                            </span>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => removeImage(index)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
                         </div>
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          className="absolute -top-2 -right-2"
-                          onClick={() => removeImage(index)}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 )}
               </CardContent>
@@ -518,89 +847,85 @@ const AddProperty = () => {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Pricing */}
-            <Card className="glass-card">
+            <Card className="glass-card border-2 border-primary/20">
               <CardHeader>
-                <CardTitle>Tarification</CardTitle>
+                <CardTitle className="flex items-center space-x-2">
+                  <span className="text-2xl">💰</span>
+                  <span>Tarification</span>
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label htmlFor="price">Prix *</Label>
-                    <Input
-                      id="price"
-                      type="number"
-                      value={formData.price}
-                      onChange={(e) => handleInputChange('price', e.target.value)}
-                      placeholder="450"
-                      required
-                    />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="price" className="text-base font-medium">Prix principal *</Label>
+                    <div className="relative">
+                      <Input
+                        id="price"
+                        type="number"
+                        value={formData.price}
+                        onChange={(e) => handleInputChange('price', e.target.value)}
+                        placeholder="450"
+                        required
+                        className="text-lg font-semibold pr-12"
+                      />
+                      <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-muted-foreground">TND</span>
+                    </div>
                   </div>
-                  <div>
-                    <Label htmlFor="priceType">Période</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="priceType" className="text-base font-medium">Période</Label>
                     <Select value={formData.priceType} onValueChange={(value) => handleInputChange('priceType', value)}>
-                      <SelectTrigger>
+                      <SelectTrigger className="text-lg">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="jour">Jour</SelectItem>
-                        <SelectItem value="semaine">Semaine</SelectItem>
-                        <SelectItem value="mois">Mois</SelectItem>
-                        <SelectItem value="année">Année</SelectItem>
+                        <SelectItem value="jour">Par jour</SelectItem>
+                        <SelectItem value="semaine">Par semaine</SelectItem>
+                        <SelectItem value="mois">Par mois</SelectItem>
+                        <SelectItem value="année">Par année</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="deposit">Caution (TND)</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="deposit" className="text-base font-medium flex items-center space-x-2">
+                    <span>🛡️</span>
+                    <span>Caution (TND)</span>
+                  </Label>
                   <Input
                     id="deposit"
                     type="number"
                     value={formData.pricing.deposit}
                     onChange={(e) => handleInputChange('pricing.deposit', e.target.value)}
-                    placeholder="450"
+                    placeholder="200-400"
+                    className="text-lg"
                   />
+                  <p className="text-xs text-muted-foreground">Montant remboursé en fin de location</p>
                 </div>
 
-                <div>
-                  <Label htmlFor="fees">Frais de dossier (TND)</Label>
-                  <Input
-                    id="fees"
-                    type="number"
-                    value={formData.pricing.fees}
-                    onChange={(e) => handleInputChange('pricing.fees', e.target.value)}
-                    placeholder="50"
-                  />
-                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-3">
+                    <Checkbox
+                      id="utilitiesIncluded"
+                      checked={formData.pricing.utilitiesIncluded}
+                      onCheckedChange={(checked) => handleInputChange('pricing.utilitiesIncluded', checked)}
+                    />
+                    <Label htmlFor="utilitiesIncluded" className="text-base font-medium flex items-center space-x-2">
+                      <span>⚡</span>
+                      <span>Charges incluses dans le prix</span>
+                    </Label>
+                  </div>
 
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="utilitiesIncluded"
-                    checked={formData.pricing.utilitiesIncluded}
-                    onCheckedChange={(checked) => handleInputChange('pricing.utilitiesIncluded', checked)}
-                  />
-                  <Label htmlFor="utilitiesIncluded">Charges incluses</Label>
-                </div>
-
-                <div>
-                  <Label htmlFor="fees">Frais de dossier (TND)</Label>
-                  <Input
-                    id="fees"
-                    type="number"
-                    value={formData.pricing.fees}
-                    onChange={(e) => handleInputChange('pricing.fees', e.target.value)}
-                    placeholder="50"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="utilities">Charges incluses</Label>
-                  <Input
-                    id="utilities"
-                    value={formData.pricing.utilities}
-                    onChange={(e) => handleInputChange('pricing.utilities', e.target.value)}
-                    placeholder="Électricité incluse jusqu'à 100 TND/mois"
-                  />
+                  <div>
+                    <Label htmlFor="utilities" className="text-sm font-medium">Détails des charges</Label>
+                    <Input
+                      id="utilities"
+                      value={formData.pricing.utilities}
+                      onChange={(e) => handleInputChange('pricing.utilities', e.target.value)}
+                      placeholder="Ex: Électricité incluse jusqu'à 100 TND/mois, eau comprise..."
+                      className="mt-1"
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>
