@@ -872,6 +872,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get termination request data for PDF generation
+  app.get('/api/contracts/:id/termination-data', requireAuth, async (req, res) => {
+    try {
+      const contractId = parseInt(req.params.id);
+      
+      // Get contract details
+      const contract = await storage.getContract(contractId);
+      if (!contract) {
+        return res.status(404).json({ error: 'Contract not found' });
+      }
+
+      // Get termination request
+      const terminationRequests = await storage.getContractTerminationRequests(contractId);
+      const terminationRequest = terminationRequests[0];
+      
+      if (!terminationRequest) {
+        return res.status(404).json({ error: 'No termination request found' });
+      }
+
+      // Get user details
+      const owner = await storage.getUser(contract.ownerId);
+      const tenant = await storage.getUser(contract.tenantId);
+      
+      // Get property details
+      const property = await storage.getProperty(contract.propertyId);
+      
+      const terminationData = {
+        contract: {
+          id: contract.id,
+          propertyTitle: contract.contractData?.propertyTitle || 'N/A',
+          propertyAddress: contract.contractData?.propertyAddress || 'N/A',
+          monthlyRent: contract.contractData?.monthlyRent || 'N/A',
+          startDate: contract.contractData?.startDate || 'N/A',
+          endDate: contract.contractData?.endDate || 'N/A',
+          terminatedAt: contract.terminatedAt || new Date(),
+          terminationReason: contract.terminationReason || 'N/A'
+        },
+        termination: {
+          id: terminationRequest.id,
+          reason: terminationRequest.reason,
+          detailedReason: terminationRequest.detailedReason,
+          terminationType: terminationRequest.terminationType,
+          proposedTerms: terminationRequest.proposedTerms,
+          status: terminationRequest.status,
+          ownerPasswordConfirmed: terminationRequest.ownerPasswordConfirmed,
+          tenantPasswordConfirmed: terminationRequest.tenantPasswordConfirmed,
+          ownerSignature: terminationRequest.ownerSignature,
+          tenantSignature: terminationRequest.tenantSignature,
+          ownerSignedAt: terminationRequest.ownerSignedAt,
+          tenantSignedAt: terminationRequest.tenantSignedAt,
+          terminationEffectiveDate: terminationRequest.terminationEffectiveDate,
+          createdAt: terminationRequest.createdAt,
+          updatedAt: terminationRequest.updatedAt
+        },
+        parties: {
+          owner: {
+            name: `${owner?.firstName || ''} ${owner?.lastName || ''}`.trim() || 'N/A',
+            email: owner?.email || 'N/A'
+          },
+          tenant: {
+            name: `${tenant?.firstName || ''} ${tenant?.lastName || ''}`.trim() || 'N/A',
+            email: tenant?.email || 'N/A'
+          }
+        },
+        property: {
+          title: property?.title || 'N/A',
+          address: property?.address || 'N/A'
+        }
+      };
+      
+      res.json(terminationData);
+    } catch (error) {
+      console.error('Error fetching termination data:', error);
+      res.status(500).json({ error: 'Failed to fetch termination data' });
+    }
+  });
+
   // Submit digital signature - requires authentication
   app.post('/api/contracts/:id/submit-termination-signature', requireAuth, async (req, res) => {
     try {
@@ -967,16 +1044,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Notify both parties of completion
             await storage.createNotification({
               userId: contract.ownerId,
-              title: "Contrat résilié",
-              message: "Le contrat a été officiellement résilié. Toutes les signatures ont été complétées.",
+              title: "🎉 Contrat résilié avec succès",
+              message: "Le contrat a été officiellement terminé. Toutes les signatures ont été complétées. Vous pouvez télécharger le PDF de résiliation.",
               type: "contract_terminated",
               relatedId: contractId,
             });
             
             await storage.createNotification({
               userId: contract.tenantId,
-              title: "Contrat résilié", 
-              message: "Le contrat a été officiellement résilié. Toutes les signatures ont été complétées.",
+              title: "🎉 Contrat résilié avec succès", 
+              message: "Le contrat a été officiellement terminé. Toutes les signatures ont été complétées. Vous pouvez télécharger le PDF de résiliation.",
               type: "contract_terminated",
               relatedId: contractId,
             });
@@ -990,6 +1067,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
             finalTerms: terminationRequest.proposedTerms,
             updatedAt: new Date()
           });
+          
+          // Update contract status to terminated in storage
+          await storage.updateContract(contractId, {
+            status: 'terminated',
+            terminationReason: terminationRequest.reason,
+            terminatedBy: terminationRequest.requestedBy,
+            terminatedAt: new Date(),
+            updatedAt: new Date()
+          });
+          
+          // Get contract details for property update and notifications
+          const contract = await storage.getContract(contractId);
+          if (contract) {
+            // Update property status to available
+            await storage.updatePropertyStatus(contract.propertyId, 'Disponible');
+            
+            // Notify both parties of completion with sweet alert style
+            await storage.createNotification({
+              userId: contract.ownerId,
+              title: "🎉 Contrat résilié avec succès",
+              message: "Le contrat a été officiellement terminé. La propriété est maintenant disponible. Vous pouvez télécharger le PDF de résiliation.",
+              type: "contract_terminated_success",
+              relatedId: contractId,
+            });
+            
+            await storage.createNotification({
+              userId: contract.tenantId,
+              title: "🎉 Contrat résilié avec succès", 
+              message: "Le contrat a été officiellement terminé. Toutes les signatures ont été complétées. Vous pouvez télécharger le PDF de résiliation.",
+              type: "contract_terminated_success",
+              relatedId: contractId,
+            });
+          }
         }
       }
 

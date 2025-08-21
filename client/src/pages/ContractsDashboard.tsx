@@ -9,7 +9,9 @@ import { ContractStatusBadge } from "@/components/ContractStatusBadge";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { FileText, Plus, Eye, Edit, Clock, AlertTriangle, History } from "lucide-react";
+import { FileText, Plus, Eye, Edit, Clock, AlertTriangle, History, Download } from "lucide-react";
+import jsPDF from 'jspdf';
+import Swal from 'sweetalert2';
 
 interface Contract {
   id: number;
@@ -23,6 +25,47 @@ interface Contract {
   tenantSignature?: string | null;
   ownerSignedAt?: string | null;
   tenantSignedAt?: string | null;
+  terminatedAt?: string | null;
+  terminationReason?: string | null;
+  terminatedBy?: number | null;
+}
+
+interface TerminationData {
+  contract: {
+    id: number;
+    propertyTitle: string;
+    propertyAddress: string;
+    monthlyRent: string;
+    startDate: string;
+    endDate: string;
+    terminatedAt: string;
+    terminationReason: string;
+  };
+  termination: {
+    id: number;
+    reason: string;
+    detailedReason: string;
+    terminationType: string;
+    proposedTerms: any;
+    status: string;
+    ownerPasswordConfirmed: boolean;
+    tenantPasswordConfirmed: boolean;
+    ownerSignature: string;
+    tenantSignature: string;
+    ownerSignedAt: string;
+    tenantSignedAt: string;
+    terminationEffectiveDate: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+  parties: {
+    owner: { name: string; email: string };
+    tenant: { name: string; email: string };
+  };
+  property: {
+    title: string;
+    address: string;
+  };
 }
 
 export default function ContractsDashboard() {
@@ -200,6 +243,167 @@ export default function ContractsDashboard() {
       case 'expired': return 'text-red-600';
       case 'cancelled': return 'text-red-600';
       default: return 'text-gray-600';
+    }
+  };
+
+  // PDF Generation Function
+  const generateTerminationPDF = async (contractId: number) => {
+    try {
+      Swal.fire({
+        title: 'Génération du PDF...',
+        text: 'Veuillez patienter pendant la génération du document.',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      // Fetch termination data
+      const response = await fetch(`/api/contracts/${contractId}/termination-data`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch termination data');
+      }
+      
+      const data: TerminationData = await response.json();
+      
+      // Create PDF
+      const pdf = new jsPDF();
+      const pageWidth = pdf.internal.pageSize.width;
+      const margin = 20;
+      let yPosition = margin;
+      
+      // Helper function to add text with word wrap
+      const addText = (text: string, x: number, y: number, options: any = {}) => {
+        const maxWidth = options.maxWidth || pageWidth - 2 * margin;
+        const lineHeight = options.lineHeight || 7;
+        const fontSize = options.fontSize || 10;
+        
+        pdf.setFontSize(fontSize);
+        if (options.fontStyle) pdf.setFont(undefined, options.fontStyle);
+        
+        const lines = pdf.splitTextToSize(text, maxWidth);
+        pdf.text(lines, x, y);
+        return y + (lines.length * lineHeight);
+      };
+      
+      // Title
+      pdf.setFontSize(16);
+      pdf.setFont(undefined, 'bold');
+      yPosition = addText('CONTRAT DE RÉSILIATION', pageWidth/2, yPosition, { fontSize: 16, fontStyle: 'bold' });
+      yPosition += 10;
+      
+      // Contract Information
+      pdf.setFontSize(12);
+      pdf.setFont(undefined, 'bold');
+      yPosition = addText('INFORMATIONS DU CONTRAT', margin, yPosition, { fontSize: 12, fontStyle: 'bold' });
+      yPosition += 5;
+      
+      pdf.setFont(undefined, 'normal');
+      yPosition = addText(`Contrat N°: ${data.contract.id}`, margin, yPosition);
+      yPosition = addText(`Propriété: ${data.contract.propertyTitle}`, margin, yPosition);
+      yPosition = addText(`Adresse: ${data.contract.propertyAddress}`, margin, yPosition);
+      yPosition = addText(`Loyer mensuel: ${data.contract.monthlyRent}€`, margin, yPosition);
+      yPosition = addText(`Date de début: ${format(new Date(data.contract.startDate), 'dd/MM/yyyy')}`, margin, yPosition);
+      yPosition = addText(`Date de fin prévue: ${format(new Date(data.contract.endDate), 'dd/MM/yyyy')}`, margin, yPosition);
+      yPosition = addText(`Date de résiliation: ${format(new Date(data.contract.terminatedAt), 'dd/MM/yyyy')}`, margin, yPosition);
+      yPosition += 10;
+      
+      // Parties
+      pdf.setFont(undefined, 'bold');
+      yPosition = addText('PARTIES', margin, yPosition, { fontSize: 12, fontStyle: 'bold' });
+      yPosition += 5;
+      
+      pdf.setFont(undefined, 'normal');
+      yPosition = addText(`Propriétaire: ${data.parties.owner.name}`, margin, yPosition);
+      yPosition = addText(`Email: ${data.parties.owner.email}`, margin, yPosition);
+      yPosition += 3;
+      yPosition = addText(`Locataire: ${data.parties.tenant.name}`, margin, yPosition);
+      yPosition = addText(`Email: ${data.parties.tenant.email}`, margin, yPosition);
+      yPosition += 10;
+      
+      // Termination Details
+      pdf.setFont(undefined, 'bold');
+      yPosition = addText('DÉTAILS DE LA RÉSILIATION', margin, yPosition, { fontSize: 12, fontStyle: 'bold' });
+      yPosition += 5;
+      
+      pdf.setFont(undefined, 'normal');
+      yPosition = addText(`Type de résiliation: ${data.termination.terminationType}`, margin, yPosition);
+      yPosition = addText(`Raison: ${data.termination.reason}`, margin, yPosition);
+      if (data.termination.detailedReason) {
+        yPosition = addText(`Détails: ${data.termination.detailedReason}`, margin, yPosition, { maxWidth: pageWidth - 2 * margin });
+      }
+      yPosition += 5;
+      
+      // Proposed Terms
+      if (data.termination.proposedTerms) {
+        pdf.setFont(undefined, 'bold');
+        yPosition = addText('TERMES PROPOSÉS', margin, yPosition, { fontSize: 12, fontStyle: 'bold' });
+        yPosition += 5;
+        
+        pdf.setFont(undefined, 'normal');
+        if (data.termination.proposedTerms.timeline) {
+          yPosition = addText(`Délai: ${data.termination.proposedTerms.timeline}`, margin, yPosition);
+        }
+        if (data.termination.proposedTerms.financialTerms) {
+          yPosition = addText(`Conditions financières: ${data.termination.proposedTerms.financialTerms}`, margin, yPosition);
+        }
+        if (data.termination.proposedTerms.depositHandling) {
+          yPosition = addText(`Gestion de la caution: ${data.termination.proposedTerms.depositHandling}`, margin, yPosition);
+        }
+        if (data.termination.proposedTerms.additionalConditions) {
+          yPosition = addText(`Conditions supplémentaires: ${data.termination.proposedTerms.additionalConditions}`, margin, yPosition, { maxWidth: pageWidth - 2 * margin });
+        }
+        yPosition += 10;
+      }
+      
+      // Signatures
+      pdf.setFont(undefined, 'bold');
+      yPosition = addText('SIGNATURES', margin, yPosition, { fontSize: 12, fontStyle: 'bold' });
+      yPosition += 10;
+      
+      pdf.setFont(undefined, 'normal');
+      yPosition = addText('Propriétaire:', margin, yPosition);
+      if (data.termination.ownerSignature) {
+        yPosition = addText(`Signé le: ${format(new Date(data.termination.ownerSignedAt), 'dd/MM/yyyy à HH:mm')}`, margin, yPosition);
+        yPosition = addText('Signature: [Signature électronique validée]', margin, yPosition);
+      }
+      yPosition += 15;
+      
+      yPosition = addText('Locataire:', margin, yPosition);
+      if (data.termination.tenantSignature) {
+        yPosition = addText(`Signé le: ${format(new Date(data.termination.tenantSignedAt), 'dd/MM/yyyy à HH:mm')}`, margin, yPosition);
+        yPosition = addText('Signature: [Signature électronique validée]', margin, yPosition);
+      }
+      
+      // Footer
+      pdf.setFontSize(8);
+      pdf.text(`Document généré le ${format(new Date(), 'dd/MM/yyyy à HH:mm')}`, margin, pdf.internal.pageSize.height - 10);
+      
+      // Save PDF
+      const fileName = `Resiliation_Contrat_${data.contract.id}_${format(new Date(), 'yyyyMMdd')}.pdf`;
+      pdf.save(fileName);
+      
+      Swal.fire({
+        icon: 'success',
+        title: 'PDF généré avec succès!',
+        text: `Le document "${fileName}" a été téléchargé.`,
+        confirmButtonText: 'OK'
+      });
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Erreur',
+        text: 'Impossible de générer le PDF. Veuillez réessayer.',
+        confirmButtonText: 'OK'
+      });
     }
   };
 
@@ -483,6 +687,15 @@ export default function ContractsDashboard() {
                         >
                           <Eye className="h-4 w-4 mr-2" />
                           Voir Détails
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => generateTerminationPDF(contract.id)}
+                          className="text-blue-600 hover:text-blue-700"
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Télécharger PDF
                         </Button>
                       </div>
                     </div>
