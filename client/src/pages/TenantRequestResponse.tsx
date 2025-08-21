@@ -39,7 +39,8 @@ export default function TenantRequestResponse() {
   const [response, setResponse] = useState('');
   
   // Parse URL to get request type and ID
-  const requestType = params.type as RequestType;
+  // Handle both formats: /tenant-requests/:type/:id and /tenant-request-response/:id
+  const requestType = (params.type as RequestType) || 'termination';
   const requestId = parseInt(params.id || '0');
   
   console.log("TenantRequestResponse: URL params:", { type: params.type, id: params.id });
@@ -63,11 +64,11 @@ export default function TenantRequestResponse() {
   
   // Fetch request details
   const { data: request, isLoading, error } = useQuery<Request>({
-    queryKey: [`/api/contract-${requestType}-requests/${requestId}`],
+    queryKey: [`/api/contract-termination-requests/${requestId}`],
     enabled: !!requestId && !!currentUser,
     queryFn: async () => {
-      console.log("TenantRequestResponse: Making API request to", `/api/contract-${requestType}-requests/${requestId}`);
-      const response = await fetch(`/api/contract-${requestType}-requests/${requestId}`);
+      console.log("TenantRequestResponse: Making API request to", `/api/contract-termination-requests/${requestId}`);
+      const response = await fetch(`/api/contract-termination-requests/${requestId}`);
       if (!response.ok) {
         throw new Error('Failed to fetch request');
       }
@@ -82,7 +83,7 @@ export default function TenantRequestResponse() {
     isLoading, 
     error, 
     enabled: !!requestId && !!currentUser,
-    queryKey: `/api/contract-${requestType}-requests/${requestId}`
+    queryKey: `/api/contract-termination-requests/${requestId}`
   });
 
   // Fetch contract details
@@ -102,10 +103,8 @@ export default function TenantRequestResponse() {
         requestType
       });
       
-      // For termination requests, use the correct API route
-      const apiUrl = requestType === 'termination' 
-        ? `/api/contract-termination-requests/${requestId}/respond`
-        : `/api/contract-${requestType}-requests/${requestId}/respond`;
+      // Use termination requests API
+      const apiUrl = `/api/contract-termination-requests/${requestId}/respond`;
       
       return apiRequest(apiUrl, {
         method: 'PUT',
@@ -125,7 +124,6 @@ export default function TenantRequestResponse() {
       });
       
       // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: [`/api/contract-${requestType}-requests/${requestId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/contract-termination-requests/${requestId}`] });
       queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
       queryClient.invalidateQueries({ queryKey: [`/api/tenant-requests`] });

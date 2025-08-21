@@ -65,6 +65,7 @@ const App = () => (
           <Route path="/notifications" component={Notifications} />
           <Route path="/offers" component={Offers} />
           <Route path="/tenant-requests/:type/:id" component={TenantRequestResponse} />
+          <Route path="/tenant-request-response/:id" component={TenantRequestResponse} />
           <Route path="/owner-request-response/:type/:id" component={OwnerRequestResponse} />
           <Route path="/tenant-termination-request/:contractId" component={TenantTerminationRequestWrapper} />
           <Route path="/owner-termination-request/:contractId" component={OwnerTerminationRequestWrapper} />
