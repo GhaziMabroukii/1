@@ -50,6 +50,17 @@ export function TenantTerminationWorkflow() {
     requestData: request
   });
 
+  console.log('=== TenantTerminationWorkflow - Request Data ===');
+  if (request) {
+    console.log('Request ID:', request.id);
+    console.log('Status:', request.status);
+    console.log('Owner Password Confirmed:', request.ownerPasswordConfirmed);
+    console.log('Tenant Password Confirmed:', request.tenantPasswordConfirmed);
+    console.log('Owner Signature:', !!request.ownerSignature);
+    console.log('Tenant Signature:', !!request.tenantSignature);
+  }
+  console.log('================================================');
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">

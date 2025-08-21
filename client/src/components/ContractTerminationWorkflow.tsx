@@ -41,6 +41,20 @@ export function ContractTerminationWorkflow({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  console.log('ContractTerminationWorkflow Debug:', {
+    requestId: request.id,
+    currentUserType,
+    requestStatus: request.status,
+    ownerPasswordConfirmed: request.ownerPasswordConfirmed,
+    tenantPasswordConfirmed: request.tenantPasswordConfirmed,
+    ownerSignature: !!request.ownerSignature,
+    tenantSignature: !!request.tenantSignature,
+    needsPasswordConfirmation: currentUserType === 'owner' ? !request.ownerPasswordConfirmed : !request.tenantPasswordConfirmed,
+    needsSignature: currentUserType === 'owner' ? !request.ownerSignature && request.ownerPasswordConfirmed : !request.tenantSignature && request.tenantPasswordConfirmed,
+    canConfirmPassword: request.status === 'accepted' && (currentUserType === 'owner' ? !request.ownerPasswordConfirmed : !request.tenantPasswordConfirmed),
+    canSign: request.status === 'accepted' && (currentUserType === 'owner' ? !request.ownerSignature && request.ownerPasswordConfirmed : !request.tenantSignature && request.tenantPasswordConfirmed)
+  });
+
   // Check what step the current user needs to complete
   const needsPasswordConfirmation = currentUserType === 'owner' ? 
     !request.ownerPasswordConfirmed : !request.tenantPasswordConfirmed;
