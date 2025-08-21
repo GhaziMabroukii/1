@@ -42,6 +42,11 @@ export const properties = pgTable("properties", {
   // New property categorization fields
   categories: text("categories").array(), // Famille, Étudiant, Maison d'été, Vue sur mer, Proche de la plage
   geographicHighlight: text("geographic_highlight"), // e.g., "À 200m de l'INSAT"
+  // Furniture fields
+  furnished: boolean("furnished").default(false),
+  furniture: jsonb("furniture"), // Array of {item: string, condition: string}
+  // Availability fields
+  availability: jsonb("availability"), // {available: boolean, availableFrom: string, minimumStay: string, maximumStay: string}
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

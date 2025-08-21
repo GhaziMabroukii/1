@@ -572,7 +572,16 @@ const AddProperty = () => {
           `À ${formData.categoryDetails.distanceToFaculty}${formData.categoryDetails.distanceUnit === 'min_walk' ? ' min à pied' : formData.categoryDetails.distanceUnit === 'min_car' ? ' min en voiture' : formData.categoryDetails.distanceUnit} de ${formData.categoryDetails.faculty}` :
           formData.category === 'summer' && formData.categoryDetails.beach ? `Près de la plage ${formData.categoryDetails.beach}` :
           formData.category === 'mountain' && formData.categoryDetails.mountainInfo ? formData.categoryDetails.mountainInfo :
-          formData.category === 'camping' && formData.categoryDetails.campingInfo ? formData.categoryDetails.campingInfo : null
+          formData.category === 'camping' && formData.categoryDetails.campingInfo ? formData.categoryDetails.campingInfo : null,
+        // Furniture and availability fields
+        furnished: formData.furnished,
+        furniture: formData.furniture.length > 0 ? formData.furniture : null,
+        availability: {
+          available: formData.availability.available,
+          availableFrom: formData.availability.availableFrom || null,
+          minimumStay: formData.availability.minimumStay || null,
+          maximumStay: formData.availability.maximumStay || null
+        }
       };
 
       console.log("Property data being sent to API:", JSON.stringify(propertyData, null, 2));
