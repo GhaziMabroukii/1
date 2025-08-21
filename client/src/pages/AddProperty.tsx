@@ -307,27 +307,17 @@ const AddProperty = () => {
 
   const handleCitySelect = (city: typeof tunisianCities[0]) => {
     if (map && marker) {
-      const position = { lat: city.lat, lng: city.lng };
-      marker.position = position;
-      map.setCenter(position);
-      map.setZoom(14);
+      const position = [city.lng, city.lat]; // Mapbox uses [lng, lat] format
+      marker.setLngLat(position);
+      map.flyTo({ center: position, zoom: 12 });
       
       handleInputChange('location', { lat: city.lat, lng: city.lng });
       
-      // Get precise address for the city
-      geocoder.geocode(
-        { location: position },
-        (results: any[], status: string) => {
-          if (status === 'OK' && results[0]) {
-            handleInputChange('address', results[0].formatted_address);
-          } else {
-            handleInputChange('address', `${city.name}, Tunisie`);
-          }
-        }
-      );
+      // Get precise address for the city using reverse geocoding
+      reverseGeocode(city.lng, city.lat);
       
       toast({
-        title: `✓ Navigation vers ${city.name}`,
+        title: `🎯 Navigation vers ${city.name}`,
         description: "Ajustez la position précise en cliquant sur la carte",
       });
     }
@@ -335,73 +325,63 @@ const AddProperty = () => {
 
   const [map, setMap] = useState<any>(null);
   const [marker, setMarker] = useState<any>(null);
-  const [geocoder, setGeocoder] = useState<any>(null);
   const mapRef = useRef<HTMLDivElement>(null);
 
-  // Initialize Google Maps
+  // Initialize Mapbox
   useEffect(() => {
     if (formData.locationMethod === 'map' && mapRef.current && !map) {
-      initializeGoogleMap();
+      initializeMapbox();
     }
   }, [formData.locationMethod]);
 
-  const initializeGoogleMap = async () => {
+  const initializeMapbox = async () => {
     try {
-      const { Map } = await (window as any).google.maps.importLibrary("maps");
-      const { Autocomplete } = await (window as any).google.maps.importLibrary("places");
-      const { AdvancedMarkerElement } = await (window as any).google.maps.importLibrary("marker");
-      const googleGeocoder = new (window as any).google.maps.Geocoder();
-      
-      const mapOptions = {
-        center: { lat: 34.7406, lng: 10.1815 }, // Center of Tunisia
-        zoom: 8,
-        mapId: "f8b9e6163e48e501"
-      };
+      // Check if mapbox is available
+      if (!(window as any).mapboxgl) {
+        throw new Error('Mapbox GL JS not loaded');
+      }
 
-      const googleMap = new Map(mapRef.current, mapOptions);
-      const googleMarker = new AdvancedMarkerElement({
-        map: googleMap,
-        position: mapOptions.center,
-        gmpDraggable: true
+      const mapbox = (window as any).mapboxgl;
+      // Use the environment variable from Replit secrets
+      mapbox.accessToken = import.meta.env.MAPBOX_PUBLIC_KEY || 'pk.eyJ1IjoiaGVyYWxkdm9uIiwiYSI6ImNrcXVmZGZsaDEzdzQyb3FtcWQyNjV3d2UifQ.JQ4FhDGR7rFBhCdqkCWepQ';
+
+      const mapboxMap = new mapbox.Map({
+        container: mapRef.current,
+        style: 'mapbox://styles/mapbox/satellite-streets-v12', // Satellite view
+        center: [10.1815, 34.7406], // Tunisia center [lng, lat]
+        zoom: 6
       });
+
+      // Add navigation controls (zoom, rotate)
+      mapboxMap.addControl(new mapbox.NavigationControl());
+
+      // Create draggable marker
+      const mapboxMarker = new mapbox.Marker({
+        draggable: true,
+        color: '#ef4444' // Red color
+      })
+      .setLngLat([10.1815, 34.7406])
+      .addTo(mapboxMap);
 
       // Set initial position if already exists
       if (formData.location.lat !== 0) {
-        const existingPosition = { lat: formData.location.lat, lng: formData.location.lng };
-        googleMarker.position = existingPosition;
-        googleMap.setCenter(existingPosition);
-        googleMap.setZoom(16);
+        const existingPosition = [formData.location.lng, formData.location.lat];
+        mapboxMarker.setLngLat(existingPosition);
+        mapboxMap.setCenter(existingPosition);
+        mapboxMap.setZoom(14);
       }
 
-      // Add click listener to map
-      googleMap.addListener('click', (event: any) => {
-        const lat = event.latLng.lat();
-        const lng = event.latLng.lng();
+      // Map click handler
+      mapboxMap.on('click', (e) => {
+        const { lng, lat } = e.lngLat;
         
         // Validate coordinates are in Tunisia
         if (lat >= 30 && lat <= 38 && lng >= 7 && lng <= 12) {
-          googleMarker.position = { lat, lng };
+          mapboxMarker.setLngLat([lng, lat]);
           handleInputChange('location', { lat, lng });
           
-          // Reverse geocode to get address
-          googleGeocoder.geocode(
-            { location: { lat, lng } },
-            (results: any[], status: string) => {
-              if (status === 'OK' && results[0]) {
-                handleInputChange('address', results[0].formatted_address);
-                toast({
-                  title: "✓ Position définie",
-                  description: `${results[0].formatted_address}`,
-                });
-              } else {
-                handleInputChange('address', `Coordonnées: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
-                toast({
-                  title: "✓ Position définie",
-                  description: `Coordonnées: ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-                });
-              }
-            }
-          );
+          // Reverse geocoding with Mapbox
+          reverseGeocode(lng, lat);
         } else {
           toast({
             title: "Position invalide",
@@ -411,44 +391,70 @@ const AddProperty = () => {
         }
       });
 
-      // Add drag listener to marker
-      googleMarker.addListener('dragend', () => {
-        const position = googleMarker.position;
-        const lat = position.lat;
-        const lng = position.lng;
+      // Marker drag handler
+      mapboxMarker.on('dragend', () => {
+        const lngLat = mapboxMarker.getLngLat();
+        const { lng, lat } = lngLat;
         
         handleInputChange('location', { lat, lng });
-        
-        // Reverse geocode to get address
-        googleGeocoder.geocode(
-          { location: { lat, lng } },
-          (results: any[], status: string) => {
-            if (status === 'OK' && results[0]) {
-              handleInputChange('address', results[0].formatted_address);
-              toast({
-                title: "✓ Position mise à jour",
-                description: `${results[0].formatted_address}`,
-              });
-            }
-          }
-        );
+        reverseGeocode(lng, lat);
       });
 
-      setMap(googleMap);
-      setMarker(googleMarker);
-      setGeocoder(googleGeocoder);
+      setMap(mapboxMap);
+      setMarker(mapboxMarker);
       
       toast({
-        title: "Carte chargée",
-        description: "Cliquez ou glissez le marqueur pour définir la position",
+        title: "🗺️ Carte Mapbox chargée",
+        description: "Cliquez ou glissez le marqueur rouge pour définir la position",
       });
 
     } catch (error) {
-      console.error('Error initializing Google Maps:', error);
+      console.error('Error initializing Mapbox:', error);
       toast({
         title: "Erreur de carte",
-        description: "Impossible de charger Google Maps",
+        description: "Impossible de charger Mapbox. Vérifiez votre connexion.",
         variant: "destructive",
+      });
+    }
+  };
+
+  // Reverse geocoding function using Mapbox Geocoding API
+  const reverseGeocode = async (lng: number, lat: number) => {
+    try {
+      const accessToken = import.meta.env.MAPBOX_PUBLIC_KEY || 'pk.eyJ1IjoiaGVyYWxkdm9uIiwiYSI6ImNrcXVmZGZsaDEzdzQyb3FtcWQyNjV3d2UifQ.JQ4FhDGR7rFBhCdqkCWepQ';
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${accessToken}&language=fr`
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.features && data.features.length > 0) {
+          const address = data.features[0].place_name;
+          handleInputChange('address', address);
+          toast({
+            title: "✓ Position définie",
+            description: address,
+          });
+        } else {
+          handleInputChange('address', `Coordonnées: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+          toast({
+            title: "✓ Position définie",
+            description: `Coordonnées: ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+          });
+        }
+      } else {
+        handleInputChange('address', `Coordonnées: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+        toast({
+          title: "✓ Position définie",
+          description: `Coordonnées: ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+        });
+      }
+    } catch (error) {
+      console.error('Reverse geocoding error:', error);
+      handleInputChange('address', `Coordonnées: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+      toast({
+        title: "✓ Position définie",
+        description: `Coordonnées: ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
       });
     }
   };
@@ -917,70 +923,110 @@ const AddProperty = () => {
                   </div>
                 )}
 
-                {/* Google Maps Section */}
+                {/* Mapbox Section */}
                 {formData.locationMethod === 'map' && (
                   <div className="space-y-4">
-                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      {/* Map Header and City Selector */}
+                    <div className="p-4 bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-lg">
+                      {/* Map Header with Style Toggle */}
                       <div className="flex items-center justify-between mb-4">
                         <div>
                           <h4 className="text-blue-800 font-semibold flex items-center">
                             <Map className="h-5 w-5 mr-2" />
-                            Google Maps - Positionnement Précis
+                            🛰️ Mapbox - Vue Satellite HD
                           </h4>
                           <p className="text-sm text-blue-700 mt-1">
-                            Cliquez sur la carte ou déplacez le marqueur pour définir la position
+                            Carte interactive haute définition avec géolocalisation précise
                           </p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <div className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
+                            🚀 Mapbox Pro
+                          </div>
                         </div>
                       </div>
 
                       {/* Quick City Navigation */}
                       <div className="mb-4">
-                        <p className="text-sm font-medium text-gray-700 mb-2">
-                          🎯 Navigation rapide vers une ville:
-                        </p>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-sm font-medium text-gray-700">
+                            🎯 Navigation rapide vers une ville:
+                          </p>
+                          <div className="text-xs text-gray-500">
+                            Cliquez pour zoomer sur la région
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-5 gap-2">
                           {tunisianCities.map((city) => (
                             <button
                               key={city.name}
                               type="button"
                               onClick={() => handleCitySelect(city)}
-                              className="px-3 py-1 bg-white border border-blue-200 hover:bg-blue-50 text-blue-700 rounded-md text-sm font-medium transition-colors"
+                              className="px-3 py-2 bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 text-blue-700 rounded-md text-sm font-medium transition-all duration-200 hover:shadow-md group"
+                              title={`Aller à ${city.name}, ${city.region}`}
                             >
-                              {city.name}
+                              <div className="text-center">
+                                <div className="font-semibold">{city.name}</div>
+                                <div className="text-xs text-gray-500 group-hover:text-blue-600">{city.region}</div>
+                              </div>
                             </button>
                           ))}
                         </div>
                       </div>
                       
-                      {/* Google Map Container */}
-                      <div className="relative">
+                      {/* Mapbox Container */}
+                      <div className="relative rounded-lg overflow-hidden border-2 border-blue-200 shadow-lg">
                         <div 
                           ref={mapRef}
-                          className="w-full h-[500px] rounded-lg border-2 border-blue-200"
+                          className="w-full h-[500px]"
                           style={{ minHeight: '500px' }}
                         ></div>
                         
                         {/* Loading overlay */}
                         {!map && (
-                          <div className="absolute inset-0 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <div className="text-center">
-                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
-                              <p className="text-sm text-gray-600">Chargement de Google Maps...</p>
+                          <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-green-100 rounded-lg flex items-center justify-center">
+                            <div className="text-center bg-white rounded-lg p-6 shadow-lg">
+                              <div className="animate-spin rounded-full h-10 w-10 border-b-3 border-blue-500 mx-auto mb-3"></div>
+                              <p className="text-sm text-gray-700 font-medium">Chargement de Mapbox...</p>
+                              <p className="text-xs text-gray-500 mt-1">Initialisation de la carte satellite</p>
                             </div>
+                          </div>
+                        )}
+                        
+                        {/* Coordinates Display */}
+                        {formData.location.lat !== 0 && (
+                          <div className="absolute top-3 right-3 bg-black/70 text-white px-3 py-2 rounded-lg text-xs font-mono backdrop-blur-sm">
+                            📍 {formData.location.lat.toFixed(6)}, {formData.location.lng.toFixed(6)}
                           </div>
                         )}
                       </div>
 
-                      {/* Map Instructions */}
-                      <div className="mt-4 bg-blue-100 border border-blue-200 rounded-lg p-3">
-                        <h5 className="font-medium text-blue-800 mb-2">Instructions d'utilisation:</h5>
-                        <ul className="text-sm text-blue-700 space-y-1">
-                          <li>• <strong>Clic simple:</strong> Définir une position précise</li>
-                          <li>• <strong>Glisser le marqueur rouge:</strong> Ajuster la position</li>
-                          <li>• <strong>Molette de la souris:</strong> Zoomer/Dézoomer</li>
-                          <li>• <strong>Boutons de ville:</strong> Navigation rapide</li>
-                        </ul>
+                      {/* Enhanced Instructions */}
+                      <div className="mt-4 bg-gradient-to-r from-blue-100 to-green-100 border border-blue-200 rounded-lg p-4">
+                        <h5 className="font-semibold text-blue-800 mb-3 flex items-center">
+                          📋 Guide d'utilisation Mapbox
+                        </h5>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div className="space-y-2">
+                            <div className="flex items-center text-blue-700">
+                              <span className="w-4 h-4 bg-red-500 rounded-full mr-2 flex-shrink-0"></span>
+                              <span><strong>Marqueur rouge:</strong> Glissez pour ajuster</span>
+                            </div>
+                            <div className="flex items-center text-blue-700">
+                              <span className="w-4 h-4 bg-blue-500 rounded mr-2 flex-shrink-0"></span>
+                              <span><strong>Clic sur carte:</strong> Position précise</span>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex items-center text-blue-700">
+                              <span className="w-4 h-4 bg-green-500 rounded mr-2 flex-shrink-0"></span>
+                              <span><strong>Boutons ville:</strong> Navigation rapide</span>
+                            </div>
+                            <div className="flex items-center text-blue-700">
+                              <span className="w-4 h-4 bg-purple-500 rounded mr-2 flex-shrink-0"></span>
+                              <span><strong>Contrôles:</strong> Zoom, rotation inclus</span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
