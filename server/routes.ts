@@ -770,39 +770,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Password and userType are required' });
       }
 
-      const [terminationRequest] = await db
-        .select()
-        .from(contractTerminationRequests)
-        .where(eq(contractTerminationRequests.contractId, contractId));
+      // Get termination request using storage interface
+      const terminationRequests = await storage.getContractTerminationRequests(contractId);
+      const terminationRequest = terminationRequests.find(req => req.status === 'accepted');
       
       if (!terminationRequest) {
-        return res.status(404).json({ error: 'No termination request found' });
+        return res.status(404).json({ error: 'No active termination request found' });
       }
 
-      const [contract] = await db
-        .select()
-        .from(contracts)
-        .where(eq(contracts.id, contractId));
-        
+      // Get contract using storage interface
+      const contract = await storage.getContractById(contractId);
       if (!contract) {
         return res.status(404).json({ error: 'Contract not found' });
       }
 
       // Get the user to verify password
       const userId = userType === 'owner' ? contract.ownerId : contract.tenantId;
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, userId));
+      const user = await storage.getUserById(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
       
       // Verify password using bcrypt
       const isValidPassword = await bcrypt.compare(password.trim(), user.password);
-      if (!user || !isValidPassword) {
+      if (!isValidPassword) {
         return res.status(400).json({ error: 'Mot de passe incorrect' });
       }
 
-      // Update password confirmation
-      const updateData: any = { updatedAt: new Date() };
+      // Update password confirmation using storage interface
+      const updateData: any = {};
       
       if (userType === 'owner') {
         updateData.ownerPasswordConfirmed = true;
@@ -812,17 +809,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updateData.tenantConfirmedAt = new Date();
       }
       
-      // If both confirmed, update status
-      if ((userType === 'owner' && terminationRequest.tenantPasswordConfirmed) || 
-          (userType === 'tenant' && terminationRequest.ownerPasswordConfirmed)) {
-        updateData.status = 'accepted';
-      }
-
-      const [updatedRequest] = await db
-        .update(contractTerminationRequests)
-        .set(updateData)
-        .where(eq(contractTerminationRequests.id, terminationRequest.id))
-        .returning();
+      // Update the termination request
+      const updatedRequest = await storage.updateContractTerminationRequest(terminationRequest.id, updateData);
 
       res.json(updatedRequest);
     } catch (error) {

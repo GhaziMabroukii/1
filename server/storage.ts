@@ -48,6 +48,10 @@ export interface IStorage {
   getTerminationRequestsByOwner(userId: number): Promise<any[]>;
   getTerminationRequest(id: number): Promise<any | undefined>;
   updateTerminationRequestStatus(id: number, status: string): Promise<any | undefined>;
+  updateContractTerminationRequest(id: number, updates: Partial<any>): Promise<any | undefined>;
+  getContractTerminationRequests(contractId: number): Promise<any[]>;
+  getContractById(contractId: number): Promise<any | undefined>;
+  getUserById(userId: number): Promise<any | undefined>;
   
   // Notification operations
   getNotifications(userId: number): Promise<Notification[]>;
@@ -667,6 +671,30 @@ export class MemStorage implements IStorage {
       updatedAt: new Date()
     };
     return this.terminationRequests[index];
+  }
+
+  async updateContractTerminationRequest(id: number, updates: Partial<any>): Promise<any | undefined> {
+    const index = this.terminationRequests.findIndex(req => req.id === id);
+    if (index === -1) return undefined;
+    
+    this.terminationRequests[index] = {
+      ...this.terminationRequests[index],
+      ...updates,
+      updatedAt: new Date()
+    };
+    return this.terminationRequests[index];
+  }
+
+  async getContractTerminationRequests(contractId: number): Promise<any[]> {
+    return this.terminationRequests.filter(req => req.contractId === contractId);
+  }
+
+  async getContractById(contractId: number): Promise<any | undefined> {
+    return this.contracts.find(c => c.id === contractId);
+  }
+
+  async getUserById(userId: number): Promise<any | undefined> {
+    return this.users.find(u => u.id === userId);
   }
 }
 
