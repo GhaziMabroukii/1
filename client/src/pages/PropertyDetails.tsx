@@ -389,49 +389,74 @@ export default function PropertyDetails() {
           <div className="lg:col-span-2 space-y-6">
             {/* Property Images Gallery */}
             {property.images && property.images.length > 0 ? (
-              <div className="relative">
-                <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
+              <div className="relative group">
+                <div className="aspect-video bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl overflow-hidden shadow-lg">
                   <img
                     src={property.images[currentImageIndex]}
                     alt={`${property.title} - Image ${currentImageIndex + 1}`}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
+                  
+                  {/* Enhanced navigation arrows */}
                   {property.images.length > 1 && (
                     <>
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white"
+                        variant="secondary"
+                        size="sm"
+                        className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 shadow-lg rounded-full h-10 w-10 p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                         onClick={prevImage}
                       >
-                        <ChevronLeft className="h-4 w-4" />
+                        <ChevronLeft className="h-5 w-5" />
                       </Button>
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white"
+                        variant="secondary"
+                        size="sm"
+                        className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 shadow-lg rounded-full h-10 w-10 p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                         onClick={nextImage}
                       >
-                        <ChevronRight className="h-4 w-4" />
+                        <ChevronRight className="h-5 w-5" />
                       </Button>
                     </>
                   )}
+                  
+                  {/* Enhanced image counter */}
+                  {property.images.length > 1 && (
+                    <div className="absolute bottom-4 right-4 bg-black/70 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-sm font-medium">
+                      📸 {currentImageIndex + 1} / {property.images.length}
+                    </div>
+                  )}
+                  
+                  {/* Property status badge */}
+                  <div className="absolute top-4 left-4">
+                    <Badge 
+                      variant={property.status === 'Disponible' ? 'default' : 'secondary'}
+                      className={`text-xs font-medium ${
+                        property.status === 'Disponible' 
+                          ? 'bg-green-600 hover:bg-green-700 text-white' 
+                          : 'bg-red-600 hover:bg-red-700 text-white'
+                      }`}
+                    >
+                      {property.status === 'Disponible' ? '✅ Disponible' : '🔒 Non disponible'}
+                    </Badge>
+                  </div>
                 </div>
                 
-                {/* Image thumbnails */}
+                {/* Enhanced thumbnails */}
                 {property.images.length > 1 && (
-                  <div className="flex space-x-2 mt-4 overflow-x-auto">
+                  <div className="flex space-x-3 mt-4 overflow-x-auto pb-2">
                     {property.images.map((image: string, index: number) => (
                       <button
                         key={index}
                         onClick={() => setCurrentImageIndex(index)}
-                        className={`flex-shrink-0 w-20 h-16 rounded-lg overflow-hidden border-2 ${
-                          index === currentImageIndex ? 'border-primary' : 'border-transparent'
+                        className={`flex-shrink-0 w-24 h-20 rounded-lg overflow-hidden border-3 transition-all duration-300 hover:scale-105 ${
+                          index === currentImageIndex 
+                            ? 'border-primary shadow-lg ring-2 ring-primary/50' 
+                            : 'border-gray-200 hover:border-gray-300'
                         }`}
                       >
                         <img
                           src={image}
-                          alt={`Thumbnail ${index + 1}`}
+                          alt={`${property.title} - Thumbnail ${index + 1}`}
                           className="w-full h-full object-cover"
                         />
                       </button>
@@ -440,10 +465,13 @@ export default function PropertyDetails() {
                 )}
               </div>
             ) : (
-              <div className="aspect-video bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg flex items-center justify-center">
-                <div className="text-center">
-                  <Home className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">Pas d'image disponible</p>
+              <div className="aspect-video rounded-xl bg-gradient-to-br from-gray-50 via-gray-100 to-gray-150 border-2 border-dashed border-gray-300 flex items-center justify-center">
+                <div className="text-center text-gray-400">
+                  <div className="mb-4 p-4 bg-gray-100 rounded-full w-fit mx-auto">
+                    <Home className="h-12 w-12 text-gray-400" />
+                  </div>
+                  <p className="font-medium text-lg mb-1">📸 Aucune photo disponible</p>
+                  <p className="text-sm">Le propriétaire n'a pas encore ajouté de photos</p>
                 </div>
               </div>
             )}

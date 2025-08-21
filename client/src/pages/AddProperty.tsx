@@ -188,10 +188,36 @@ const AddProperty = () => {
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
+    processFiles(files);
+  };
+
+  const processFiles = (files: File[]) => {
+    const validFiles = files.filter(file => {
+      const isValid = file.type.startsWith('image/') || file.type.startsWith('video/');
+      const isValidSize = file.size <= 50 * 1024 * 1024; // 50MB limit
+      return isValid && isValidSize;
+    });
+
+    if (validFiles.length !== files.length) {
+      toast({
+        title: "Certains fichiers ont été ignorés",
+        description: "Seuls les images et vidéos de moins de 50MB sont acceptés",
+        variant: "destructive",
+      });
+    }
+
     setFormData(prev => ({
       ...prev,
-      images: [...prev.images, ...files].slice(0, 10) // Max 10 images
+      images: [...prev.images, ...validFiles].slice(0, 10) // Max 10 images
     }));
+
+    if (prev.images.length + validFiles.length > 10) {
+      toast({
+        title: "Limite atteinte",
+        description: "Maximum 10 fichiers autorisés. Les fichiers supplémentaires ont été ignorés.",
+        variant: "destructive",
+      });
+    }
   };
 
   const removeImage = (index: number) => {
@@ -581,7 +607,19 @@ const AddProperty = () => {
           availableFrom: formData.availability.availableFrom || null,
           minimumStay: formData.availability.minimumStay || null,
           maximumStay: formData.availability.maximumStay || null
-        }
+        },
+        
+        // Convert images to base64 for storage
+        images: formData.images.length > 0 ? await Promise.all(
+          formData.images.filter(f => f.type.startsWith('image/')).map(file => {
+            return new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            });
+          })
+        ) : []
       };
 
       console.log("Property data being sent to API:", JSON.stringify(propertyData, null, 2));
@@ -611,9 +649,10 @@ const AddProperty = () => {
 
       const createdProperty = await response.json();
 
+      const photoCount = formData.images.filter(f => f.type.startsWith('image/')).length;
       toast({
-        title: "Bien ajouté avec succès!",
-        description: "Votre bien est maintenant disponible à la location",
+        title: "🎉 Bien ajouté avec succès!",
+        description: `📸 ${photoCount} photo(s) ajoutée(s). Votre bien est maintenant visible par les locataires!`,
       });
 
       navigate("/manage-properties");
@@ -1230,16 +1269,53 @@ const AddProperty = () => {
                 <p className="text-sm text-muted-foreground">Ajoutez jusqu'à 10 photos/vidéos pour mettre en valeur votre bien</p>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-primary transition-colors">
+                <div 
+                  className="border-2 border-dashed border-gray-300 rounded-xl p-8 hover:border-primary hover:bg-primary/5 transition-all duration-300 group cursor-pointer"
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.classList.add('border-primary', 'bg-primary/10');
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.classList.remove('border-primary', 'bg-primary/10');
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.classList.remove('border-primary', 'bg-primary/10');
+                    const files = Array.from(e.dataTransfer.files);
+                    processFiles(files);
+                  }}
+                  onClick={() => document.getElementById('images')?.click()}
+                >
                   <div className="text-center space-y-4">
-                    <Upload className="h-10 w-10 mx-auto text-gray-400" />
+                    <div className="relative">
+                      <div className="p-4 bg-gradient-to-br from-blue-50 to-purple-50 rounded-full w-fit mx-auto group-hover:from-primary/20 group-hover:to-primary/10 transition-colors">
+                        <Upload className="h-12 w-12 text-blue-600 group-hover:text-primary transition-colors" />
+                      </div>
+                      <div className="absolute -top-1 -right-1 p-1 bg-green-500 rounded-full">
+                        <span className="text-white text-xs">📸</span>
+                      </div>
+                    </div>
                     <div>
-                      <Label htmlFor="images" className="text-base font-medium cursor-pointer hover:text-primary">
-                        Cliquez pour ajouter des fichiers
+                      <Label htmlFor="images" className="text-lg font-semibold cursor-pointer hover:text-primary transition-colors">
+                        📤 Glissez vos photos ici ou cliquez pour parcourir
                       </Label>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        PNG, JPG, MP4 jusqu'à 50MB chacun
+                      <p className="text-sm text-muted-foreground mt-2">
+                        🖼️ Images: PNG, JPG, JPEG • 🎬 Vidéos: MP4, MOV
                       </p>
+                      <p className="text-xs text-muted-foreground">
+                        Maximum 50MB par fichier • Jusqu'à 10 fichiers
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-center space-x-4 text-sm text-muted-foreground">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <span>Glisser-déposer</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                        <span>Navigation</span>
+                      </div>
                     </div>
                     <Input
                       id="images"
@@ -1254,37 +1330,89 @@ const AddProperty = () => {
 
                 {formData.images.length > 0 && (
                   <div>
-                    <h4 className="font-medium mb-3 flex items-center">
-                      <Upload className="h-4 w-4 mr-2" />
-                      Fichiers ajoutés ({formData.images.length}/10)
+                    <h4 className="font-medium mb-4 flex items-center justify-between">
+                      <div className="flex items-center">
+                        <div className="p-2 bg-green-100 rounded-full mr-3">
+                          <Upload className="h-4 w-4 text-green-600" />
+                        </div>
+                        <span>📸 Photos ajoutées ({formData.images.length}/10)</span>
+                      </div>
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                        {formData.images.filter(f => f.type.startsWith('image/')).length} 📷 + {formData.images.filter(f => f.type.startsWith('video/')).length} 🎬
+                      </Badge>
                     </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                       {formData.images.map((file, index) => (
                         <div key={index} className="relative group">
-                          <div className="aspect-square bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg flex flex-col items-center justify-center p-4 border">
+                          <div className="aspect-square rounded-xl overflow-hidden border-2 border-gray-200 hover:border-primary transition-colors shadow-sm bg-white">
                             {file.type.startsWith('image/') ? (
-                              <span className="text-2xl">🖼️</span>
+                              <div className="relative w-full h-full">
+                                <img
+                                  src={URL.createObjectURL(file)}
+                                  alt={`Preview ${index + 1}`}
+                                  className="w-full h-full object-cover"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent">
+                                  <div className="absolute bottom-2 left-2 right-2">
+                                    <div className="flex items-center space-x-1 text-white text-xs">
+                                      <span>📷</span>
+                                      <span className="font-medium truncate">{file.name}</span>
+                                    </div>
+                                    <div className="text-white/80 text-xs">
+                                      {(file.size / 1024 / 1024).toFixed(1)} MB
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
                             ) : (
-                              <span className="text-2xl">🎥</span>
+                              <div className="w-full h-full bg-gradient-to-br from-purple-100 to-purple-200 flex flex-col items-center justify-center p-4">
+                                <div className="text-4xl mb-2">🎬</div>
+                                <div className="text-center">
+                                  <div className="text-xs font-medium text-purple-800 truncate w-full mb-1">
+                                    {file.name}
+                                  </div>
+                                  <div className="text-xs text-purple-600">
+                                    {(file.size / 1024 / 1024).toFixed(1)} MB
+                                  </div>
+                                </div>
+                              </div>
                             )}
-                            <span className="text-xs text-center mt-2 font-medium truncate w-full">
-                              {file.name}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {(file.size / 1024 / 1024).toFixed(1)} MB
-                            </span>
                           </div>
                           <Button
                             type="button"
                             variant="destructive"
                             size="icon"
-                            className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="absolute -top-2 -right-2 h-8 w-8 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
                             onClick={() => removeImage(index)}
                           >
-                            <X className="h-3 w-3" />
+                            <X className="h-4 w-4" />
                           </Button>
+                          {/* Primary photo indicator */}
+                          {index === 0 && (
+                            <div className="absolute top-2 left-2">
+                              <Badge className="bg-yellow-500 text-white text-xs px-2 py-1">
+                                ⭐ Photo principale
+                              </Badge>
+                            </div>
+                          )}
                         </div>
                       ))}
+                    </div>
+                    <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
+                      <div className="flex items-start space-x-3">
+                        <div className="p-2 bg-blue-100 rounded-full">
+                          <div className="text-blue-600 text-sm">💡</div>
+                        </div>
+                        <div className="text-sm">
+                          <p className="font-medium text-blue-800 mb-1">✨ Conseils pour de meilleures photos</p>
+                          <ul className="text-blue-600 space-y-1 text-xs">
+                            <li>• La première photo sera utilisée comme image principale</li>
+                            <li>• Utilisez un bon éclairage naturel</li>
+                            <li>• Montrez les différentes pièces et angles</li>
+                            <li>• Évitez les photos floues ou sombres</li>
+                          </ul>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
