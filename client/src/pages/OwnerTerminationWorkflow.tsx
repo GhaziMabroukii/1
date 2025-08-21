@@ -6,9 +6,21 @@ import { ArrowLeft } from 'lucide-react';
 import Header from '@/components/Header';
 import { ContractTerminationWorkflow } from '@/components/ContractTerminationWorkflow';
 
-interface CurrentUser {
+interface TerminationRequest {
   id: number;
-  name: string;
+  contractId: number;
+  requestedBy: number;
+  reason: string;
+  detailedReason?: string;
+  terminationType: string;
+  proposedTerms?: any;
+  status: "pending" | "accepted" | "completed" | "rejected" | "signed";
+  ownerPasswordConfirmed: boolean;
+  tenantPasswordConfirmed: boolean;
+  ownerSignature?: string;
+  tenantSignature?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export function OwnerTerminationWorkflow() {
@@ -19,9 +31,10 @@ export function OwnerTerminationWorkflow() {
   const currentUserId = Number(localStorage.getItem("userId")) || 0;
 
   // Fetch termination request details
-  const { data: request, isLoading } = useQuery({
+  const { data: request, isLoading, error } = useQuery<TerminationRequest>({
     queryKey: [`/api/contract-termination-requests/${requestId}`],
-    enabled: !!requestId && !!currentUserId
+    enabled: !!requestId && !!currentUserId,
+    retry: 2
   });
 
   if (isLoading) {

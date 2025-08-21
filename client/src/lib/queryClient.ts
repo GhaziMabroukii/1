@@ -7,6 +7,9 @@ export const queryClient = new QueryClient({
       gcTime: 0, // Don't cache queries
       refetchOnWindowFocus: false,
       retry: 1,
+      queryFn: async ({ queryKey }) => {
+        return apiRequest(queryKey[0] as string);
+      },
     },
   },
 });
