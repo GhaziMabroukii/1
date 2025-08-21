@@ -258,19 +258,24 @@ export default function ContractsDashboard() {
         }
       });
 
-      // Fetch termination data
+      // Fetch termination data with proper authentication
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const response = await fetch(`/api/contracts/${contractId}/termination-data`, {
+        method: 'GET',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': token ? `Bearer ${token}` : '',
           'Content-Type': 'application/json'
         }
       });
       
       if (!response.ok) {
-        throw new Error('Failed to fetch termination data');
+        const errorText = await response.text();
+        console.error('API Error:', response.status, errorText);
+        throw new Error(`Erreur ${response.status}: ${errorText}`);
       }
       
       const data: TerminationData = await response.json();
+      console.log('Termination data received:', data);
       
       // Create PDF
       const pdf = new jsPDF();

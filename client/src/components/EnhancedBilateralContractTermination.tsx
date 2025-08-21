@@ -25,6 +25,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { ErrorAlert } from '@/components/ErrorAlert';
 import SignatureCanvas from 'react-signature-canvas';
+import Swal from 'sweetalert2';
 
 interface BilateralTerminationProps {
   contract: any;
@@ -159,7 +160,7 @@ export function EnhancedBilateralContractTermination({ contract, currentUserId, 
         }),
       });
     },
-    onSuccess: () => {
+    onSuccess: (response: any) => {
       toast({
         title: "Confirmation réussie",
         description: "Votre mot de passe a été confirmé avec succès",
@@ -167,6 +168,54 @@ export function EnhancedBilateralContractTermination({ contract, currentUserId, 
       queryClient.invalidateQueries({ queryKey: [`/api/contracts/${contract.id}/termination-request`] });
       setShowPasswordDialog(false);
       setPassword('');
+      
+      // Check if termination is completed and show success popup
+      if (response?.terminationCompleted) {
+        setTimeout(() => {
+          if (userType === 'owner') {
+            Swal.fire({
+              icon: 'success',
+              title: '🎉 Contrat arrêté avec succès!',
+              html: `
+                <div style="text-align: left; margin: 20px 0;">
+                  <p><strong>✅ Le contrat a été officiellement arrêté</strong></p>
+                  <p><strong>🏠 Votre bien est maintenant retourné disponible</strong></p>
+                  <p><strong>📋 Tous les détails sont disponibles dans</strong> <code>/contracts</code></p>
+                  <p><strong>📄 Les détails d'arrêt sont accessibles au public</strong></p>
+                </div>
+              `,
+              confirmButtonText: 'Parfait!',
+              confirmButtonColor: '#10b981',
+              showClass: {
+                popup: 'animate__animated animate__fadeInDown'
+              },
+              hideClass: {
+                popup: 'animate__animated animate__fadeOutUp'
+              }
+            });
+          } else {
+            Swal.fire({
+              icon: 'success',
+              title: '🎉 Contrat arrêté avec succès!',
+              html: `
+                <div style="text-align: left; margin: 20px 0;">
+                  <p><strong>✅ Le contrat a été officiellement arrêté</strong></p>
+                  <p><strong>📋 Tous les détails sont disponibles dans</strong> <code>/contracts</code></p>
+                  <p><strong>📄 Vous pouvez consulter les détails d'arrêt</strong></p>
+                </div>
+              `,
+              confirmButtonText: 'Parfait!',
+              confirmButtonColor: '#10b981',
+              showClass: {
+                popup: 'animate__animated animate__fadeInDown'
+              },
+              hideClass: {
+                popup: 'animate__animated animate__fadeOutUp'
+              }
+            });
+          }
+        }, 1000);
+      }
     },
     onError: (error: any) => {
       setError(error.message || "Mot de passe incorrect");
@@ -187,7 +236,7 @@ export function EnhancedBilateralContractTermination({ contract, currentUserId, 
         }),
       });
     },
-    onSuccess: () => {
+    onSuccess: (response: any) => {
       toast({
         title: "Signature enregistrée",
         description: "Votre signature a été enregistrée avec succès",
@@ -195,6 +244,54 @@ export function EnhancedBilateralContractTermination({ contract, currentUserId, 
       queryClient.invalidateQueries({ queryKey: [`/api/contracts/${contract.id}/termination-request`] });
       setShowSigningDialog(false);
       if (signatureCanvas) signatureCanvas.clear();
+      
+      // Check if termination is completed and show success popup
+      if (response?.terminationCompleted) {
+        setTimeout(() => {
+          if (userType === 'owner') {
+            Swal.fire({
+              icon: 'success',
+              title: '🎉 Contrat arrêté avec succès!',
+              html: `
+                <div style="text-align: left; margin: 20px 0;">
+                  <p><strong>✅ Le contrat a été officiellement arrêté</strong></p>
+                  <p><strong>🏠 Votre bien est maintenant retourné disponible</strong></p>
+                  <p><strong>📋 Tous les détails sont disponibles dans</strong> <code>/contracts</code></p>
+                  <p><strong>📄 Les détails d'arrêt sont accessibles au public</strong></p>
+                </div>
+              `,
+              confirmButtonText: 'Parfait!',
+              confirmButtonColor: '#10b981',
+              showClass: {
+                popup: 'animate__animated animate__fadeInDown'
+              },
+              hideClass: {
+                popup: 'animate__animated animate__fadeOutUp'
+              }
+            });
+          } else {
+            Swal.fire({
+              icon: 'success',
+              title: '🎉 Contrat arrêté avec succès!',
+              html: `
+                <div style="text-align: left; margin: 20px 0;">
+                  <p><strong>✅ Le contrat a été officiellement arrêté</strong></p>
+                  <p><strong>📋 Tous les détails sont disponibles dans</strong> <code>/contracts</code></p>
+                  <p><strong>📄 Vous pouvez consulter les détails d'arrêt</strong></p>
+                </div>
+              `,
+              confirmButtonText: 'Parfait!',
+              confirmButtonColor: '#10b981',
+              showClass: {
+                popup: 'animate__animated animate__fadeInDown'
+              },
+              hideClass: {
+                popup: 'animate__animated animate__fadeOutUp'
+              }
+            });
+          }
+        }, 1000);
+      }
     },
     onError: (error: any) => {
       setError(error.message || "Erreur lors de l'enregistrement de la signature");

@@ -1103,7 +1103,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      res.json(updatedRequest);
+      // Send success response with completion notification
+      res.json({
+        success: true,
+        message: 'Signature ajoutée avec succès',
+        data: updatedRequest,
+        terminationCompleted: bothSigned && bothConfirmed
+      });
     } catch (error) {
       console.error('Error submitting signature:', error);
       res.status(500).json({ error: 'Failed to submit signature' });
