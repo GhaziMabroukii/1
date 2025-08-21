@@ -860,9 +860,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .where(eq(contractTerminationRequests.id, terminationRequest.id))
           .returning();
       } else {
-        // Fallback to storage interface for in-memory storage
+        // Use storage interface for in-memory storage
         console.log('Using storage interface for password confirmation update');
-        updatedRequest = { ...terminationRequest, ...updateData };
+        updatedRequest = await storage.updateContractTerminationRequest(terminationRequest.id, updateData);
       }
 
       res.json(updatedRequest);
