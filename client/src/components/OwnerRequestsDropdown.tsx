@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bell, Clock, CheckCircle, XCircle, FileText } from 'lucide-react';
+import { Bell, Clock, CheckCircle, XCircle, FileText, Search, ArrowRightIcon } from 'lucide-react';
 import { useLocation } from 'wouter';
 
 interface OwnerRequestsDropdownProps {
@@ -32,8 +32,8 @@ export function OwnerRequestsDropdown({ userId, userType }: OwnerRequestsDropdow
     return null;
   }
 
-  // Fetch pending requests for this owner
-  const { data: allRequests = [], isLoading: requestsLoading, error } = useQuery<Request[]>({
+  // Fetch termination requests SENT by this owner
+  const { data: sentRequests = [], isLoading: sentLoading, error: sentError } = useQuery<Request[]>({
     queryKey: [`/api/owner-requests/${userId}`],
     queryFn: async () => {
       console.log("OwnerRequestsDropdown: Making API request to", `/api/owner-requests/${userId}`);
@@ -58,16 +58,43 @@ export function OwnerRequestsDropdown({ userId, userType }: OwnerRequestsDropdow
     retry: 3,
     staleTime: 0 // Always fetch fresh data
   });
+
+  // Fetch termination requests RECEIVED by this owner (sent by tenants)
+  const { data: receivedRequests = [], isLoading: receivedLoading, error: receivedError } = useQuery<Request[]>({
+    queryKey: [`/api/tenant-requests/${userId}`],
+    queryFn: async () => {
+      const response = await fetch(`/api/tenant-requests/${userId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch tenant requests: ${response.statusText}`);
+      }
+      
+      return response.json();
+    },
+    enabled: userType === 'owner' && !!userId,
+    refetchInterval: 5000,
+    retry: 3,
+    staleTime: 0
+  });
   
   console.log("OwnerRequestsDropdown query result:", { 
+    sentRequests,
+    receivedRequests,
     allRequests, 
-    requestsLoading, 
-    error,
+    sentLoading,
+    receivedLoading, 
+    sentError,
+    receivedError,
     queryEnabled: userType === 'owner' && !!userId 
   });
 
-  if (requestsLoading || error) {
-    console.log("OwnerRequestsDropdown: Loading or error state", { requestsLoading, error });
+  if (sentLoading || receivedLoading || sentError || receivedError) {
+    console.log("OwnerRequestsDropdown: Loading or error state", { sentLoading, receivedLoading, sentError, receivedError });
     return (
       <Button 
         variant="outline" 
@@ -77,11 +104,12 @@ export function OwnerRequestsDropdown({ userId, userType }: OwnerRequestsDropdow
       >
         <FileText className="h-4 w-4 mr-2" />
         Mes demandes
-        {requestsLoading && <Badge variant="secondary" className="ml-2">...</Badge>}
+        {(sentLoading || receivedLoading) && <Badge variant="secondary" className="ml-2">...</Badge>}
       </Button>
     );
   }
 
+  const allRequests = [...sentRequests, ...receivedRequests];
   const pendingRequests = allRequests.filter(req => req.status === 'pending');
   const pendingCount = pendingRequests.length;
 
@@ -141,14 +169,24 @@ export function OwnerRequestsDropdown({ userId, userType }: OwnerRequestsDropdow
     return 'termination'; // Most requests in this system are termination requests
   };
 
-  const handleRequestClick = (request: Request) => {
+  const handleRequestClick = (request: Request, isSent: boolean) => {
     const requestType = determineRequestType(request);
-    console.log("OwnerRequestsDropdown: Navigating to request", { requestType, requestId: request.id, request });
+    console.log("OwnerRequestsDropdown: Navigating to request", { requestType, requestId: request.id, request, isSent });
     if (requestType === 'termination') {
-      navigate(`/owner-termination-review/${request.id}`);
+      if (isSent) {
+        // Request sent by owner - go to workflow to manage it
+        navigate(`/owner-termination-workflow/${request.id}`);
+      } else {
+        // Request received from tenant - go to review to respond
+        navigate(`/owner-termination-review/${request.id}`);
+      }
     } else {
       navigate(`/owner-request-response/${requestType}/${request.id}`);
     }
+  };
+
+  const handleInvestigateRequest = (requestId: number) => {
+    navigate(`/contract-termination-status/${requestId}`);
   };
 
   return (
@@ -176,19 +214,76 @@ export function OwnerRequestsDropdown({ userId, userType }: OwnerRequestsDropdow
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         
-        {allRequests.length === 0 ? (
-          <div className="p-4 text-center text-gray-500">
-            <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>Aucune demande</p>
-          </div>
-        ) : (
+        {/* Demandes envoyées (sent by owner) */}
+        {sentRequests.length > 0 && (
           <>
-            {allRequests.slice(0, 5).map((request) => (
+            <DropdownMenuLabel className="flex items-center text-orange-600">
+              <ArrowRightIcon className="h-4 w-4 mr-2" />
+              Demandes de résiliation envoyées ({sentRequests.length})
+            </DropdownMenuLabel>
+            {sentRequests.slice(0, 3).map((request) => (
               <DropdownMenuItem 
-                key={request.id}
-                onClick={() => handleRequestClick(request)}
+                key={`sent-${request.id}`}
                 className="cursor-pointer"
-                data-testid={`menu-item-request-${request.id}`}
+                data-testid={`menu-item-sent-request-${request.id}`}
+              >
+                <div className="flex items-start space-x-3 w-full">
+                  {getStatusIcon(request.status)}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900">
+                      Arrêt demandé au locataire
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {getStatusText(request.status)}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      Contrat #{request.contractId} • {new Date(request.createdAt).toLocaleDateString('fr-FR')}
+                    </p>
+                    <div className="flex gap-1 mt-1">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="h-6 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRequestClick(request, true);
+                        }}
+                      >
+                        Gérer
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-6 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleInvestigateRequest(request.id);
+                        }}
+                      >
+                        <Search className="h-3 w-3 mr-1" />
+                        État
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+          </>
+        )}
+
+        {/* Demandes reçues (sent by tenants) */}
+        {receivedRequests.length > 0 && (
+          <>
+            <DropdownMenuLabel className="flex items-center text-blue-600">
+              <FileText className="h-4 w-4 mr-2" />
+              Demandes de résiliation reçues ({receivedRequests.length})
+            </DropdownMenuLabel>
+            {receivedRequests.slice(0, 3).map((request) => (
+              <DropdownMenuItem 
+                key={`received-${request.id}`}
+                className="cursor-pointer"
+                data-testid={`menu-item-received-request-${request.id}`}
               >
                 <div className="flex items-start space-x-3 w-full">
                   {getStatusIcon(request.status)}
@@ -200,25 +295,59 @@ export function OwnerRequestsDropdown({ userId, userType }: OwnerRequestsDropdow
                       {getStatusText(request.status)}
                     </p>
                     <p className="text-xs text-gray-400">
-                      {new Date(request.createdAt).toLocaleDateString('fr-FR')}
+                      Contrat #{request.contractId} • {new Date(request.createdAt).toLocaleDateString('fr-FR')}
                     </p>
+                    <div className="flex gap-1 mt-1">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="h-6 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRequestClick(request, false);
+                        }}
+                      >
+                        Répondre
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-6 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleInvestigateRequest(request.id);
+                        }}
+                      >
+                        <Search className="h-3 w-3 mr-1" />
+                        État
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </DropdownMenuItem>
             ))}
-            
-            {allRequests.length > 5 && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem 
-                  onClick={() => navigate('/owner-requests')}
-                  className="text-center cursor-pointer"
-                  data-testid="menu-item-view-all-owner-requests"
-                >
-                  Voir toutes les demandes ({allRequests.length})
-                </DropdownMenuItem>
-              </>
-            )}
+          </>
+        )}
+
+        {/* Aucune demande */}
+        {sentRequests.length === 0 && receivedRequests.length === 0 && (
+          <div className="p-4 text-center text-gray-500">
+            <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p>Aucune demande de résiliation</p>
+          </div>
+        )}
+
+        {/* Voir toutes les demandes */}
+        {(sentRequests.length > 3 || receivedRequests.length > 3) && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={() => navigate('/owner-requests')}
+              className="text-center cursor-pointer"
+              data-testid="menu-item-view-all-owner-requests"
+            >
+              Voir toutes mes demandes
+            </DropdownMenuItem>
           </>
         )}
       </DropdownMenuContent>

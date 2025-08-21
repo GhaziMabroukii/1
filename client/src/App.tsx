@@ -27,6 +27,7 @@ import TenantRequestResponse from "./pages/TenantRequestResponse";
 import OwnerRequestResponse from "./pages/OwnerRequestResponse";
 import ContractVersions from "./pages/ContractVersions";
 import ContractVersionView from "./pages/ContractVersionView";
+import ContractTerminationStatus from "./pages/ContractTerminationStatus";
 import TenantTerminationRequestWrapper from "./pages/TenantTerminationRequestWrapper";
 import OwnerTerminationRequestWrapper from "./pages/OwnerTerminationRequestWrapper";
 import OwnerTerminationReview from "./pages/OwnerTerminationReview";
@@ -71,6 +72,7 @@ const App = () => (
           <Route path="/owner-termination-workflow/:requestId" component={OwnerTerminationWorkflow} />
           <Route path="/tenant-termination-workflow/:requestId?" component={TenantTerminationWorkflow} />
           <Route path="/contract-termination" component={ContractTermination} />
+          <Route path="/contract-termination-status/:requestId" component={ContractTerminationStatus} />
           <Route component={NotFound} />
         </Switch>
       </Router>
