@@ -59,6 +59,7 @@ const Search = () => {
     const locationParam = urlParams.get('location');
     const maxPriceParam = urlParams.get('maxPrice');
     const userTypeParam = urlParams.get('userType');
+    const filterParam = urlParams.get('filter');
     
     if (locationParam) {
       setSearchQuery(locationParam);
@@ -69,6 +70,9 @@ const Search = () => {
     }
     if (userTypeParam) {
       setCategoryFilter(userTypeParam === 'student' ? 'student' : userTypeParam === 'family' ? 'family' : '');
+    }
+    if (filterParam) {
+      setCategoryFilter(filterParam === 'student' ? 'student' : filterParam === 'family' ? 'family' : '');
     }
   }, []);
 
@@ -120,8 +124,8 @@ const Search = () => {
             reviews: reviewData.totalReviews,
             owner: ownerName,
             available: property.status === "Disponible",
-            isStudentFriendly: property.categories?.includes('student') || property.type === "studio",
-            isFamilyFriendly: property.categories?.includes('family') || property.type === "villa" || property.rooms >= 2,
+            isStudentFriendly: property.categories?.includes('Étudiant') || property.type === "studio",
+            isFamilyFriendly: property.categories?.includes('Famille') || property.type === "villa" || property.rooms >= 2,
             // Add view count (simulated based on property age and rating)
             views: Math.floor(Math.random() * 500) + 50,
             // Add category-specific theming data
@@ -207,13 +211,16 @@ const Search = () => {
       filtered = filtered.filter(p => p.type === propertyType);
     }
 
-    // Category filter
+    // Category filter using real database categories
     if (categoryFilter && categoryFilter !== "all") {
-      filtered = filtered.filter(p => 
-        p.categories?.includes(categoryFilter) ||
-        (categoryFilter === "student" && p.isStudentFriendly) ||
-        (categoryFilter === "family" && p.isFamilyFriendly)
-      );
+      filtered = filtered.filter(p => {
+        if (categoryFilter === "student") {
+          return p.categories?.includes('Étudiant') || p.isStudentFriendly;
+        } else if (categoryFilter === "family") {
+          return p.categories?.includes('Famille') || p.isFamilyFriendly;
+        }
+        return p.categories?.includes(categoryFilter);
+      });
     }
 
     // Price range filter
@@ -288,6 +295,13 @@ const Search = () => {
         icon: '🏘️', 
         color: 'text-orange-700',
         badge: 'bg-orange-100 text-orange-700 border-orange-200'
+      },
+      'maison_ete': { 
+        gradient: 'from-yellow-500 to-orange-500', 
+        bgColor: 'bg-gradient-to-br from-yellow-50 to-orange-50',
+        icon: '☀️', 
+        color: 'text-yellow-700',
+        badge: 'bg-yellow-100 text-yellow-700 border-yellow-200'
       }
     };
     
@@ -392,6 +406,7 @@ const Search = () => {
                       <SelectItem value="appartement">🏢 Appartement</SelectItem>
                       <SelectItem value="villa">🏡 Villa</SelectItem>
                       <SelectItem value="maison">🏘️ Maison</SelectItem>
+                      <SelectItem value="maison_ete">☀️ Maison d'été</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

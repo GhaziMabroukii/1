@@ -27,6 +27,7 @@ const MapView = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [propertyType, setPropertyType] = useState("all");
   const [maxPrice, setMaxPrice] = useState("all");
+  const [rentalPeriod, setRentalPeriod] = useState("all");
   const [equipmentFilters, setEquipmentFilters] = useState({
     furnished: false,
     unfurnished: false,
@@ -234,6 +235,7 @@ const MapView = () => {
       'appartement': '🏢',
       'villa': '🏖️',
       'maison': '🏘️',
+      'maison_ete': '☀️',
       'chambre': '🛏️'
     };
     
@@ -280,9 +282,13 @@ const MapView = () => {
       filtered = filtered.filter(property => property.type === propertyType);
     }
 
+    if (rentalPeriod && rentalPeriod !== "all") {
+      filtered = filtered.filter(property => property.priceType === rentalPeriod);
+    }
+
     if (maxPrice && maxPrice !== "all") {
       const price = parseInt(maxPrice);
-      filtered = filtered.filter(property => property.price <= price);
+      filtered = filtered.filter(property => parseFloat(property.price) <= price);
     }
 
     if (equipmentFilters.furnished || equipmentFilters.unfurnished || equipmentFilters.parking) {
@@ -302,7 +308,7 @@ const MapView = () => {
     }
 
     setFilteredProperties(filtered);
-  }, [properties, searchQuery, propertyType, maxPrice, equipmentFilters]);
+  }, [properties, searchQuery, propertyType, rentalPeriod, maxPrice, equipmentFilters]);
 
   // Update markers when filtered properties change
   useEffect(() => {
@@ -358,7 +364,7 @@ const MapView = () => {
           </div>
           
           {showFilters && (
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
               <Select value={propertyType} onValueChange={setPropertyType}>
                 <SelectTrigger>
                   <SelectValue placeholder="Type de bien" />
@@ -369,6 +375,21 @@ const MapView = () => {
                   <SelectItem value="apartment">Appartement</SelectItem>
                   <SelectItem value="villa">Villa</SelectItem>
                   <SelectItem value="maison">Maison</SelectItem>
+                  <SelectItem value="maison_ete">☀️ Maison d'été</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select value={rentalPeriod} onValueChange={setRentalPeriod}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Période de location" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes périodes</SelectItem>
+                  <SelectItem value="jour">🌅 Par jour</SelectItem>
+                  <SelectItem value="nuit">🌙 Par nuit</SelectItem>
+                  <SelectItem value="semaine">📅 Par semaine</SelectItem>
+                  <SelectItem value="mois">📊 Par mois</SelectItem>
+                  <SelectItem value="annee">🗓️ Par année</SelectItem>
                 </SelectContent>
               </Select>
               
@@ -378,6 +399,9 @@ const MapView = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tous prix</SelectItem>
+                  <SelectItem value="50">Jusqu'à 50 TND</SelectItem>
+                  <SelectItem value="100">Jusqu'à 100 TND</SelectItem>
+                  <SelectItem value="200">Jusqu'à 200 TND</SelectItem>
                   <SelectItem value="500">Jusqu'à 500 TND</SelectItem>
                   <SelectItem value="1000">Jusqu'à 1000 TND</SelectItem>
                   <SelectItem value="1500">Jusqu'à 1500 TND</SelectItem>
