@@ -14,7 +14,7 @@ import { insertOfferSchema } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { z } from "zod";
-import { MapPin, Home, Bed, Bath, Phone, MessageCircle, Banknote, ArrowLeft, Star, Heart, Share, Calendar, Users, Wifi, Car, Utensils, Tv, Wind, Droplets, ChevronLeft, ChevronRight, ExternalLink, Map, StarIcon, Clock, CheckCircle, XCircle, FileText } from "lucide-react";
+import { MapPin, Home, Bed, Bath, Phone, MessageCircle, Banknote, ArrowLeft, Star, Heart, Share, Calendar, Users, Wifi, Car, Utensils, Tv, Wind, Droplets, ChevronLeft, ChevronRight, ExternalLink, Map, StarIcon, Clock, CheckCircle, XCircle, FileText, Shield, Info, DollarSign, Tag, MapPinned, Navigation, Building2, Armchair, Clock3, CreditCard, Zap } from "lucide-react";
 import Header from "@/components/Header";
 
 
@@ -430,16 +430,104 @@ export default function PropertyDetails() {
                 </div>
               </CardHeader>
               <CardContent>
+                {/* Property Categories & Type */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-lg flex items-center space-x-2">
+                      <Building2 className="h-5 w-5 text-primary" />
+                      <span>Type de propriété</span>
+                    </h3>
+                    <Badge variant="outline" className="text-sm px-3 py-1">
+                      {property.type || 'Non spécifié'}
+                    </Badge>
+                  </div>
+                  
+                  {/* Categories */}
+                  {property.categories && property.categories.length > 0 && (
+                    <div className="mb-4">
+                      <h4 className="font-medium text-sm text-muted-foreground mb-2">Catégories</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {property.categories.map((category: string, index: number) => (
+                          <Badge key={index} variant="secondary" className="text-xs">
+                            <Tag className="h-3 w-3 mr-1" />
+                            {category}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Geographic Highlight */}
+                  {property.geographicHighlight && (
+                    <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                      <div className="flex items-center space-x-2">
+                        <MapPinned className="h-4 w-4 text-primary" />
+                        <span className="font-medium text-sm">Point d'intérêt</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {property.geographicHighlight}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Description */}
                 <div className="mb-6">
                   <h3 className="font-semibold mb-3 text-lg">Description</h3>
                   <p className="text-muted-foreground leading-relaxed text-base">
-                    {property.description}
+                    {property.description || 'Aucune description disponible'}
                   </p>
                 </div>
 
+                {/* Pricing & Financial Details */}
+                <div className="mb-6">
+                  <h3 className="font-semibold mb-4 text-lg flex items-center space-x-2">
+                    <CreditCard className="h-5 w-5 text-primary" />
+                    <span>Détails financiers</span>
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 rounded-lg bg-muted/50">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <DollarSign className="h-4 w-4 text-green-600" />
+                        <span className="font-medium text-sm">Loyer</span>
+                      </div>
+                      <p className="text-lg font-bold">{property.price} TND</p>
+                      <p className="text-sm text-muted-foreground">par {property.priceType || 'mois'}</p>
+                    </div>
+                    
+                    {property.deposit && (
+                      <div className="p-4 rounded-lg bg-muted/50">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Shield className="h-4 w-4 text-blue-600" />
+                          <span className="font-medium text-sm">Caution</span>
+                        </div>
+                        <p className="text-lg font-bold">{property.deposit} TND</p>
+                        <p className="text-sm text-muted-foreground">Dépôt de garantie</p>
+                      </div>
+                    )}
+                    
+                    {property.utilities && (
+                      <div className="p-4 rounded-lg bg-muted/50 md:col-span-2">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Zap className="h-4 w-4 text-yellow-600" />
+                          <span className="font-medium text-sm">Services publics</span>
+                          {property.utilitiesIncluded && (
+                            <Badge variant="default" className="text-xs">Inclus</Badge>
+                          )}
+                        </div>
+                        <p className="text-sm">{property.utilities}</p>
+                        {!property.utilitiesIncluded && (
+                          <p className="text-xs text-muted-foreground mt-1">Non inclus dans le loyer</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Amenities */}
                 {property.amenities && property.amenities.length > 0 && (
-                  <div>
-                    <h3 className="font-semibold mb-4 text-lg">Équipements</h3>
+                  <div className="mb-6">
+                    <h3 className="font-semibold mb-4 text-lg">Équipements & Services</h3>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                       {property.amenities.map((amenity: string, index: number) => (
                         <div key={index} className="flex items-center space-x-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
@@ -451,41 +539,139 @@ export default function PropertyDetails() {
                   </div>
                 )}
 
-                {/* Integrated Maps */}
-                {property.latitude && property.longitude && (
-                  <div className="mt-6">
-                    <h3 className="font-semibold mb-4 text-lg">Localisation</h3>
-                    <div className="rounded-lg overflow-hidden border">
-                      <iframe
-                        width="100%"
-                        height="300"
-                        frameBorder="0"
-                        src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dOWTgaGzGnE_0M&q=${property.latitude},${property.longitude}&zoom=15`}
-                        allowFullScreen
-                        className="w-full"
-                      />
-                      <div className="p-4 bg-muted/50">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium">{property.address}</p>
-                            <p className="text-sm text-muted-foreground">
-                              GPS: {property.latitude}, {property.longitude}
-                            </p>
-                          </div>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={openMapsLocation}
-                            className="flex items-center space-x-2"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            <span>Ouvrir dans Maps</span>
-                          </Button>
+                {/* House Rules */}
+                {property.rules && property.rules.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="font-semibold mb-4 text-lg flex items-center space-x-2">
+                      <Shield className="h-5 w-5 text-primary" />
+                      <span>Règlement intérieur</span>
+                    </h3>
+                    <div className="space-y-2">
+                      {property.rules.map((rule: string, index: number) => (
+                        <div key={index} className="flex items-center space-x-3 p-3 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
+                          <Info className="h-4 w-4 text-red-600 flex-shrink-0" />
+                          <span className="text-sm text-red-800 dark:text-red-200">{rule}</span>
                         </div>
-                      </div>
+                      ))}
                     </div>
                   </div>
                 )}
+
+                {/* Enhanced Location Section */}
+                <div className="mb-6">
+                  <h3 className="font-semibold mb-4 text-lg flex items-center space-x-2">
+                    <Navigation className="h-5 w-5 text-primary" />
+                    <span>Localisation exacte</span>
+                  </h3>
+                  
+                  {/* Address Card */}
+                  <div className="mb-4 p-4 rounded-lg bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <MapPin className="h-5 w-5 text-primary" />
+                          <span className="font-semibold text-lg">Adresse complète</span>
+                        </div>
+                        <p className="text-base mb-2">{property.address}</p>
+                        
+                        {/* Coordinates if available */}
+                        {property.latitude && property.longitude && (
+                          <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                            <div className="flex items-center space-x-1">
+                              <span>GPS:</span>
+                              <code className="bg-muted px-2 py-1 rounded text-xs font-mono">
+                                {Number(property.latitude).toFixed(6)}, {Number(property.longitude).toFixed(6)}
+                              </code>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {property.latitude && property.longitude && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={openMapsLocation}
+                          className="flex items-center space-x-2 ml-4"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          <span>Ouvrir dans Maps</span>
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Interactive Map */}
+                  {property.latitude && property.longitude && (
+                    <div className="rounded-lg overflow-hidden border shadow-lg">
+                      <iframe
+                        width="100%"
+                        height="350"
+                        frameBorder="0"
+                        src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dOWTgaGzGnE_0M&q=${property.latitude},${property.longitude}&zoom=16&maptype=roadmap`}
+                        allowFullScreen
+                        className="w-full"
+                        title="Localisation de la propriété"
+                      />
+                      <div className="p-3 bg-muted/30 border-t">
+                        <p className="text-xs text-center text-muted-foreground">
+                          Cliquez sur "Ouvrir dans Maps" pour obtenir des directions détaillées
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* No coordinates fallback */}
+                  {(!property.latitude || !property.longitude) && (
+                    <div className="text-center py-6 bg-muted/30 rounded-lg border-2 border-dashed border-muted">
+                      <MapPin className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">Position GPS non disponible</p>
+                      <p className="text-xs text-muted-foreground">Seule l'adresse textuelle est fournie</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Property Information Summary */}
+                <div className="mb-6">
+                  <h3 className="font-semibold mb-4 text-lg flex items-center space-x-2">
+                    <Info className="h-5 w-5 text-primary" />
+                    <span>Informations complémentaires</span>
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Property Creation Date */}
+                    {property.createdAt && (
+                      <div className="p-3 rounded-lg bg-muted/30 text-center">
+                        <Calendar className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
+                        <p className="text-xs font-medium text-muted-foreground mb-1">Publié le</p>
+                        <p className="text-sm font-semibold">
+                          {new Date(property.createdAt).toLocaleDateString('fr-FR', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric'
+                          })}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Property ID */}
+                    <div className="p-3 rounded-lg bg-muted/30 text-center">
+                      <Tag className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Référence</p>
+                      <p className="text-sm font-semibold">#{property.id}</p>
+                    </div>
+                    
+                    {/* Last Update */}
+                    {property.updatedAt && property.updatedAt !== property.createdAt && (
+                      <div className="p-3 rounded-lg bg-muted/30 text-center">
+                        <Clock3 className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
+                        <p className="text-xs font-medium text-muted-foreground mb-1">Mis à jour</p>
+                        <p className="text-sm font-semibold">
+                          {new Date(property.updatedAt).toLocaleDateString('fr-FR')}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                 {/* Reviews Section */}
                 <div className="mt-6">
