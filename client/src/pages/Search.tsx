@@ -357,6 +357,13 @@ const Search = () => {
                 📍 Près de moi
               </Button>
               <Button 
+                onClick={() => navigate("/map")}
+                variant="default"
+                className="bg-primary hover:bg-primary/90 h-12 px-6"
+              >
+                🗺️ Voir la carte
+              </Button>
+              <Button 
                 onClick={() => setShowFilters(!showFilters)}
                 variant="outline"
                 className="bg-gray-50 hover:bg-gray-100 h-12 px-6"

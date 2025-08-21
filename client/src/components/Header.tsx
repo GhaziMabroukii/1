@@ -112,6 +112,9 @@ const Header = () => {
             <Link to="/search" className="text-foreground hover:text-primary transition-colors font-medium">
               Découvrir
             </Link>
+            <Link to="/map" className="text-foreground hover:text-primary transition-colors font-medium flex items-center gap-1">
+              🗺️ Carte
+            </Link>
             <Link to="/search?filter=student" className="text-foreground hover:text-primary transition-colors font-medium">
               Pour étudiants
             </Link>
