@@ -63,11 +63,14 @@ export function OwnerTerminationReview() {
 
   const respondMutation = useMutation({
     mutationFn: async (data: { response: 'accepted' | 'rejected', ownerResponse: string }) => {
+      const userData = localStorage.getItem('userData');
+      const currentUser = userData ? JSON.parse(userData) : null;
+      
       return apiRequest(`/api/contract-termination-requests/${requestId}/respond`, {
         method: 'PUT',
         body: JSON.stringify({
           ...data,
-          userId: JSON.parse(localStorage.getItem('currentUser') || '{}').id
+          userId: currentUser?.id
         })
       });
     },
@@ -79,6 +82,7 @@ export function OwnerTerminationReview() {
       });
       queryClient.invalidateQueries({ queryKey: [`/api/contract-termination-requests/${requestId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/owner-requests`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tenant-requests`] });
       
       if (variables.response === 'accepted') {
         navigate(`/owner-termination-workflow/${requestId}`);

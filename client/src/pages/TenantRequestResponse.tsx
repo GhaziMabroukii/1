@@ -94,7 +94,20 @@ export default function TenantRequestResponse() {
   // Response mutation
   const responseMutation = useMutation({
     mutationFn: async (responseType: 'accepted' | 'rejected') => {
-      return apiRequest(`/api/contract-${requestType}-requests/${requestId}/respond`, {
+      console.log('TenantRequestResponse: Sending response', {
+        responseType,
+        tenantResponse: response,
+        userId: currentUser?.id,
+        requestId,
+        requestType
+      });
+      
+      // For termination requests, use the correct API route
+      const apiUrl = requestType === 'termination' 
+        ? `/api/contract-termination-requests/${requestId}/respond`
+        : `/api/contract-${requestType}-requests/${requestId}/respond`;
+      
+      return apiRequest(apiUrl, {
         method: 'PUT',
         body: JSON.stringify({
           response: responseType,
@@ -113,7 +126,10 @@ export default function TenantRequestResponse() {
       
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: [`/api/contract-${requestType}-requests/${requestId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/contract-termination-requests/${requestId}`] });
       queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tenant-requests`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/owner-requests`] });
       
       // If accepted a termination request, redirect to the termination workflow
       if (responseType === 'accepted' && requestType === 'termination') {
