@@ -10,6 +10,7 @@ import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, Clock, FileText } from 
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import Header from '@/components/Header';
+import { TerminationStepsProgress } from '@/components/TerminationStepsProgress';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -42,6 +43,10 @@ export function OwnerTerminationReview() {
   
   const [ownerResponse, setOwnerResponse] = useState('');
   const [isAccepting, setIsAccepting] = useState<boolean | null>(null);
+
+  // Get current user for ownership check
+  const userData = localStorage.getItem('userData');
+  const currentUser = userData ? JSON.parse(userData) : null;
 
   // Fetch termination request details
   const { data: request, isLoading } = useQuery<TerminationRequest>({
@@ -192,7 +197,7 @@ export function OwnerTerminationReview() {
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Demandée par</p>
-                  <p className="font-semibold">{tenant?.firstName && tenant?.lastName ? `${tenant.firstName} ${tenant.lastName}` : 'Locataire'}</p>
+                  <p className="font-semibold">{tenant && typeof tenant === 'object' && 'firstName' in tenant && 'lastName' in tenant ? `${(tenant as any).firstName} ${(tenant as any).lastName}` : 'Locataire'}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-600">Date de demande</p>
@@ -255,6 +260,20 @@ export function OwnerTerminationReview() {
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* Steps Progress */}
+          {request && (
+            <TerminationStepsProgress
+              request={request as any}
+              userRole="owner"
+              userId={currentUser?.id || 0}
+              onStepAction={(stepId, action) => {
+                if (stepId === 'response' && request.status === 'pending') {
+                  // Show action buttons - handled below
+                }
+              }}
+            />
           )}
 
           {/* Response Section - Only show if pending */}
