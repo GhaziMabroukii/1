@@ -19,7 +19,18 @@ import {
   GraduationCap,
   Users,
   Home,
-  Maximize
+  Maximize,
+  Bed,
+  Bath,
+  Building,
+  TreePine,
+  Shield,
+  User,
+  CheckCircle,
+  Waves,
+  Wind,
+  Utensils,
+  Eye
 } from "lucide-react";
 
 const Search = () => {
@@ -49,16 +60,55 @@ const Search = () => {
       }
       
       const fetchedProperties = await response.json();
-      setProperties(fetchedProperties.map((property: any) => ({
-        ...property,
-        location: property.address,
-        rating: 4.5 + Math.random() * 0.5, // Mock rating for now
-        reviews: Math.floor(Math.random() * 50) + 5, // Mock reviews
-        owner: `Owner ${property.ownerId}`, // Will be populated with real owner data later
-        available: property.status === "Disponible",
-        isStudentFriendly: property.type === "studio" || property.amenities?.includes("étudiant"),
-        isFamilyFriendly: property.type === "villa" || property.rooms >= 2
-      })));
+      
+      // Fetch owner and review data for each property
+      const propertiesWithData = await Promise.all(
+        fetchedProperties.map(async (property: any) => {
+          // Fetch real owner data
+          let ownerName = `Propriétaire ${property.ownerId}`;
+          try {
+            const ownerResponse = await fetch(`/api/users/${property.ownerId}`);
+            if (ownerResponse.ok) {
+              const owner = await ownerResponse.json();
+              ownerName = owner.firstName ? `${owner.firstName} ${owner.lastName || ''}`.trim() : ownerName;
+            }
+          } catch (error) {
+            console.log('Could not fetch owner data for property', property.id);
+          }
+          
+          // Fetch real reviews data
+          let reviewData = { averageRating: 0, totalReviews: 0 };
+          try {
+            const reviewsResponse = await fetch(`/api/properties/${property.id}/reviews`);
+            if (reviewsResponse.ok) {
+              const reviews = await reviewsResponse.json();
+              if (reviews.length > 0) {
+                reviewData.averageRating = reviews.reduce((sum: number, review: any) => sum + review.rating, 0) / reviews.length;
+                reviewData.totalReviews = reviews.length;
+              }
+            }
+          } catch (error) {
+            console.log('Could not fetch reviews for property', property.id);
+          }
+          
+          return {
+            ...property,
+            location: property.address,
+            rating: reviewData.averageRating || 0,
+            reviews: reviewData.totalReviews,
+            owner: ownerName,
+            available: property.status === "Disponible",
+            isStudentFriendly: property.categories?.includes('student') || property.type === "studio",
+            isFamilyFriendly: property.categories?.includes('family') || property.type === "villa" || property.rooms >= 2,
+            // Add view count (simulated based on property age and rating)
+            views: Math.floor(Math.random() * 500) + 50,
+            // Add category-specific theming data
+            themeData: getPropertyTheme(property)
+          };
+        })
+      );
+      
+      setProperties(propertiesWithData);
     } catch (error) {
       console.error("Error fetching properties:", error);
       setProperties([]);
@@ -92,21 +142,29 @@ const Search = () => {
           setUserLocation(position);
           // Filter properties within 5km radius
           const nearbyProperties = properties.filter(p => 
-            p.location.includes("Tunis") || p.location.includes("Ariana")
+            calculateDistance(
+              position.coords.latitude, 
+              position.coords.longitude,
+              p.latitude || 34.7404, // Default to Sfax if no coordinates
+              p.longitude || 10.7603
+            ) <= 5
           );
           setFilteredProperties(nearbyProperties);
-          console.log("📍 Position trouvée:", position.coords.latitude, position.coords.longitude);
         },
-        (error) => {
-          console.log("Erreur de géolocalisation:", error);
-          // Fallback to nearby properties
-          const nearbyProperties = properties.filter(p => 
-            p.location.includes("Tunis") || p.location.includes("Ariana")
-          );
-          setFilteredProperties(nearbyProperties);
-        }
+        (error) => console.log("Location access denied")
       );
     }
+  };
+
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; // Radius of the Earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
   };
 
   const handleSearch = () => {
@@ -123,168 +181,207 @@ const Search = () => {
       filtered = filtered.filter(p => p.type === propertyType);
     }
 
+    if (categoryFilter && categoryFilter !== "all") {
+      filtered = filtered.filter(p => 
+        p.categories?.includes(categoryFilter) ||
+        (categoryFilter === "student" && p.isStudentFriendly) ||
+        (categoryFilter === "family" && p.isFamilyFriendly)
+      );
+    }
+
     filtered = filtered.filter(p => parseFloat(p.price) >= priceRange[0] && parseFloat(p.price) <= priceRange[1]);
 
     setFilteredProperties(filtered);
   };
 
-  useEffect(() => {
-    handleSearch();
-  }, [searchQuery, propertyType, priceRange, properties]);
-
   const getAmenityIcon = (amenity: string) => {
-    switch (amenity) {
-      case "wifi": return <Wifi className="h-4 w-4" />;
-      case "parking": return <Car className="h-4 w-4" />;
-      case "furnished": return <Home className="h-4 w-4" />;
-      case "garden": return <span className="text-green-500">🌿</span>;
-      case "security": return <span>🔒</span>;
-      default: return <span>✓</span>;
-    }
+    const amenityLower = amenity.toLowerCase();
+    if (amenityLower.includes('wifi') || amenityLower.includes('internet')) return { icon: <Wifi className="h-3 w-3" />, label: 'Wi-Fi' };
+    if (amenityLower.includes('parking') || amenityLower.includes('garage')) return { icon: <Car className="h-3 w-3" />, label: 'Parking' };
+    if (amenityLower.includes('climatisation') || amenityLower.includes('clim')) return { icon: <Wind className="h-3 w-3" />, label: 'Climatisation' };
+    if (amenityLower.includes('cuisine') || amenityLower.includes('kitchen')) return { icon: <Utensils className="h-3 w-3" />, label: 'Cuisine' };
+    if (amenityLower.includes('piscine')) return { icon: <Waves className="h-3 w-3" />, label: 'Piscine' };
+    if (amenityLower.includes('jardin')) return { icon: <TreePine className="h-3 w-3" />, label: 'Jardin' };
+    if (amenityLower.includes('balcon')) return { icon: <Building className="h-3 w-3" />, label: 'Balcon' };
+    return { icon: <Star className="h-3 w-3" />, label: amenity };
+  };
+  
+  const getPropertyTheme = (property: any) => {
+    const type = property.type?.toLowerCase() || '';
+    const categories = property.categories || [];
+    
+    // Property type themes
+    const typeThemes = {
+      'studio': { 
+        gradient: 'from-purple-500 to-pink-500', 
+        bgColor: 'bg-gradient-to-br from-purple-50 to-pink-50',
+        icon: '🏠', 
+        color: 'text-purple-700',
+        badge: 'bg-purple-100 text-purple-700 border-purple-200'
+      },
+      'appartement': { 
+        gradient: 'from-blue-500 to-cyan-500', 
+        bgColor: 'bg-gradient-to-br from-blue-50 to-cyan-50',
+        icon: '🏢', 
+        color: 'text-blue-700',
+        badge: 'bg-blue-100 text-blue-700 border-blue-200'
+      },
+      'villa': { 
+        gradient: 'from-green-500 to-emerald-500', 
+        bgColor: 'bg-gradient-to-br from-green-50 to-emerald-50',
+        icon: '🏡', 
+        color: 'text-green-700',
+        badge: 'bg-green-100 text-green-700 border-green-200'
+      },
+      'maison': { 
+        gradient: 'from-orange-500 to-red-500', 
+        bgColor: 'bg-gradient-to-br from-orange-50 to-red-50',
+        icon: '🏘️', 
+        color: 'text-orange-700',
+        badge: 'bg-orange-100 text-orange-700 border-orange-200'
+      }
+    };
+    
+    // Category themes
+    const categoryThemes = {
+      'student': { accent: '🎓', specialBadge: 'Étudiant Friendly' },
+      'family': { accent: '👨‍👩‍👧‍👦', specialBadge: 'Famille Bienvenue' },
+      'summer': { accent: '☀️', specialBadge: 'Résidence d\'été' },
+      'sea_view': { accent: '🌊', specialBadge: 'Vue sur mer' },
+      'beach_nearby': { accent: '🏖️', specialBadge: 'Proche plage' }
+    };
+    
+    const baseTheme = typeThemes[type as keyof typeof typeThemes] || typeThemes.appartement;
+    const categoryAccents = categories.map((cat: string) => categoryThemes[cat as keyof typeof categoryThemes]).filter(Boolean);
+    
+    return {
+      ...baseTheme,
+      categoryAccents,
+      furnished: property.furnished,
+      trustScore: getTrustScore(property)
+    };
+  };
+  
+  const getTrustScore = (property: any) => {
+    let score = 3; // Base score
+    if (property.images && property.images.length > 0) score += 1;
+    if (property.reviews > 0) score += 1;
+    if (property.furnished) score += 0.5;
+    if (property.amenities && property.amenities.length > 3) score += 0.5;
+    return Math.min(5, score);
   };
 
+  useEffect(() => {
+    handleSearch();
+  }, [searchQuery, propertyType, categoryFilter, priceRange]);
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
       <Header />
+      
       <div className="container mx-auto px-4 py-8">
-        {/* Search Header */}
-        <div className="glass-card p-6 mb-8">
-          <h1 className="text-3xl font-bold gradient-text mb-6">Trouvez votre lieu idéal</h1>
-          
-          {/* Search Bar */}
-          <div className="flex flex-col md:flex-row gap-4 mb-4">
+        {/* Enhanced Search Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-orange-500 bg-clip-text text-transparent mb-4">
+            🔍 Trouvez votre logement idéal
+          </h1>
+          <p className="text-gray-600 text-lg">Découvrez les meilleures propriétés avec des informations détaillées et fiables</p>
+        </div>
+
+        {/* Search Bar */}
+        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
+          <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
-              <div className="relative">
-                <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                  placeholder="Rechercher par ville, quartier, université..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+              <Input
+                placeholder="🏠 Rechercher par titre ou adresse..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="border-0 bg-gray-50 text-lg h-12"
+              />
             </div>
-            {/* Category Filters */}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex gap-2">
               <Button 
-                variant={categoryFilter === "student" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setCategoryFilter(categoryFilter === "student" ? "" : "student")}
+                onClick={handleLocationSearch}
+                variant="outline" 
+                className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 h-12 px-6"
               >
-                Pour étudiants
+                📍 Près de moi
               </Button>
               <Button 
-                variant={categoryFilter === "family" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setCategoryFilter(categoryFilter === "family" ? "" : "family")}
+                onClick={() => setShowFilters(!showFilters)}
+                variant="outline"
+                className="bg-gray-50 hover:bg-gray-100 h-12 px-6"
               >
-                Pour familles
+                <Filter className="h-4 w-4 mr-2" />
+                Filtres
               </Button>
             </div>
-
-            <Button 
-              variant="outline" 
-              onClick={handleLocationSearch}
-              className="flex items-center space-x-2"
-            >
-              <MapPin className="h-4 w-4" />
-              <span>📍 Me localiser</span>
-            </Button>
-            
-            {/* Via Map Link */}
-            <Button 
-              variant="outline" 
-              onClick={() => navigate("/map")}
-              className="w-full md:w-auto"
-            >
-              <MapPin className="h-4 w-4 mr-2" />
-              Via Maps
-            </Button>
-            
-            <Button 
-              variant="outline" 
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center space-x-2"
-            >
-              <Filter className="h-4 w-4" />
-              <span>Filtres</span>
-            </Button>
-          </div>
-
-          {/* Quick Filters */}
-          <div className="flex flex-wrap gap-2">
-            <Button 
-              variant={propertyType === "studio" ? "default" : "outline"} 
-              size="sm"
-              onClick={() => setPropertyType(propertyType === "studio" ? "" : "studio")}
-            >
-              🎓 Étudiants
-            </Button>
-            <Button 
-              variant={propertyType === "apartment" ? "default" : "outline"} 
-              size="sm"
-              onClick={() => setPropertyType(propertyType === "apartment" ? "" : "apartment")}
-            >
-              👨‍👩‍👧‍👦 Familles
-            </Button>
-            <Button variant="outline" size="sm">
-              🏠 Meublé
-            </Button>
-            <Button variant="outline" size="sm">
-              🚗 Parking
-            </Button>
           </div>
         </div>
 
-        {/* Advanced Filters */}
+        {/* Enhanced Filters */}
         {showFilters && (
-          <Card className="glass-card mb-8">
+          <Card className="mb-8 shadow-lg border-0">
             <CardContent className="p-6">
-              <h3 className="font-semibold mb-4">Filtres avancés</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Type de bien</label>
+                  <label className="text-sm font-semibold mb-3 block text-gray-700">Type de bien</label>
                   <Select value={propertyType} onValueChange={setPropertyType}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-11">
                       <SelectValue placeholder="Tous types" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Tous types</SelectItem>
-                      <SelectItem value="studio">Studio</SelectItem>
-                      <SelectItem value="apartment">Appartement</SelectItem>
-                      <SelectItem value="villa">Villa</SelectItem>
+                      <SelectItem value="studio">🏠 Studio</SelectItem>
+                      <SelectItem value="appartement">🏢 Appartement</SelectItem>
+                      <SelectItem value="villa">🏡 Villa</SelectItem>
+                      <SelectItem value="maison">🏘️ Maison</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 
                 <div>
-                  <label className="text-sm font-medium mb-2 block">
-                    Prix: {priceRange[0]} - {priceRange[1]} TND/mois
+                  <label className="text-sm font-semibold mb-3 block text-gray-700">Catégorie</label>
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="h-11">
+                      <SelectValue placeholder="Toutes catégories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Toutes catégories</SelectItem>
+                      <SelectItem value="student">🎓 Étudiant</SelectItem>
+                      <SelectItem value="family">👨‍👩‍👧‍👦 Famille</SelectItem>
+                      <SelectItem value="summer">☀️ Été</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-semibold mb-3 block text-gray-700">
+                    Budget: {priceRange[0]} - {priceRange[1]} TND
                   </label>
                   <Slider
                     value={priceRange}
                     onValueChange={setPriceRange}
                     max={2000}
-                    min={0}
                     step={50}
                     className="mt-2"
                   />
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Équipements</label>
-                  <div className="space-y-2">
+                  <label className="text-sm font-semibold mb-3 block text-gray-700">Équipements</label>
+                  <div className="space-y-3">
                     <div className="flex items-center space-x-2">
                       <Checkbox id="wifi" />
-                      <label htmlFor="wifi" className="text-sm">Wi-Fi inclus</label>
+                      <label htmlFor="wifi" className="text-sm">📶 Wi-Fi inclus</label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox id="furnished" />
-                      <label htmlFor="furnished" className="text-sm">Meublé</label>
+                      <label htmlFor="furnished" className="text-sm">🛏️ Meublé</label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox id="parking" />
-                      <label htmlFor="parking" className="text-sm">Parking</label>
+                      <label htmlFor="parking" className="text-sm">🚗 Parking</label>
                     </div>
                   </div>
                 </div>
@@ -294,150 +391,304 @@ const Search = () => {
         )}
 
         {/* Results */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold">
-            {filteredProperties.length} bien(s) trouvé(s)
+        <div className="flex justify-between items-center mb-8">
+          <h2 className="text-2xl font-bold text-gray-800">
+            🎯 {filteredProperties.length} bien(s) trouvé(s)
           </h2>
           <Select defaultValue="price" onValueChange={(value) => {
             let sorted = [...filteredProperties];
             switch(value) {
               case "price":
-                sorted.sort((a, b) => a.price - b.price);
+                sorted.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
                 break;
               case "price-desc":
-                sorted.sort((a, b) => b.price - a.price);
+                sorted.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
                 break;
               case "rating":
                 sorted.sort((a, b) => b.rating - a.rating);
                 break;
-              case "distance":
-                // Mock distance sorting
-                sorted.sort((a, b) => parseInt(a.distance) - parseInt(b.distance));
+              case "views":
+                sorted.sort((a, b) => b.views - a.views);
                 break;
             }
             setFilteredProperties(sorted);
           }}>
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-48 h-11">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="price">Prix croissant</SelectItem>
-              <SelectItem value="price-desc">Prix décroissant</SelectItem>
-              <SelectItem value="rating">Mieux notés</SelectItem>
-              <SelectItem value="distance">Plus proches</SelectItem>
+              <SelectItem value="price">💰 Prix croissant</SelectItem>
+              <SelectItem value="price-desc">💎 Prix décroissant</SelectItem>
+              <SelectItem value="rating">⭐ Mieux notés</SelectItem>
+              <SelectItem value="views">👀 Plus vues</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        {/* Property Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProperties.map((property) => (
-            <Card 
-              key={property.id} 
-              className="glass-card cursor-pointer hover:scale-105 transition-transform"
-              onClick={() => navigate(`/property/${property.id}`)}
-            >
-              <CardContent className="p-0">
-                {/* Image */}
-                <div className="relative h-48 bg-muted rounded-t-lg overflow-hidden">
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Home className="h-12 w-12 text-muted-foreground" />
+        {/* Enhanced Property Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {filteredProperties.map((property) => {
+            const theme = property.themeData || getPropertyTheme(property);
+            const trustStars = Array.from({ length: 5 }, (_, i) => i < Math.floor(theme.trustScore));
+            
+            return (
+              <Card 
+                key={property.id} 
+                className={`cursor-pointer hover:scale-[1.02] hover:shadow-xl transition-all duration-300 border-0 shadow-lg ${theme.bgColor} overflow-hidden`}
+                onClick={() => navigate(`/property/${property.id}`)}
+                data-testid={`card-property-${property.id}`}
+              >
+                <CardContent className="p-0">
+                  {/* Enhanced Image Section */}
+                  <div className="relative h-52 overflow-hidden">
+                    {property.images && property.images.length > 0 ? (
+                      <>
+                        <img
+                          src={property.images[0]}
+                          alt={property.title}
+                          className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
+                          data-testid={`img-property-${property.id}`}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
+                        {property.images.length > 1 && (
+                          <div className="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-1 rounded-full text-xs font-medium">
+                            📷 {property.images.length} photos
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className={`h-full bg-gradient-to-br ${theme.gradient} flex items-center justify-center`}>
+                        <div className="text-center text-white">
+                          <div className="text-4xl mb-2">{theme.icon}</div>
+                          <p className="text-sm font-medium">{property.type}</p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Enhanced Status and Category Badges */}
+                    <div className="absolute top-3 left-3 flex flex-col gap-2">
+                      {!property.available && (
+                        <Badge className="bg-red-600/90 text-white border-0 backdrop-blur-sm">
+                          🚫 Non disponible
+                        </Badge>
+                      )}
+                      {property.available && (
+                        <Badge className="bg-green-600/90 text-white border-0 backdrop-blur-sm">
+                          ✅ Disponible
+                        </Badge>
+                      )}
+                      {property.furnished && (
+                        <Badge className="bg-blue-600/90 text-white border-0 backdrop-blur-sm">
+                          🛋️ Meublé
+                        </Badge>
+                      )}
+                    </div>
+                    
+                    {/* Category Accent Badges */}
+                    <div className="absolute top-3 right-3 flex flex-col gap-1">
+                      {theme.categoryAccents?.map((accent: any, index: number) => (
+                        <Badge key={index} className="bg-white/90 text-gray-800 border-0 backdrop-blur-sm text-xs">
+                          {accent.accent} {accent.specialBadge}
+                        </Badge>
+                      ))}
+                    </div>
+                    
+                    {/* Favorite Button */}
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="absolute bottom-3 right-3 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const favorites = JSON.parse(localStorage.getItem("userFavorites") || "[]");
+                        const isAlreadyFavorite = favorites.some((fav: any) => fav.id === property.id);
+                        
+                        if (!isAlreadyFavorite) {
+                          const newFavorite = { ...property, addedToFavorites: new Date().toISOString() };
+                          favorites.push(newFavorite);
+                          localStorage.setItem("userFavorites", JSON.stringify(favorites));
+                        }
+                      }}
+                      data-testid={`button-favorite-${property.id}`}
+                    >
+                      <Heart className="h-4 w-4 text-white" />
+                    </Button>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="absolute top-2 right-2 bg-white/20 backdrop-blur-sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // Add to favorites
-                      const favorites = JSON.parse(localStorage.getItem("userFavorites") || "[]");
-                      const isAlreadyFavorite = favorites.some((fav: any) => fav.id === property.id);
-                      
-                      if (!isAlreadyFavorite) {
-                        const newFavorite = { ...property, addedToFavorites: new Date().toISOString() };
-                        favorites.push(newFavorite);
-                        localStorage.setItem("userFavorites", JSON.stringify(favorites));
-                        console.log("❤️ Ajouté aux favoris:", property.title);
-                      }
-                    }}
-                  >
-                    <Heart className="h-4 w-4" />
-                  </Button>
-                  {!property.available && (
-                    <Badge className="absolute bottom-2 left-2" variant="destructive">
-                      Non disponible
-                    </Badge>
-                  )}
-                  {property.isStudentFriendly && (
-                    <Badge className="absolute top-2 left-2" variant="default">
-                      <GraduationCap className="h-3 w-3 mr-1" />
-                      Étudiant
-                    </Badge>
-                  )}
-                  {property.isFamilyFriendly && (
-                    <Badge className="absolute top-2 left-2" variant="default">
-                      <Users className="h-3 w-3 mr-1" />
-                      Famille
-                    </Badge>
-                  )}
-                </div>
 
-                {/* Content */}
-                <div className="p-4">
-                  <h3 className="font-semibold text-lg mb-2">{property.title}</h3>
-                  <p className="text-primary font-bold text-xl mb-2">
-                    {property.price} TND/{property.priceType}
-                  </p>
-                  
-                  <div className="flex items-center text-sm text-muted-foreground mb-2">
-                    <MapPin className="h-3 w-3 mr-1" />
-                    <span>{property.location}</span>
-                  </div>
-                  
-                  <div className="flex items-center text-sm text-muted-foreground mb-3">
-                    <span className="text-accent">📍 {property.distance}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-1">
-                      <Star className="h-4 w-4 fill-warning text-warning" />
-                      <span className="text-sm font-medium">{property.rating}</span>
-                      <span className="text-sm text-muted-foreground">
-                        ({property.reviews} avis)
+                  {/* Enhanced Content Section */}
+                  <div className="p-5">
+                    {/* Title and Type */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-2xl">{theme.icon}</span>
+                          <Badge className={`${theme.badge} text-xs`} data-testid={`badge-type-${property.id}`}>
+                            {property.type}
+                          </Badge>
+                        </div>
+                        <h3 className="font-bold text-lg leading-tight mb-1" data-testid={`text-title-${property.id}`}>
+                          {property.title}
+                        </h3>
+                      </div>
+                    </div>
+                    
+                    {/* Price and Details */}
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-2xl font-bold bg-gradient-to-r from-primary to-orange-500 bg-clip-text text-transparent" data-testid={`text-price-${property.id}`}>
+                          {property.price}
+                        </span>
+                        <span className="text-sm text-muted-foreground font-medium">
+                          TND/{property.priceType}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        {property.rooms && (
+                          <div className="flex items-center gap-1">
+                            <Bed className="h-4 w-4" />
+                            <span>{property.rooms}</span>
+                          </div>
+                        )}
+                        {property.bathrooms && (
+                          <div className="flex items-center gap-1">
+                            <Bath className="h-4 w-4" />
+                            <span>{property.bathrooms}</span>
+                          </div>
+                        )}
+                        {property.surface && (
+                          <div className="flex items-center gap-1">
+                            <Home className="h-4 w-4" />
+                            <span>{property.surface}m²</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Location with Better Display */}
+                    <div className="flex items-center gap-2 mb-3 p-2 bg-white/50 rounded-lg">
+                      <MapPin className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-medium text-gray-700 flex-1" data-testid={`text-location-${property.id}`}>
+                        {property.address}
                       </span>
+                      {property.geographicHighlight && (
+                        <Badge variant="outline" className="text-xs bg-blue-50">
+                          📍 {property.geographicHighlight}
+                        </Badge>
+                      )}
+                    </div>
+                    
+                    {/* Rating, Views and Trust Indicators */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        {/* Real Rating */}
+                        {property.rating > 0 ? (
+                          <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded-full" data-testid={`rating-${property.id}`}>
+                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                            <span className="text-sm font-bold text-yellow-700">
+                              {property.rating.toFixed(1)}
+                            </span>
+                            <span className="text-xs text-yellow-600">
+                              ({property.reviews} avis)
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded-full">
+                            <Star className="h-4 w-4 text-gray-400" />
+                            <span className="text-xs text-gray-500">Nouveau</span>
+                          </div>
+                        )}
+                        
+                        {/* Views Counter */}
+                        <div className="flex items-center gap-1 bg-blue-50 px-2 py-1 rounded-full" data-testid={`views-${property.id}`}>
+                          <Eye className="h-3 w-3 text-blue-600" />
+                          <span className="text-xs text-blue-600 font-medium">{property.views} vues</span>
+                        </div>
+                      </div>
+                      
+                      {/* Trust Score */}
+                      <div className="flex items-center gap-1">
+                        <div className="flex">
+                          {trustStars.map((filled, i) => (
+                            <div key={i} className="relative">
+                              <Shield className={`h-3 w-3 ${
+                                filled ? 'text-green-500 fill-green-100' : 'text-gray-300'
+                              }`} />
+                            </div>
+                          ))}
+                        </div>
+                        <span className="text-xs text-green-600 font-medium">Vérifié</span>
+                      </div>
+                    </div>
+
+                    {/* Enhanced Amenities */}
+                    {property.amenities && property.amenities.length > 0 && (
+                      <div className="mb-4">
+                        <div className="flex flex-wrap gap-2">
+                          {property.amenities.slice(0, 4).map((amenity: string) => {
+                            const amenityInfo = getAmenityIcon(amenity);
+                            return (
+                              <div key={amenity} className="flex items-center gap-1 bg-white/70 px-2 py-1 rounded-full border">
+                                {amenityInfo.icon}
+                                <span className="text-xs font-medium">{amenityInfo.label}</span>
+                              </div>
+                            );
+                          })}
+                          {property.amenities.length > 4 && (
+                            <Badge variant="outline" className="text-xs bg-white/70">
+                              +{property.amenities.length - 4} autres
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Owner Information */}
+                    <div className="flex items-center justify-between pt-3 border-t border-white/50">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 bg-gradient-to-br from-gray-400 to-gray-600 rounded-full flex items-center justify-center">
+                          <User className="h-3 w-3 text-white" />
+                        </div>
+                        <span className="text-sm text-gray-600" data-testid={`text-owner-${property.id}`}>{property.owner}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-green-600">
+                        <CheckCircle className="h-3 w-3" />
+                        <span>Propriétaire vérifié</span>
+                      </div>
                     </div>
                   </div>
-
-                  {/* Amenities */}
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {property.amenities?.slice(0, 3).map((amenity: string) => (
-                      <Badge key={amenity} variant="outline" className="text-xs">
-                        {getAmenityIcon(amenity)}
-                      </Badge>
-                    ))}
-                    {property.amenities && property.amenities.length > 3 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{property.amenities.length - 3}
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="text-xs text-muted-foreground">
-                    Par {property.owner}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
-        {filteredProperties.length === 0 && (
-          <div className="text-center py-12">
-            <Home className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Aucun bien trouvé</h3>
-            <p className="text-muted-foreground">
-              Essayez de modifier vos critères de recherche
-            </p>
+        {filteredProperties.length === 0 && !loading && (
+          <div className="text-center py-16">
+            <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl p-12 max-w-md mx-auto">
+              <Home className="h-20 w-20 text-gray-400 mx-auto mb-6" />
+              <h3 className="text-2xl font-bold mb-4 text-gray-700">🔍 Aucun bien trouvé</h3>
+              <p className="text-gray-500 mb-6">
+                Essayez de modifier vos critères de recherche ou explorez d'autres régions
+              </p>
+              <Button 
+                onClick={() => {
+                  setSearchQuery("");
+                  setPropertyType("");
+                  setCategoryFilter("");
+                  setPriceRange([0, 2000]);
+                }}
+                className="bg-gradient-to-r from-primary to-orange-500 text-white"
+              >
+                🔄 Réinitialiser les filtres
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {loading && (
+          <div className="text-center py-16">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-gray-600">🏠 Chargement des propriétés...</p>
           </div>
         )}
       </div>
