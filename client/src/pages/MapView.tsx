@@ -239,17 +239,27 @@ const MapView = () => {
     
     const icon = typeIcons[type] || '🏢';
     const color = property.available ? '#10B981' : '#EF4444';
+    const shadowColor = property.available ? '#065F46' : '#991B1B';
     
     return {
       url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
-        `<svg width="30" height="40" viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="15" cy="15" r="12" fill="${color}" stroke="white" stroke-width="2"/>
-          <text x="15" y="20" text-anchor="middle" font-size="10" fill="white">${icon}</text>
-          <polygon points="15,27 12,37 18,37" fill="${color}"/>
+        `<svg width="50" height="60" viewBox="0 0 50 60" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="shadow" x="0" y="0" width="200%" height="200%">
+              <feDropShadow dx="2" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.3"/>
+            </filter>
+            <radialGradient id="grad" cx="50%" cy="30%" r="60%">
+              <stop offset="0%" style="stop-color:${color};stop-opacity:1" />
+              <stop offset="100%" style="stop-color:${shadowColor};stop-opacity:1" />
+            </radialGradient>
+          </defs>
+          <circle cx="25" cy="22" r="18" fill="url(#grad)" stroke="white" stroke-width="3" filter="url(#shadow)"/>
+          <text x="25" y="30" text-anchor="middle" font-size="16" fill="white" font-weight="bold">${icon}</text>
+          <polygon points="25,40 20,52 30,52" fill="url(#grad)" stroke="white" stroke-width="2" filter="url(#shadow)"/>
         </svg>`
       )}`,
-      scaledSize: new window.google.maps.Size(30, 40),
-      anchor: new window.google.maps.Point(15, 37)
+      scaledSize: new window.google.maps.Size(50, 60),
+      anchor: new window.google.maps.Point(25, 52)
     };
   };
 
@@ -434,10 +444,41 @@ const MapView = () => {
           </div>
         </div>
 
-        <div className="mt-6 text-center">
+        <div className="mt-6 text-center space-y-4">
           <p className="text-sm text-muted-foreground">
             🗺️ Cliquez sur les marqueurs pour voir les détails des propriétés
           </p>
+          
+          {/* Legend */}
+          <div className="bg-white/5 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+            <h3 className="text-sm font-semibold text-foreground mb-3">Légende des propriétés</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+              <div className="flex items-center space-x-2">
+                <span className="text-lg">🏠</span>
+                <span className="text-muted-foreground">Studio</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-lg">🏢</span>
+                <span className="text-muted-foreground">Appartement</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-lg">🏖️</span>
+                <span className="text-muted-foreground">Villa</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-lg">🏘️</span>
+                <span className="text-muted-foreground">Maison</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-lg">🛏️</span>
+                <span className="text-muted-foreground">Chambre</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <span className="text-muted-foreground">Disponible</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
