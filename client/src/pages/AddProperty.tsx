@@ -245,40 +245,11 @@ const AddProperty = () => {
     } else if (method === "map") {
       // Reset manual address when using map
       handleInputChange('address', '');
-      // Simple map implementation using prompt for coordinates
-      const lat = prompt("Entrez la latitude (ex: 36.8065 pour Tunis):");
-      const lng = prompt("Entrez la longitude (ex: 10.1815 pour Tunis):");
-      
-      if (lat && lng && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng))) {
-        const latitude = parseFloat(lat);
-        const longitude = parseFloat(lng);
-        
-        // Basic validation for Tunisia coordinates
-        if (latitude >= 30 && latitude <= 38 && longitude >= 7 && longitude <= 12) {
-          handleInputChange('location', {
-            lat: latitude,
-            lng: longitude
-          });
-          handleInputChange('address', `Position carte: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
-          toast({
-            title: "✓ Position sur carte définie",
-            description: "Coordonnées validées et enregistrées",
-          });
-        } else {
-          toast({
-            title: "Coordonnées invalides",
-            description: "Veuillez entrer des coordonnées valides pour la Tunisie",
-            variant: "destructive",
-          });
-          handleInputChange('locationMethod', '');
-        }
-      } else {
-        toast({
-          title: "Saisie annulée",
-          description: "Aucune coordonnée n'a été définie",
-        });
-        handleInputChange('locationMethod', '');
-      }
+      // Map will be shown in the UI, no immediate action needed
+      toast({
+        title: "Carte activée",
+        description: "Cliquez sur la carte ci-dessous pour définir la position",
+      });
     } else if (method === "text") {
       // Reset GPS coordinates when using manual input
       handleInputChange('location', { lat: 0, lng: 0 });
@@ -318,6 +289,37 @@ const AddProperty = () => {
         });
       }
     }
+  };
+
+  // Tunisian cities with approximate coordinates
+  const tunisianCities = [
+    { name: "Tunis", lat: 36.8065, lng: 10.1815, region: "Nord" },
+    { name: "Sfax", lat: 34.7406, lng: 10.7603, region: "Centre" },
+    { name: "Sousse", lat: 35.8256, lng: 10.6367, region: "Centre" },
+    { name: "Kairouan", lat: 35.6781, lng: 10.0963, region: "Centre" },
+    { name: "Bizerte", lat: 37.2746, lng: 9.8739, region: "Nord" },
+    { name: "Gabès", lat: 33.8815, lng: 10.0982, region: "Sud" },
+    { name: "Ariana", lat: 36.8625, lng: 10.1950, region: "Nord" },
+    { name: "Monastir", lat: 35.7777, lng: 10.8261, region: "Centre" },
+    { name: "Nabeul", lat: 36.4560, lng: 10.7376, region: "Nord" },
+    { name: "Ben Arous", lat: 36.7539, lng: 10.2278, region: "Nord" },
+    { name: "Kasserine", lat: 35.1677, lng: 8.8366, region: "Centre" },
+    { name: "Hammamet", lat: 36.4000, lng: 10.6167, region: "Nord" },
+    { name: "Tozeur", lat: 33.9197, lng: 8.1339, region: "Sud" },
+    { name: "Mahdia", lat: 35.5047, lng: 11.0624, region: "Centre" },
+    { name: "Djerba", lat: 33.8076, lng: 10.8451, region: "Sud" }
+  ];
+
+  const handleMapCityClick = (city: typeof tunisianCities[0]) => {
+    handleInputChange('location', {
+      lat: city.lat,
+      lng: city.lng
+    });
+    handleInputChange('address', `${city.name}, Tunisie`);
+    toast({
+      title: `✓ ${city.name} sélectionné`,
+      description: `Position définie pour ${city.name} (${city.region})`,
+    });
   };
 
   const addFurniture = (itemId: string) => {
@@ -784,20 +786,76 @@ const AddProperty = () => {
                   </div>
                 )}
 
-                {formData.locationMethod === 'map' && formData.location.lat !== 0 && (
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-start space-x-3">
-                      <div className="p-2 bg-blue-500 rounded-full">
-                        <Map className="h-4 w-4 text-white" />
-                      </div>
-                      <div>
-                        <h4 className="text-blue-800 font-semibold">Position définie sur carte</h4>
-                        <p className="text-sm text-blue-700">
-                          Coordonnées: {formData.location.lat.toFixed(6)}, {formData.location.lng.toFixed(6)}
-                        </p>
-                        <p className="text-xs text-blue-600 mt-1">Position sélectionnée manuellement</p>
+                {/* Interactive Map Section */}
+                {formData.locationMethod === 'map' && (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <h4 className="text-blue-800 font-semibold flex items-center mb-3">
+                        <Map className="h-5 w-5 mr-2" />
+                        Carte Interactive de la Tunisie
+                      </h4>
+                      <p className="text-sm text-blue-700 mb-4">Cliquez sur une ville pour définir la position de votre bien</p>
+                      
+                      {/* Simple Tunisia Map */}
+                      <div className="relative bg-gradient-to-br from-blue-100 to-green-100 rounded-lg p-6 min-h-[400px] border-2 border-blue-200">
+                        {/* Map Title */}
+                        <div className="absolute top-2 left-2 bg-white rounded px-2 py-1 text-xs font-semibold text-blue-800">
+                          🇹🇳 Tunisie - Cliquez sur une ville
+                        </div>
+                        
+                        {/* Cities as clickable dots */}
+                        {tunisianCities.map((city) => {
+                          // Simple positioning relative to Tunisia's approximate bounds
+                          const x = ((city.lng - 7) / (12 - 7)) * 100; // longitude to %
+                          const y = ((38 - city.lat) / (38 - 30)) * 100; // latitude to % (inverted for display)
+                          const isSelected = formData.location.lat === city.lat && formData.location.lng === city.lng;
+                          
+                          return (
+                            <button
+                              key={city.name}
+                              type="button"
+                              onClick={() => handleMapCityClick(city)}
+                              className={`absolute transform -translate-x-1/2 -translate-y-1/2 ${
+                                isSelected 
+                                  ? "bg-red-500 text-white scale-125 shadow-lg" 
+                                  : "bg-blue-500 hover:bg-blue-600 text-white hover:scale-110"
+                              } rounded-full w-3 h-3 transition-all duration-200 cursor-pointer group`}
+                              style={{ left: `${x}%`, top: `${y}%` }}
+                              title={`${city.name} - ${city.region}`}
+                            >
+                              <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                {city.name}
+                              </span>
+                            </button>
+                          );
+                        })}
+                        
+                        {/* Map regions labels */}
+                        <div className="absolute top-16 left-8 text-xs font-semibold text-blue-600">NORD</div>
+                        <div className="absolute top-48 left-16 text-xs font-semibold text-green-600">CENTRE</div>
+                        <div className="absolute bottom-16 left-12 text-xs font-semibold text-orange-600">SUD</div>
+                        
+                        {/* Mediterranean Sea label */}
+                        <div className="absolute top-8 right-8 text-xs font-semibold text-blue-500">Mer Méditerranée</div>
                       </div>
                     </div>
+
+                    {formData.location.lat !== 0 && (
+                      <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-start space-x-3">
+                          <div className="p-2 bg-green-500 rounded-full">
+                            <MapPin className="h-4 w-4 text-white" />
+                          </div>
+                          <div>
+                            <h4 className="text-green-800 font-semibold">Position sélectionnée sur la carte</h4>
+                            <p className="text-sm text-green-700">{formData.address}</p>
+                            <p className="text-xs text-green-600 mt-1">
+                              Coordonnées: {formData.location.lat.toFixed(4)}, {formData.location.lng.toFixed(4)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -822,10 +880,15 @@ const AddProperty = () => {
                 )}
 
                 {!formData.locationMethod && (
-                  <div className="p-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg text-center">
-                    <MapPin className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                    <p className="text-gray-600 font-medium">Choisissez une méthode de localisation</p>
-                    <p className="text-sm text-gray-500">Sélectionnez l'une des trois options ci-dessus</p>
+                  <div className="p-6 bg-gradient-to-r from-primary/5 to-secondary/5 border-2 border-dashed border-primary/30 rounded-lg text-center">
+                    <MapPin className="h-12 w-12 mx-auto text-primary/60 mb-3" />
+                    <h3 className="text-lg font-semibold text-gray-700 mb-2">Localisation requise</h3>
+                    <p className="text-gray-600 mb-2">Choisissez votre méthode de localisation préférée</p>
+                    <div className="text-sm text-gray-500 space-y-1">
+                      <p>📍 <strong>Position actuelle</strong> : GPS automatique</p>
+                      <p>🗺️ <strong>Sur la carte</strong> : Pointer directement sur la carte</p>
+                      <p>✏️ <strong>Saisie manuelle</strong> : Écrire l'adresse</p>
+                    </div>
                   </div>
                 )}
               </CardContent>
