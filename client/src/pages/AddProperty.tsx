@@ -205,33 +205,118 @@ const AddProperty = () => {
     handleInputChange('locationMethod', method);
     
     if (method === "current") {
+      // Reset manual address when using current position
+      handleInputChange('address', '');
       if (navigator.geolocation) {
+        toast({
+          title: "Obtention de votre position...",
+          description: "Veuillez patienter",
+        });
         navigator.geolocation.getCurrentPosition(
           (position) => {
             handleInputChange('location', {
               lat: position.coords.latitude,
               lng: position.coords.longitude
             });
+            // Set a reverse geocoded address (mock for now)
+            handleInputChange('address', `Position GPS: ${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`);
             toast({
-              title: "Position définie",
-              description: "Votre position actuelle a été utilisée",
+              title: "✓ Position actuelle définie",
+              description: "Votre position GPS a été utilisée automatiquement",
             });
           },
           () => {
             toast({
               title: "Erreur de géolocalisation",
-              description: "Impossible d'obtenir votre position actuelle",
+              description: "Impossible d'obtenir votre position. Vérifiez les permissions de votre navigateur.",
               variant: "destructive",
             });
+            handleInputChange('locationMethod', '');
           }
         );
+      } else {
+        toast({
+          title: "Géolocalisation non supportée",
+          description: "Votre navigateur ne supporte pas la géolocalisation",
+          variant: "destructive",
+        });
+        handleInputChange('locationMethod', '');
       }
     } else if (method === "map") {
-      // In a real app, this would open a map picker
+      // Reset manual address when using map
+      handleInputChange('address', '');
+      // Simple map implementation using prompt for coordinates
+      const lat = prompt("Entrez la latitude (ex: 36.8065 pour Tunis):");
+      const lng = prompt("Entrez la longitude (ex: 10.1815 pour Tunis):");
+      
+      if (lat && lng && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng))) {
+        const latitude = parseFloat(lat);
+        const longitude = parseFloat(lng);
+        
+        // Basic validation for Tunisia coordinates
+        if (latitude >= 30 && latitude <= 38 && longitude >= 7 && longitude <= 12) {
+          handleInputChange('location', {
+            lat: latitude,
+            lng: longitude
+          });
+          handleInputChange('address', `Position carte: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+          toast({
+            title: "✓ Position sur carte définie",
+            description: "Coordonnées validées et enregistrées",
+          });
+        } else {
+          toast({
+            title: "Coordonnées invalides",
+            description: "Veuillez entrer des coordonnées valides pour la Tunisie",
+            variant: "destructive",
+          });
+          handleInputChange('locationMethod', '');
+        }
+      } else {
+        toast({
+          title: "Saisie annulée",
+          description: "Aucune coordonnée n'a été définie",
+        });
+        handleInputChange('locationMethod', '');
+      }
+    } else if (method === "text") {
+      // Reset GPS coordinates when using manual input
+      handleInputChange('location', { lat: 0, lng: 0 });
+      handleInputChange('address', '');
       toast({
-        title: "Sélection sur carte",
-        description: "Fonctionnalité de carte à venir",
+        title: "Saisie manuelle activée",
+        description: "Saisissez l'adresse complète dans le champ ci-dessous",
       });
+    }
+  };
+
+  const validateManualAddress = (address: string) => {
+    // Simple validation for Tunisian addresses
+    const tunisianCities = ['tunis', 'sfax', 'sousse', 'kairouan', 'bizerte', 'gabes', 'ariana', 'monastir', 'nabeul', 'kasserine', 'hammamet', 'ben arous', 'manouba'];
+    const hasCity = tunisianCities.some(city => address.toLowerCase().includes(city));
+    
+    if (address.length < 10) {
+      return { valid: false, message: "L'adresse doit contenir au moins 10 caractères" };
+    }
+    
+    if (!hasCity) {
+      return { valid: false, message: "L'adresse doit contenir une ville tunisienne reconnue" };
+    }
+    
+    return { valid: true, message: "Adresse validée" };
+  };
+
+  const handleManualAddressChange = (address: string) => {
+    handleInputChange('address', address);
+    
+    if (formData.locationMethod === 'text' && address.length > 5) {
+      const validation = validateManualAddress(address);
+      if (validation.valid) {
+        toast({
+          title: "✓ " + validation.message,
+          description: "Adresse acceptée",
+        });
+      }
     }
   };
 
@@ -286,6 +371,34 @@ const AddProperty = () => {
       }
       
       // Prepare property data for API (ensuring correct types for Drizzle schema)
+      // Enhanced validation
+      if (formData.locationMethod === 'text' && !validateManualAddress(formData.address).valid) {
+        toast({
+          title: "Adresse invalide",
+          description: validateManualAddress(formData.address).message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!formData.locationMethod) {
+        toast({
+          title: "Méthode de localisation requise",
+          description: "Veuillez choisir une méthode de localisation",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (formData.locationMethod !== 'text' && formData.location.lat === 0) {
+        toast({
+          title: "Position non définie",
+          description: "Veuillez définir la position de votre bien",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const propertyData = {
         ownerId: currentUser.id,
         title: formData.title,
@@ -632,23 +745,87 @@ const AddProperty = () => {
                   </Button>
                 </div>
 
-                <div>
-                  <Label htmlFor="address">Adresse complète *</Label>
-                  <Input
-                    id="address"
-                    value={formData.address}
-                    onChange={(e) => handleInputChange('address', e.target.value)}
-                    placeholder="Rue Ibn Khaldoun, Raoued 2088"
-                    required
-                  />
-                </div>
-
-                {formData.location.lat !== 0 && (
-                  <div className="p-3 bg-green-50 rounded-lg">
-                    <p className="text-sm text-green-700 flex items-center">
-                      <MapPin className="h-4 w-4 mr-2" />
-                      ✓ Position GPS définie: {formData.location.lat.toFixed(4)}, {formData.location.lng.toFixed(4)}
+                {/* Dynamic address field based on location method */}
+                {formData.locationMethod === 'text' && (
+                  <div>
+                    <Label htmlFor="address" className="text-base font-medium flex items-center space-x-2">
+                      <Type className="h-4 w-4" />
+                      <span>Saisir l'adresse complète *</span>
+                    </Label>
+                    <Input
+                      id="address"
+                      value={formData.address}
+                      onChange={(e) => handleManualAddressChange(e.target.value)}
+                      placeholder="Ex: Avenue Habib Bourguiba, Tunis 1001"
+                      required
+                      className="mt-2"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Incluez la rue, la ville et le code postal pour une meilleure précision
                     </p>
+                  </div>
+                )}
+
+                {/* Display current location status */}
+                {formData.locationMethod === 'current' && formData.location.lat !== 0 && (
+                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-start space-x-3">
+                      <div className="p-2 bg-green-500 rounded-full">
+                        <Navigation className="h-4 w-4 text-white" />
+                      </div>
+                      <div>
+                        <h4 className="text-green-800 font-semibold">Position actuelle utilisée</h4>
+                        <p className="text-sm text-green-700">
+                          GPS: {formData.location.lat.toFixed(6)}, {formData.location.lng.toFixed(6)}
+                        </p>
+                        <p className="text-xs text-green-600 mt-1">Position obtenue automatiquement</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {formData.locationMethod === 'map' && formData.location.lat !== 0 && (
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-start space-x-3">
+                      <div className="p-2 bg-blue-500 rounded-full">
+                        <Map className="h-4 w-4 text-white" />
+                      </div>
+                      <div>
+                        <h4 className="text-blue-800 font-semibold">Position définie sur carte</h4>
+                        <p className="text-sm text-blue-700">
+                          Coordonnées: {formData.location.lat.toFixed(6)}, {formData.location.lng.toFixed(6)}
+                        </p>
+                        <p className="text-xs text-blue-600 mt-1">Position sélectionnée manuellement</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {formData.locationMethod === 'text' && formData.address && (
+                  <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                    <div className="flex items-start space-x-3">
+                      <div className="p-2 bg-orange-500 rounded-full">
+                        <Type className="h-4 w-4 text-white" />
+                      </div>
+                      <div>
+                        <h4 className="text-orange-800 font-semibold">Adresse saisie manuellement</h4>
+                        <p className="text-sm text-orange-700">{formData.address}</p>
+                        <p className="text-xs text-orange-600 mt-1">
+                          {validateManualAddress(formData.address).valid ? 
+                            "✓ Adresse validée" : 
+                            validateManualAddress(formData.address).message
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {!formData.locationMethod && (
+                  <div className="p-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg text-center">
+                    <MapPin className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                    <p className="text-gray-600 font-medium">Choisissez une méthode de localisation</p>
+                    <p className="text-sm text-gray-500">Sélectionnez l'une des trois options ci-dessus</p>
                   </div>
                 )}
               </CardContent>
