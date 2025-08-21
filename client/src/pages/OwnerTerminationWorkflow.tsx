@@ -34,7 +34,18 @@ export function OwnerTerminationWorkflow() {
   const { data: request, isLoading, error } = useQuery<TerminationRequest>({
     queryKey: [`/api/contract-termination-requests/${requestId}`],
     enabled: !!requestId && !!currentUserId,
-    retry: 2
+    retry: 2,
+    staleTime: 0,
+    refetchOnWindowFocus: false
+  });
+
+  console.log('OwnerTerminationWorkflow Debug:', {
+    requestId,
+    currentUserId,
+    isLoading,
+    error,
+    hasData: !!request,
+    requestData: request
   });
 
   if (isLoading) {
