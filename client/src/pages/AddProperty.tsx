@@ -343,7 +343,7 @@ const AddProperty = () => {
 
       const mapbox = (window as any).mapboxgl;
       // Use the environment variable from Replit secrets
-      mapbox.accessToken = import.meta.env.MAPBOX_PUBLIC_KEY || 'pk.eyJ1IjoiaGVyYWxkdm9uIiwiYSI6ImNrcXVmZGZsaDEzdzQyb3FtcWQyNjV3d2UifQ.JQ4FhDGR7rFBhCdqkCWepQ';
+      mapbox.accessToken = import.meta.env.MAPBOX_PUBLIC_KEY || 'sk.eyJ1IjoiZ2hhemltYWJyb3VraSIsImEiOiJjbWVsZG4yOGUwOG5lMmxzY3F3Zmx1aXlkIn0.NgLBQgqMWz2vpPDJRZjk7Q';
 
       const mapboxMap = new mapbox.Map({
         container: mapRef.current,
@@ -421,7 +421,7 @@ const AddProperty = () => {
   // Reverse geocoding function using Mapbox Geocoding API
   const reverseGeocode = async (lng: number, lat: number) => {
     try {
-      const accessToken = import.meta.env.MAPBOX_PUBLIC_KEY || 'pk.eyJ1IjoiaGVyYWxkdm9uIiwiYSI6ImNrcXVmZGZsaDEzdzQyb3FtcWQyNjV3d2UifQ.JQ4FhDGR7rFBhCdqkCWepQ';
+      const accessToken = import.meta.env.MAPBOX_PUBLIC_KEY || 'sk.eyJ1IjoiZ2hhemltYWJyb3VraSIsImEiOiJjbWVsZG4yOGUwOG5lMmxzY3F3Zmx1aXlkIn0.NgLBQgqMWz2vpPDJRZjk7Q';
       const response = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${accessToken}&language=fr`
       );
