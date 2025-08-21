@@ -82,17 +82,6 @@ export function OwnerRequestsDropdown({ userId, userType }: OwnerRequestsDropdow
     staleTime: 0
   });
   
-  console.log("OwnerRequestsDropdown query result:", { 
-    sentRequests,
-    receivedRequests,
-    allRequests, 
-    sentLoading,
-    receivedLoading, 
-    sentError,
-    receivedError,
-    queryEnabled: userType === 'owner' && !!userId 
-  });
-
   if (sentLoading || receivedLoading || sentError || receivedError) {
     console.log("OwnerRequestsDropdown: Loading or error state", { sentLoading, receivedLoading, sentError, receivedError });
     return (
@@ -112,6 +101,17 @@ export function OwnerRequestsDropdown({ userId, userType }: OwnerRequestsDropdow
   const allRequests = [...sentRequests, ...receivedRequests];
   const pendingRequests = allRequests.filter(req => req.status === 'pending');
   const pendingCount = pendingRequests.length;
+
+  console.log("OwnerRequestsDropdown query result:", { 
+    sentRequests,
+    receivedRequests,
+    allRequests, 
+    sentLoading,
+    receivedLoading, 
+    sentError,
+    receivedError,
+    queryEnabled: userType === 'owner' && !!userId 
+  });
 
   console.log("OwnerRequestsDropdown: Filtering requests", {
     totalRequests: allRequests.length,
