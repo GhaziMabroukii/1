@@ -11,6 +11,7 @@ declare global {
   interface Window {
     google: any;
     initMap: () => void;
+    initMapCallback: () => void;
   }
 }
 
@@ -97,22 +98,51 @@ const MapView = () => {
   };
 
   const initializeGoogleMaps = () => {
-    // Global initMap function for callback
-    window.initMap = () => {
+    // Global initMap callback function
+    window.initMapCallback = () => {
+      console.log("Map callback triggered");
       if (mapRef.current && !mapInstance.current) {
-        mapInstance.current = new window.google.maps.Map(mapRef.current, {
-          zoom: 12,
-          center: { lat: 36.8065, lng: 10.1815 },
-          mapTypeId: window.google.maps.MapTypeId.ROADMAP
-        });
-        console.log("Map initialized");
-        updateMapMarkers();
+        try {
+          mapInstance.current = new window.google.maps.Map(mapRef.current, {
+            zoom: 12,
+            center: { lat: 36.8065, lng: 10.1815 },
+            mapTypeId: window.google.maps.MapTypeId.ROADMAP,
+            disableDefaultUI: false,
+            zoomControl: true,
+            streetViewControl: false,
+            fullscreenControl: false
+          });
+          console.log("Map initialized successfully");
+          
+          // Wait a bit then add markers
+          setTimeout(() => {
+            console.log("Adding markers after delay, properties count:", filteredProperties.length);
+            updateMapMarkers();
+          }, 500);
+        } catch (error) {
+          console.error("Error creating map:", error);
+        }
       }
     };
+
+    // Try to initialize immediately if Google is already loaded
+    if (window.google && window.google.maps) {
+      window.initMapCallback();
+    }
   };
 
   const updateMapMarkers = () => {
-    if (!mapInstance.current || !filteredProperties.length) return;
+    if (!mapInstance.current) {
+      console.log("Map instance not ready");
+      return;
+    }
+
+    if (!filteredProperties.length) {
+      console.log("No properties to display");
+      return;
+    }
+
+    console.log(`Adding ${filteredProperties.length} markers to map`);
 
     // Clear existing markers
     markersRef.current.forEach(marker => {
@@ -123,42 +153,76 @@ const MapView = () => {
     markersRef.current = [];
 
     // Add new markers
-    filteredProperties.forEach((property) => {
-      const marker = new window.google.maps.Marker({
-        position: property.coordinates,
-        map: mapInstance.current,
-        title: property.title,
-        icon: createPropertyIcon(property)
-      });
+    filteredProperties.forEach((property, index) => {
+      console.log(`Creating marker ${index + 1} for property:`, property.title, property.coordinates);
+      
+      try {
+        const marker = new window.google.maps.Marker({
+          position: property.coordinates,
+          map: mapInstance.current,
+          title: property.title,
+          icon: createPropertyIcon(property)
+        });
 
-      const infoWindow = new window.google.maps.InfoWindow({
-        content: `
-          <div style="padding: 10px; max-width: 250px;">
-            <h3 style="margin: 0 0 5px 0;">${property.title}</h3>
-            <p style="margin: 0 0 5px 0; color: #666;">📍 ${property.location}</p>
-            <p style="margin: 0; font-weight: bold; color: #f59e0b;">${property.price} TND/mois</p>
-            <button onclick="window.location.href='/property/${property.id}'" 
-                    style="margin-top: 8px; padding: 6px 12px; background: #f59e0b; color: white; border: none; border-radius: 4px; cursor: pointer;">
-              Voir détails
-            </button>
-          </div>
-        `
-      });
+        const infoWindow = new window.google.maps.InfoWindow({
+          content: `
+            <div style="padding: 12px; max-width: 280px; font-family: Arial, sans-serif;">
+              <h3 style="margin: 0 0 8px 0; color: #1f2937; font-size: 16px;">${property.title}</h3>
+              <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 13px;">📍 ${property.location}</p>
+              <p style="margin: 0 0 10px 0; font-weight: bold; color: #f59e0b; font-size: 18px;">${property.price} TND/mois</p>
+              <div style="margin-bottom: 10px;">
+                <span style="background: ${property.available ? '#dcfce7' : '#fee2e2'}; color: ${property.available ? '#166534' : '#dc2626'}; padding: 3px 8px; border-radius: 4px; font-size: 12px;">
+                  ${property.available ? '✅ Disponible' : '🚫 Non disponible'}
+                </span>
+                ${property.furnished ? '<span style="background: #dbeafe; color: #1e40af; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-left: 4px;">🛋️ Meublé</span>' : ''}
+              </div>
+              <button onclick="window.location.href='/property/${property.id}'" 
+                      style="width: 100%; margin-top: 8px; padding: 8px 12px; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
+                Voir les détails →
+              </button>
+            </div>
+          `
+        });
 
-      marker.addListener('click', () => {
-        infoWindow.open(mapInstance.current, marker);
-      });
+        marker.addListener('click', () => {
+          // Close other info windows
+          markersRef.current.forEach(m => {
+            if (m.infoWindow) {
+              m.infoWindow.close();
+            }
+          });
+          infoWindow.open(mapInstance.current, marker);
+        });
 
-      markersRef.current.push(marker);
+        marker.infoWindow = infoWindow;
+        markersRef.current.push(marker);
+        console.log(`Marker ${index + 1} added successfully`);
+      } catch (error) {
+        console.error(`Error creating marker for property ${property.title}:`, error);
+      }
     });
 
-    // Fit bounds
+    // Fit bounds to show all markers
     if (filteredProperties.length > 0) {
-      const bounds = new window.google.maps.LatLngBounds();
-      filteredProperties.forEach(property => {
-        bounds.extend(property.coordinates);
-      });
-      mapInstance.current.fitBounds(bounds);
+      try {
+        const bounds = new window.google.maps.LatLngBounds();
+        filteredProperties.forEach(property => {
+          bounds.extend(property.coordinates);
+        });
+        mapInstance.current.fitBounds(bounds, { padding: 50 });
+        
+        // Don't zoom too close for single property
+        if (filteredProperties.length === 1) {
+          setTimeout(() => {
+            if (mapInstance.current && mapInstance.current.getZoom() > 16) {
+              mapInstance.current.setZoom(16);
+            }
+          }, 500);
+        }
+        console.log("Map bounds adjusted to fit all markers");
+      } catch (error) {
+        console.error("Error fitting bounds:", error);
+      }
     }
   };
 
@@ -346,16 +410,24 @@ const MapView = () => {
 
         {/* Map Container */}
         <div className="bg-white/10 backdrop-blur-lg rounded-lg border border-white/20 overflow-hidden">
-          <div 
-            ref={mapRef}
-            className="w-full h-96 lg:h-[600px] bg-muted"
-            style={{ minHeight: '500px' }}
-          >
-            {loading && (
-              <div className="w-full h-full flex items-center justify-center">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                  <p className="text-muted-foreground">Chargement de la carte...</p>
+          <div className="relative">
+            <div 
+              ref={mapRef}
+              className="w-full h-96 lg:h-[600px] bg-gray-200"
+              style={{ minHeight: '500px' }}
+            />
+            {/* Map loading indicator */}
+            {(!mapInstance.current || loading) && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20 rounded-lg">
+                <div className="text-center text-foreground">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-primary mx-auto mb-4"></div>
+                  <p className="font-medium text-lg">Chargement de la carte...</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {loading ? 'Récupération des propriétés...' : 'Initialisation de Google Maps...'}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Propriétés: {filteredProperties.length} | Map: {mapInstance.current ? 'Ready' : 'Loading'}
+                  </p>
                 </div>
               </div>
             )}

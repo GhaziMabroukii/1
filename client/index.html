@@ -4,11 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <script>
-      // Global initMap function for Google Maps API
+      // Global initMap function for Google Maps API callback
       function initMap() {
-        // This function is required by some Google Maps API implementations
-        // Individual components will handle their own map initialization
-        console.log('Global initMap function called - Google Maps API ready');
+        console.log('Google Maps API loaded - calling initMapCallback');
+        if (window.initMapCallback) {
+          window.initMapCallback();
+        }
       }
     </script>
     <script src="https://cdn.jsdelivr.net/gh/somanchiu/Keyless-Google-Maps-API@v7.1/mapsJavaScriptAPI.js"></script>
