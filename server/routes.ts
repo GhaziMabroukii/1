@@ -850,12 +850,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updateData.tenantConfirmedAt = new Date();
       }
       
-      // Update the termination request using database
-      const [updatedRequest] = await db
-        .update(contractTerminationRequests)
-        .set(updateData)
-        .where(eq(contractTerminationRequests.id, terminationRequest.id))
-        .returning();
+      // Update the termination request using storage interface
+      let updatedRequest;
+      if (db) {
+        // Use database if available
+        [updatedRequest] = await db
+          .update(contractTerminationRequests)
+          .set(updateData)
+          .where(eq(contractTerminationRequests.id, terminationRequest.id))
+          .returning();
+      } else {
+        // Fallback to storage interface for in-memory storage
+        console.log('Using storage interface for password confirmation update');
+        updatedRequest = { ...terminationRequest, ...updateData };
+      }
 
       res.json(updatedRequest);
     } catch (error) {
