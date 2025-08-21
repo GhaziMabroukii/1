@@ -170,7 +170,7 @@ const MapView = () => {
             <div style="padding: 12px; max-width: 280px; font-family: Arial, sans-serif;">
               <h3 style="margin: 0 0 8px 0; color: #1f2937; font-size: 16px;">${property.title}</h3>
               <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 13px;">📍 ${property.location}</p>
-              <p style="margin: 0 0 10px 0; font-weight: bold; color: #f59e0b; font-size: 18px;">${property.price} TND/mois</p>
+              <p style="margin: 0 0 10px 0; font-weight: bold; color: #f59e0b; font-size: 18px;">${property.price} TND/${property.priceType || 'mois'}</p>
               <div style="margin-bottom: 10px;">
                 <span style="background: ${property.status === 'Disponible' ? '#dcfce7' : '#fee2e2'}; color: ${property.status === 'Disponible' ? '#166534' : '#dc2626'}; padding: 3px 8px; border-radius: 4px; font-size: 12px;">
                   ${property.status === 'Disponible' ? '✅ Disponible' : '🚫 ' + property.status}
@@ -233,9 +233,9 @@ const MapView = () => {
       'studio': '🏠',
       'apartment': '🏢', 
       'appartement': '🏢',
-      'villa': '🏖️',
+      'villa': '🏡',
       'maison': '🏘️',
-      'maison_ete': '☀️',
+      'maison_ete': '🏖️',
       'chambre': '🛏️'
     };
     

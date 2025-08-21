@@ -218,6 +218,12 @@ const Search = () => {
           return p.categories?.includes('Étudiant') || p.isStudentFriendly;
         } else if (categoryFilter === "family") {
           return p.categories?.includes('Famille') || p.isFamilyFriendly;
+        } else if (categoryFilter === "summer") {
+          return p.categories?.includes('Maison d\'été') || p.type === 'maison_ete';
+        } else if (categoryFilter === "vue_mer") {
+          return p.categories?.includes('Vue sur mer') || p.amenities?.includes('vue_mer');
+        } else if (categoryFilter === "proche_plage") {
+          return p.categories?.includes('Proche de la plage');
         }
         return p.categories?.includes(categoryFilter);
       });
@@ -297,21 +303,24 @@ const Search = () => {
         badge: 'bg-orange-100 text-orange-700 border-orange-200'
       },
       'maison_ete': { 
-        gradient: 'from-yellow-500 to-orange-500', 
-        bgColor: 'bg-gradient-to-br from-yellow-50 to-orange-50',
-        icon: '☀️', 
-        color: 'text-yellow-700',
-        badge: 'bg-yellow-100 text-yellow-700 border-yellow-200'
+        gradient: 'from-amber-500 via-orange-500 to-pink-500', 
+        bgColor: 'bg-gradient-to-br from-amber-50 via-orange-50 to-pink-50',
+        icon: '🏖️', 
+        color: 'text-amber-700',
+        badge: 'bg-gradient-to-r from-amber-100 to-orange-100 text-amber-700 border-amber-200'
       }
     };
     
-    // Category themes
+    // Category themes with creative icons
     const categoryThemes = {
-      'student': { accent: '🎓', specialBadge: 'Étudiant Friendly' },
-      'family': { accent: '👨‍👩‍👧‍👦', specialBadge: 'Famille Bienvenue' },
-      'summer': { accent: '☀️', specialBadge: 'Résidence d\'été' },
-      'sea_view': { accent: '🌊', specialBadge: 'Vue sur mer' },
-      'beach_nearby': { accent: '🏖️', specialBadge: 'Proche plage' }
+      'Étudiant': { accent: '🎓', specialBadge: 'Pour étudiants', color: 'text-blue-600', bg: 'bg-blue-50' },
+      'Famille': { accent: '👨‍👩‍👧‍👦', specialBadge: 'Pour familles', color: 'text-green-600', bg: 'bg-green-50' },
+      'Maison d\'été': { accent: '🏖️', specialBadge: 'Résidence d\'été', color: 'text-amber-600', bg: 'bg-amber-50' },
+      'Vue sur mer': { accent: '🌊', specialBadge: 'Vue panoramique', color: 'text-cyan-600', bg: 'bg-cyan-50' },
+      'Proche de la plage': { accent: '🏝️', specialBadge: 'Bord de mer', color: 'text-teal-600', bg: 'bg-teal-50' },
+      'student': { accent: '🎓', specialBadge: 'Pour étudiants', color: 'text-blue-600', bg: 'bg-blue-50' },
+      'family': { accent: '👨‍👩‍👧‍👦', specialBadge: 'Pour familles', color: 'text-green-600', bg: 'bg-green-50' },
+      'summer': { accent: '🏖️', specialBadge: 'Résidence d\'été', color: 'text-amber-600', bg: 'bg-amber-50' }
     };
     
     const baseTheme = typeThemes[type as keyof typeof typeThemes] || typeThemes.appartement;
@@ -419,9 +428,11 @@ const Search = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Toutes catégories</SelectItem>
-                      <SelectItem value="student">🎓 Étudiant</SelectItem>
-                      <SelectItem value="family">👨‍👩‍👧‍👦 Famille</SelectItem>
-                      <SelectItem value="summer">☀️ Été</SelectItem>
+                      <SelectItem value="student">🎓 Pour étudiants</SelectItem>
+                      <SelectItem value="family">👨‍👩‍👧‍👦 Pour familles</SelectItem>
+                      <SelectItem value="summer">🏖️ Maison d'été</SelectItem>
+                      <SelectItem value="vue_mer">🌊 Vue sur mer</SelectItem>
+                      <SelectItem value="proche_plage">🏝️ Proche plage</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
