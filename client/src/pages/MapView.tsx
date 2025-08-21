@@ -171,10 +171,10 @@ const MapView = () => {
               <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 13px;">📍 ${property.location}</p>
               <p style="margin: 0 0 10px 0; font-weight: bold; color: #f59e0b; font-size: 18px;">${property.price} TND/mois</p>
               <div style="margin-bottom: 10px;">
-                <span style="background: ${property.available ? '#dcfce7' : '#fee2e2'}; color: ${property.available ? '#166534' : '#dc2626'}; padding: 3px 8px; border-radius: 4px; font-size: 12px;">
-                  ${property.available ? '✅ Disponible' : '🚫 Non disponible'}
+                <span style="background: ${property.status === 'Disponible' ? '#dcfce7' : '#fee2e2'}; color: ${property.status === 'Disponible' ? '#166534' : '#dc2626'}; padding: 3px 8px; border-radius: 4px; font-size: 12px;">
+                  ${property.status === 'Disponible' ? '✅ Disponible' : '🚫 ' + property.status}
                 </span>
-                ${property.furnished ? '<span style="background: #dbeafe; color: #1e40af; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-left: 4px;">🛋️ Meublé</span>' : ''}
+                ${property.furnished ? '<span style="background: #dbeafe; color: #1e40af; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-left: 4px;">🛋️ Meublé</span>' : '<span style="background: #f3f4f6; color: #374151; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-left: 4px;">🏠 Non meublé</span>'}
               </div>
               <button onclick="window.location.href='/property/${property.id}'" 
                       style="width: 100%; margin-top: 8px; padding: 8px 12px; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
@@ -238,8 +238,10 @@ const MapView = () => {
     };
     
     const icon = typeIcons[type] || '🏢';
-    const color = property.available ? '#10B981' : '#EF4444';
-    const shadowColor = property.available ? '#065F46' : '#991B1B';
+    // Use real status field from database
+    const isAvailable = property.status === 'Disponible';
+    const color = isAvailable ? '#10B981' : '#EF4444';
+    const shadowColor = isAvailable ? '#065F46' : '#991B1B';
     
     return {
       url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
@@ -287,9 +289,13 @@ const MapView = () => {
       filtered = filtered.filter(property => {
         const amenities = property.amenities || [];
         
+        // Check furnished status using real database field
         if (equipmentFilters.furnished && !property.furnished) return false;
         if (equipmentFilters.unfurnished && property.furnished) return false;
-        if (equipmentFilters.parking && !amenities.includes('Parking')) return false;
+        
+        // Check parking in amenities array
+        const hasParking = amenities.includes('parking') || amenities.includes('Parking');
+        if (equipmentFilters.parking && !hasParking) return false;
         
         return true;
       });
