@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
@@ -291,7 +291,7 @@ const AddProperty = () => {
     }
   };
 
-  // Tunisian cities with approximate coordinates
+  // Tunisian cities for quick navigation
   const tunisianCities = [
     { name: "Tunis", lat: 36.8065, lng: 10.1815, region: "Nord" },
     { name: "Sfax", lat: 34.7406, lng: 10.7603, region: "Centre" },
@@ -302,80 +302,155 @@ const AddProperty = () => {
     { name: "Ariana", lat: 36.8625, lng: 10.1950, region: "Nord" },
     { name: "Monastir", lat: 35.7777, lng: 10.8261, region: "Centre" },
     { name: "Nabeul", lat: 36.4560, lng: 10.7376, region: "Nord" },
-    { name: "Ben Arous", lat: 36.7539, lng: 10.2278, region: "Nord" },
-    { name: "Kasserine", lat: 35.1677, lng: 8.8366, region: "Centre" },
-    { name: "Hammamet", lat: 36.4000, lng: 10.6167, region: "Nord" },
-    { name: "Tozeur", lat: 33.9197, lng: 8.1339, region: "Sud" },
-    { name: "Mahdia", lat: 35.5047, lng: 11.0624, region: "Centre" },
-    { name: "Djerba", lat: 33.8076, lng: 10.8451, region: "Sud" }
+    { name: "Hammamet", lat: 36.4000, lng: 10.6167, region: "Nord" }
   ];
 
-  const [mapZoom, setMapZoom] = useState(1);
-  const [mapCenter, setMapCenter] = useState({ lat: 34.7406, lng: 10.1815 }); // Center of Tunisia
-  const [showSatellite, setShowSatellite] = useState(true);
-
-  const handleMapCityClick = (city: typeof tunisianCities[0]) => {
-    // Zoom into the selected city
-    setMapCenter({ lat: city.lat, lng: city.lng });
-    setMapZoom(3); // Zoom in for precise positioning
-    toast({
-      title: `Zoom sur ${city.name}`,
-      description: "Cliquez maintenant à l'endroit exact de votre bien",
-    });
-  };
-
-  const handleMapClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (formData.locationMethod !== 'map') return;
-    
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * 100;
-    const y = ((event.clientY - rect.top) / rect.height) * 100;
-    
-    // Convert click position to coordinates relative to current view
-    const viewWidth = 5 / mapZoom; // Longitude range visible
-    const viewHeight = 8 / mapZoom; // Latitude range visible
-    
-    const clickLat = mapCenter.lat + (viewHeight / 2) - (y / 100) * viewHeight;
-    const clickLng = mapCenter.lng - (viewWidth / 2) + (x / 100) * viewWidth;
-    
-    // Validate coordinates are in Tunisia
-    if (clickLat >= 30 && clickLat <= 38 && clickLng >= 7 && clickLng <= 12) {
-      handleInputChange('location', {
-        lat: clickLat,
-        lng: clickLng
-      });
+  const handleCitySelect = (city: typeof tunisianCities[0]) => {
+    if (map && marker) {
+      const position = { lat: city.lat, lng: city.lng };
+      marker.position = position;
+      map.setCenter(position);
+      map.setZoom(14);
       
-      // Find nearest city for address
-      const nearestCity = tunisianCities.reduce((nearest, city) => {
-        const distance = Math.sqrt(
-          Math.pow(city.lat - clickLat, 2) + Math.pow(city.lng - clickLng, 2)
-        );
-        const nearestDistance = Math.sqrt(
-          Math.pow(nearest.lat - clickLat, 2) + Math.pow(nearest.lng - clickLng, 2)
-        );
-        return distance < nearestDistance ? city : nearest;
-      });
+      handleInputChange('location', { lat: city.lat, lng: city.lng });
       
-      handleInputChange('address', `Près de ${nearestCity.name}, ${nearestCity.region}, Tunisie`);
+      // Get precise address for the city
+      geocoder.geocode(
+        { location: position },
+        (results: any[], status: string) => {
+          if (status === 'OK' && results[0]) {
+            handleInputChange('address', results[0].formatted_address);
+          } else {
+            handleInputChange('address', `${city.name}, Tunisie`);
+          }
+        }
+      );
       
       toast({
-        title: "✓ Position exacte définie",
-        description: `Coordonnées: ${clickLat.toFixed(6)}, ${clickLng.toFixed(6)}`,
-      });
-    } else {
-      toast({
-        title: "Position invalide",
-        description: "Veuillez cliquer à l'intérieur de la Tunisie",
-        variant: "destructive",
+        title: `✓ Navigation vers ${city.name}`,
+        description: "Ajustez la position précise en cliquant sur la carte",
       });
     }
   };
 
-  const zoomIn = () => setMapZoom(Math.min(mapZoom * 1.5, 8));
-  const zoomOut = () => setMapZoom(Math.max(mapZoom / 1.5, 0.5));
-  const resetView = () => {
-    setMapZoom(1);
-    setMapCenter({ lat: 34.7406, lng: 10.1815 });
+  const [map, setMap] = useState<any>(null);
+  const [marker, setMarker] = useState<any>(null);
+  const [geocoder, setGeocoder] = useState<any>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
+
+  // Initialize Google Maps
+  useEffect(() => {
+    if (formData.locationMethod === 'map' && mapRef.current && !map) {
+      initializeGoogleMap();
+    }
+  }, [formData.locationMethod]);
+
+  const initializeGoogleMap = async () => {
+    try {
+      const { Map } = await (window as any).google.maps.importLibrary("maps");
+      const { Autocomplete } = await (window as any).google.maps.importLibrary("places");
+      const { AdvancedMarkerElement } = await (window as any).google.maps.importLibrary("marker");
+      const googleGeocoder = new (window as any).google.maps.Geocoder();
+      
+      const mapOptions = {
+        center: { lat: 34.7406, lng: 10.1815 }, // Center of Tunisia
+        zoom: 8,
+        mapId: "f8b9e6163e48e501"
+      };
+
+      const googleMap = new Map(mapRef.current, mapOptions);
+      const googleMarker = new AdvancedMarkerElement({
+        map: googleMap,
+        position: mapOptions.center,
+        gmpDraggable: true
+      });
+
+      // Set initial position if already exists
+      if (formData.location.lat !== 0) {
+        const existingPosition = { lat: formData.location.lat, lng: formData.location.lng };
+        googleMarker.position = existingPosition;
+        googleMap.setCenter(existingPosition);
+        googleMap.setZoom(16);
+      }
+
+      // Add click listener to map
+      googleMap.addListener('click', (event: any) => {
+        const lat = event.latLng.lat();
+        const lng = event.latLng.lng();
+        
+        // Validate coordinates are in Tunisia
+        if (lat >= 30 && lat <= 38 && lng >= 7 && lng <= 12) {
+          googleMarker.position = { lat, lng };
+          handleInputChange('location', { lat, lng });
+          
+          // Reverse geocode to get address
+          googleGeocoder.geocode(
+            { location: { lat, lng } },
+            (results: any[], status: string) => {
+              if (status === 'OK' && results[0]) {
+                handleInputChange('address', results[0].formatted_address);
+                toast({
+                  title: "✓ Position définie",
+                  description: `${results[0].formatted_address}`,
+                });
+              } else {
+                handleInputChange('address', `Coordonnées: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+                toast({
+                  title: "✓ Position définie",
+                  description: `Coordonnées: ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+                });
+              }
+            }
+          );
+        } else {
+          toast({
+            title: "Position invalide",
+            description: "Veuillez cliquer à l'intérieur de la Tunisie",
+            variant: "destructive",
+          });
+        }
+      });
+
+      // Add drag listener to marker
+      googleMarker.addListener('dragend', () => {
+        const position = googleMarker.position;
+        const lat = position.lat;
+        const lng = position.lng;
+        
+        handleInputChange('location', { lat, lng });
+        
+        // Reverse geocode to get address
+        googleGeocoder.geocode(
+          { location: { lat, lng } },
+          (results: any[], status: string) => {
+            if (status === 'OK' && results[0]) {
+              handleInputChange('address', results[0].formatted_address);
+              toast({
+                title: "✓ Position mise à jour",
+                description: `${results[0].formatted_address}`,
+              });
+            }
+          }
+        );
+      });
+
+      setMap(googleMap);
+      setMarker(googleMarker);
+      setGeocoder(googleGeocoder);
+      
+      toast({
+        title: "Carte chargée",
+        description: "Cliquez ou glissez le marqueur pour définir la position",
+      });
+
+    } catch (error) {
+      console.error('Error initializing Google Maps:', error);
+      toast({
+        title: "Erreur de carte",
+        description: "Impossible de charger Google Maps",
+        variant: "destructive",
+      });
+    }
   };
 
   const addFurniture = (itemId: string) => {
@@ -842,188 +917,70 @@ const AddProperty = () => {
                   </div>
                 )}
 
-                {/* Interactive Satellite Map Section */}
+                {/* Google Maps Section */}
                 {formData.locationMethod === 'map' && (
                   <div className="space-y-4">
                     <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      {/* Map Controls Header */}
+                      {/* Map Header and City Selector */}
                       <div className="flex items-center justify-between mb-4">
                         <div>
                           <h4 className="text-blue-800 font-semibold flex items-center">
                             <Map className="h-5 w-5 mr-2" />
-                            Carte Satellite Interactive - Tunisie
+                            Google Maps - Positionnement Précis
                           </h4>
                           <p className="text-sm text-blue-700 mt-1">
-                            {mapZoom <= 2 ? "Cliquez sur une ville pour zoomer" : "Cliquez à l'endroit exact de votre bien"}
+                            Cliquez sur la carte ou déplacez le marqueur pour définir la position
                           </p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <button
-                            type="button"
-                            onClick={() => setShowSatellite(!showSatellite)}
-                            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                              showSatellite ? "bg-green-500 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                            }`}
-                          >
-                            {showSatellite ? "🛰️ Satellite" : "🗺️ Plan"}
-                          </button>
                         </div>
                       </div>
 
-                      {/* Zoom Controls */}
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center space-x-2">
-                          <button
-                            type="button"
-                            onClick={zoomOut}
-                            className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded flex items-center space-x-1 transition-colors"
-                            disabled={mapZoom <= 0.5}
-                          >
-                            <span className="text-lg font-bold">−</span>
-                            <span className="text-xs">Zoom -</span>
-                          </button>
-                          
-                          <div className="bg-white border px-3 py-2 rounded text-sm font-medium min-w-[80px] text-center">
-                            Zoom {mapZoom.toFixed(1)}x
-                          </div>
-                          
-                          <button
-                            type="button"
-                            onClick={zoomIn}
-                            className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-2 rounded flex items-center space-x-1 transition-colors"
-                            disabled={mapZoom >= 8}
-                          >
-                            <span className="text-lg font-bold">+</span>
-                            <span className="text-xs">Zoom +</span>
-                          </button>
-                          
-                          <button
-                            type="button"
-                            onClick={resetView}
-                            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded text-xs font-medium transition-colors"
-                          >
-                            🌍 Vue globale
-                          </button>
-                        </div>
-                        
-                        <div className="text-xs text-gray-600">
-                          Centre: {mapCenter.lat.toFixed(3)}, {mapCenter.lng.toFixed(3)}
+                      {/* Quick City Navigation */}
+                      <div className="mb-4">
+                        <p className="text-sm font-medium text-gray-700 mb-2">
+                          🎯 Navigation rapide vers une ville:
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {tunisianCities.map((city) => (
+                            <button
+                              key={city.name}
+                              type="button"
+                              onClick={() => handleCitySelect(city)}
+                              className="px-3 py-1 bg-white border border-blue-200 hover:bg-blue-50 text-blue-700 rounded-md text-sm font-medium transition-colors"
+                            >
+                              {city.name}
+                            </button>
+                          ))}
                         </div>
                       </div>
                       
-                      {/* Interactive Satellite Map */}
-                      <div 
-                        className={`relative rounded-lg min-h-[500px] border-2 border-blue-200 cursor-crosshair overflow-hidden ${
-                          showSatellite 
-                            ? "bg-gradient-to-br from-green-900 via-yellow-800 to-blue-900" 
-                            : "bg-gradient-to-br from-blue-100 to-green-100"
-                        }`}
-                        onClick={handleMapClick}
-                        style={{
-                          backgroundImage: showSatellite 
-                            ? "url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><defs><pattern id=%22satellite%22 width=%2220%22 height=%2220%22 patternUnits=%22userSpaceOnUse%22><rect width=%2220%22 height=%2220%22 fill=%22%23134e4a%22/><circle cx=%2210%22 cy=%2210%22 r=%221%22 fill=%22%23065f46%22/></pattern></defs><rect width=%22100%25%22 height=%22100%25%22 fill=%22url(%23satellite)%22/></svg>')"
-                            : "none",
-                          backgroundSize: showSatellite ? `${20 / mapZoom}px ${20 / mapZoom}px` : "none"
-                        }}
-                      >
-                        {/* Map Info */}
-                        <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm rounded px-3 py-2 text-sm font-semibold text-gray-800 shadow-md">
-                          🇹🇳 Tunisie - {showSatellite ? "Vue Satellite" : "Vue Plan"}
-                        </div>
+                      {/* Google Map Container */}
+                      <div className="relative">
+                        <div 
+                          ref={mapRef}
+                          className="w-full h-[500px] rounded-lg border-2 border-blue-200"
+                          style={{ minHeight: '500px' }}
+                        ></div>
                         
-                        {/* Crosshair for precision */}
-                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-                          <div className="w-6 h-6 border-2 border-red-500 rounded-full bg-red-500/20">
-                            <div className="absolute top-1/2 left-1/2 w-2 h-2 bg-red-500 rounded-full transform -translate-x-1/2 -translate-y-1/2"></div>
+                        {/* Loading overlay */}
+                        {!map && (
+                          <div className="absolute inset-0 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <div className="text-center">
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                              <p className="text-sm text-gray-600">Chargement de Google Maps...</p>
+                            </div>
                           </div>
-                        </div>
-                        
-                        {/* Cities display based on zoom level */}
-                        {tunisianCities
-                          .filter(city => {
-                            if (mapZoom >= 2) {
-                              // Only show cities near current center when zoomed in
-                              const distance = Math.sqrt(
-                                Math.pow(city.lat - mapCenter.lat, 2) + Math.pow(city.lng - mapCenter.lng, 2)
-                              );
-                              return distance <= 2; // Within 2 degrees
-                            }
-                            return true; // Show all cities when zoomed out
-                          })
-                          .map((city) => {
-                            // Calculate position relative to current view
-                            const viewWidth = 5 / mapZoom;
-                            const viewHeight = 8 / mapZoom;
-                            
-                            const relativeX = ((city.lng - (mapCenter.lng - viewWidth / 2)) / viewWidth) * 100;
-                            const relativeY = (((mapCenter.lat + viewHeight / 2) - city.lat) / viewHeight) * 100;
-                            
-                            // Only show if within current view
-                            if (relativeX < 0 || relativeX > 100 || relativeY < 0 || relativeY > 100) {
-                              return null;
-                            }
-                            
-                            const isNearSelected = formData.location.lat !== 0 && 
-                              Math.abs(formData.location.lat - city.lat) < 0.5 && 
-                              Math.abs(formData.location.lng - city.lng) < 0.5;
-                            
-                            return (
-                              <button
-                                key={city.name}
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleMapCityClick(city);
-                                }}
-                                className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-all duration-200 group ${
-                                  isNearSelected
-                                    ? "bg-red-500 text-white scale-125 shadow-lg" 
-                                    : "bg-blue-500 hover:bg-blue-600 text-white hover:scale-110"
-                                } rounded-full ${mapZoom >= 2 ? 'w-4 h-4' : 'w-3 h-3'}`}
-                                style={{ left: `${relativeX}%`, top: `${relativeY}%` }}
-                                title={`${city.name} - Cliquez pour zoomer`}
-                              >
-                                <span className={`absolute ${mapZoom >= 2 ? '-top-10' : '-top-8'} left-1/2 transform -translate-x-1/2 bg-gray-900/90 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-lg`}>
-                                  {city.name} - {city.region}
-                                </span>
-                              </button>
-                            );
-                          })
-                        }
-                        
-                        {/* Selected position marker */}
-                        {formData.location.lat !== 0 && (
-                          (() => {
-                            const viewWidth = 5 / mapZoom;
-                            const viewHeight = 8 / mapZoom;
-                            const relativeX = ((formData.location.lng - (mapCenter.lng - viewWidth / 2)) / viewWidth) * 100;
-                            const relativeY = (((mapCenter.lat + viewHeight / 2) - formData.location.lat) / viewHeight) * 100;
-                            
-                            if (relativeX >= 0 && relativeX <= 100 && relativeY >= 0 && relativeY <= 100) {
-                              return (
-                                <div
-                                  className="absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-                                  style={{ left: `${relativeX}%`, top: `${relativeY}%` }}
-                                >
-                                  <div className="w-8 h-8 bg-green-500 border-4 border-white rounded-full shadow-lg animate-pulse">
-                                    <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-green-600 text-white text-xs px-2 py-1 rounded whitespace-nowrap font-semibold">
-                                      🏠 Votre bien
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            }
-                            return null;
-                          })()
                         )}
-                        
-                        {/* Instructions overlay */}
-                        <div className="absolute bottom-3 right-3 bg-black/70 text-white text-xs px-3 py-2 rounded max-w-xs">
-                          {mapZoom <= 2 
-                            ? "👆 Cliquez sur une ville pour zoomer"
-                            : "🎯 Cliquez à l'endroit exact de votre propriété"
-                          }
-                        </div>
+                      </div>
+
+                      {/* Map Instructions */}
+                      <div className="mt-4 bg-blue-100 border border-blue-200 rounded-lg p-3">
+                        <h5 className="font-medium text-blue-800 mb-2">Instructions d'utilisation:</h5>
+                        <ul className="text-sm text-blue-700 space-y-1">
+                          <li>• <strong>Clic simple:</strong> Définir une position précise</li>
+                          <li>• <strong>Glisser le marqueur rouge:</strong> Ajuster la position</li>
+                          <li>• <strong>Molette de la souris:</strong> Zoomer/Dézoomer</li>
+                          <li>• <strong>Boutons de ville:</strong> Navigation rapide</li>
+                        </ul>
                       </div>
                     </div>
 
