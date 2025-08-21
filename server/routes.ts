@@ -19,6 +19,47 @@ if (process.env.DATABASE_URL) {
 // Alias tables for clarity in joins
 const offersTable = offers;
 
+// Authentication middleware
+const requireAuth = async (req: any, res: any, next: any) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: "No token provided" });
+    }
+    
+    const token = authHeader.split(' ')[1];
+    // Extract user ID from session token
+    const tokenParts = token.split('_');
+    if (tokenParts.length < 4 || tokenParts[0] !== 'session') {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+    
+    const userId = parseInt(tokenParts[1]);
+    const userType = tokenParts[2];
+    
+    const user = await storage.getUser(userId);
+    if (!user || user.userType !== userType) {
+      return res.status(401).json({ error: "Invalid session" });
+    }
+    
+    // Add user info to request
+    req.user = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      phone: user.phone,
+      userType: user.userType,
+    };
+    
+    next();
+  } catch (error) {
+    console.error("Authentication error:", error);
+    res.status(401).json({ error: "Invalid session" });
+  }
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Properties routes
   app.get("/api/properties", async (req, res) => {
@@ -772,21 +813,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get termination request using storage interface
       const terminationRequests = await storage.getContractTerminationRequests(contractId);
-      const terminationRequest = terminationRequests.find(req => req.status === 'accepted');
+      const terminationRequest = terminationRequests.find((req: any) => req.status === 'accepted');
       
       if (!terminationRequest) {
         return res.status(404).json({ error: 'No active termination request found' });
       }
 
       // Get contract using storage interface
-      const contract = await storage.getContractById(contractId);
+      const contract = await storage.getContract(contractId);
       if (!contract) {
         return res.status(404).json({ error: 'Contract not found' });
       }
 
       // Get the user to verify password
       const userId = userType === 'owner' ? contract.ownerId : contract.tenantId;
-      const user = await storage.getUserById(userId);
+      const user = await storage.getUser(userId);
       
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
@@ -809,8 +850,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updateData.tenantConfirmedAt = new Date();
       }
       
-      // Update the termination request
-      const updatedRequest = await storage.updateContractTerminationRequest(terminationRequest.id, updateData);
+      // Update the termination request using database
+      const [updatedRequest] = await db
+        .update(contractTerminationRequests)
+        .set(updateData)
+        .where(eq(contractTerminationRequests.id, terminationRequest.id))
+        .returning();
 
       res.json(updatedRequest);
     } catch (error) {
@@ -819,8 +864,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Submit digital signature
-  app.post('/api/contracts/:id/submit-termination-signature', async (req, res) => {
+  // Submit digital signature - requires authentication
+  app.post('/api/contracts/:id/submit-termination-signature', requireAuth, async (req, res) => {
     try {
       const contractId = parseInt(req.params.id);
       const { signature, userType } = req.body;
