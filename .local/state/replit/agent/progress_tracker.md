@@ -16,3 +16,5 @@
 [x] 14. Enhanced PropertyDetails page to display ALL owner-uploaded information in user-friendly format
 [x] 15. Improved exact location display with GPS coordinates, enhanced map, and geographic highlights
 [x] 16. Added comprehensive sections: property categories, financial details, house rules, and property info summary
+[x] 17. Fixed Google Maps display by replacing failing iframe with working JavaScript API implementation
+[x] 18. Created read-only interactive map similar to AddProperty page but for location viewing only

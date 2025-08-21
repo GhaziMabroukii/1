@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,10 @@ export default function PropertyDetails() {
   const [reviewComment, setReviewComment] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Map state for location display
+  const [locationMap, setLocationMap] = useState<any>(null);
+  const locationMapRef = useRef<HTMLDivElement>(null);
 
   const propertyId = params?.id ? parseInt(params.id) : 0;
 
@@ -87,6 +91,65 @@ export default function PropertyDetails() {
     },
     enabled: propertyId > 0 && currentUser?.userType === "tenant",
   });
+
+  // Initialize read-only location map
+  useEffect(() => {
+    if (property && property.latitude && property.longitude && locationMapRef.current && !locationMap) {
+      initializeLocationMap();
+    }
+  }, [property, locationMap]);
+
+  const initializeLocationMap = async () => {
+    try {
+      // Wait for Google Maps to load
+      if (!(window as any).google || !(window as any).google.maps) {
+        setTimeout(() => initializeLocationMap(), 1000);
+        return;
+      }
+
+      const google = (window as any).google;
+      const lat = parseFloat(property.latitude);
+      const lng = parseFloat(property.longitude);
+      
+      const mapOptions = {
+        center: { lat, lng },
+        zoom: 15,
+        mapTypeId: google.maps.MapTypeId.ROADMAP,
+        disableDefaultUI: false,
+        zoomControl: true,
+        mapTypeControl: true,
+        scaleControl: true,
+        streetViewControl: true,
+        rotateControl: true,
+        fullscreenControl: true
+      };
+
+      const googleMap = new google.maps.Map(locationMapRef.current, mapOptions);
+      
+      // Create marker for property location (non-draggable)
+      const propertyMarker = new google.maps.Marker({
+        position: { lat, lng },
+        map: googleMap,
+        draggable: false,
+        title: property.title,
+        icon: {
+          url: 'data:image/svg+xml;base64,' + btoa(`
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="16" cy="16" r="12" fill="#ef4444" stroke="white" stroke-width="3"/>
+              <circle cx="16" cy="16" r="4" fill="white"/>
+            </svg>
+          `),
+          scaledSize: new google.maps.Size(32, 32),
+          anchor: new google.maps.Point(16, 16)
+        }
+      });
+
+      setLocationMap(googleMap);
+      
+    } catch (error) {
+      console.error('Error initializing location map:', error);
+    }
+  };
 
   const form = useForm({
     resolver: zodResolver(z.object({
@@ -601,32 +664,53 @@ export default function PropertyDetails() {
                     </div>
                   </div>
                   
-                  {/* Interactive Map */}
+                  {/* Interactive Google Maps */}
                   {property.latitude && property.longitude && (
                     <div className="rounded-lg overflow-hidden border shadow-lg">
-                      <iframe
-                        width="100%"
-                        height="350"
-                        frameBorder="0"
-                        src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dOWTgaGzGnE_0M&q=${property.latitude},${property.longitude}&zoom=16&maptype=roadmap`}
-                        allowFullScreen
-                        className="w-full"
-                        title="Localisation de la propriété"
-                      />
-                      <div className="p-3 bg-muted/30 border-t">
-                        <p className="text-xs text-center text-muted-foreground">
-                          Cliquez sur "Ouvrir dans Maps" pour obtenir des directions détaillées
-                        </p>
+                      <div className="relative">
+                        <div 
+                          ref={locationMapRef}
+                          className="w-full h-[400px]"
+                          style={{ minHeight: '400px' }}
+                        ></div>
+                        
+                        {/* Loading overlay */}
+                        {!locationMap && (
+                          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-lg flex items-center justify-center">
+                            <div className="text-center bg-white rounded-lg p-6 shadow-lg">
+                              <div className="animate-spin rounded-full h-10 w-10 border-b-3 border-primary mx-auto mb-3"></div>
+                              <p className="text-sm font-medium">Chargement de la carte...</p>
+                              <p className="text-xs text-muted-foreground mt-1">Localisation de la propriété</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Coordinates Display */}
+                        <div className="absolute top-3 right-3 bg-black/80 text-white px-3 py-2 rounded-lg text-xs font-mono backdrop-blur-sm">
+                          📍 {Number(property.latitude).toFixed(6)}, {Number(property.longitude).toFixed(6)}
+                        </div>
+                      </div>
+                      
+                      <div className="p-4 bg-muted/30 border-t">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <MapPin className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-medium">Localisation précise de la propriété</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Utilisez les contrôles de la carte pour explorer les alentours
+                          </p>
+                        </div>
                       </div>
                     </div>
                   )}
                   
                   {/* No coordinates fallback */}
                   {(!property.latitude || !property.longitude) && (
-                    <div className="text-center py-6 bg-muted/30 rounded-lg border-2 border-dashed border-muted">
-                      <MapPin className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                      <p className="text-sm text-muted-foreground">Position GPS non disponible</p>
-                      <p className="text-xs text-muted-foreground">Seule l'adresse textuelle est fournie</p>
+                    <div className="text-center py-8 bg-muted/30 rounded-lg border-2 border-dashed border-muted">
+                      <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                      <p className="text-base font-medium text-muted-foreground mb-1">Position GPS non disponible</p>
+                      <p className="text-sm text-muted-foreground">Seule l'adresse textuelle est fournie par le propriétaire</p>
                     </div>
                   )}
                 </div>
