@@ -358,212 +358,198 @@ export function EnhancedBilateralContractTermination({ contract, currentUserId, 
     <div className="space-y-6">
       {error && <ErrorAlert message={error} />}
       
-      {/* Main Action Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="w-5 h-5 text-orange-600" />
-            Arrêt de Contrat Bilatéral
-          </CardTitle>
-          <CardDescription>
-            Système complet d'arrêt de contrat avec confirmation par mot de passe et signature électronique des deux parties.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {!terminationRequest && (
-            <div className="text-center py-8">
-              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 mb-4">Aucune demande d'arrêt en cours</p>
-              {canCreateRequest && (
+        {!terminationRequest && (
+          <div className="text-center py-8">
+            <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600 mb-4">Aucune demande d'arrêt en cours</p>
+            {canCreateRequest && (
+              <Button 
+                onClick={() => setShowCreateDialog(true)}
+                className="bg-orange-600 hover:bg-orange-700"
+                data-testid="button-create-termination"
+              >
+                Créer une demande d'arrêt
+              </Button>
+            )}
+          </div>
+        )}
+
+        {terminationRequest && (
+          <div className="space-y-4">
+            {/* Status and Basic Info */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium">Demande d'Arrêt #{terminationRequest.id}</h3>
+                <p className="text-sm text-gray-600">
+                  Créée {formatDistanceToNow(new Date(terminationRequest.createdAt), { addSuffix: true, locale: fr })}
+                </p>
+              </div>
+              {getStatusBadge(terminationRequest.status)}
+            </div>
+
+            <Separator />
+
+            {/* Termination Details */}
+            <Tabs defaultValue="details" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="details">Détails</TabsTrigger>
+                <TabsTrigger value="progress">Progression</TabsTrigger>
+                <TabsTrigger value="terms">Conditions</TabsTrigger>
+                <TabsTrigger value="signatures">Signatures</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="details" className="space-y-4">
+                <div>
+                  <Label className="text-sm font-medium">Raison principale</Label>
+                  <p className="text-sm text-gray-700 mt-1">{terminationRequest.reason}</p>
+                </div>
+                {terminationRequest.detailedReason && (
+                  <div>
+                    <Label className="text-sm font-medium">Explication détaillée</Label>
+                    <p className="text-sm text-gray-700 mt-1">{terminationRequest.detailedReason}</p>
+                  </div>
+                )}
+                <div>
+                  <Label className="text-sm font-medium">Type d'arrêt</Label>
+                  <p className="text-sm text-gray-700 mt-1 capitalize">{terminationRequest.terminationType.replace('_', ' ')}</p>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="progress" className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${terminationRequest.status !== 'pending' ? 'bg-green-500' : 'bg-gray-300'}`} />
+                    <span className="text-sm">Demande créée</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${terminationRequest.ownerPasswordConfirmed ? 'bg-green-500' : 'bg-gray-300'}`} />
+                    <span className="text-sm">Confirmation propriétaire</span>
+                    {terminationRequest.ownerPasswordConfirmed && (
+                      <UserCheck className="w-4 h-4 text-green-600" />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${terminationRequest.tenantPasswordConfirmed ? 'bg-green-500' : 'bg-gray-300'}`} />
+                    <span className="text-sm">Confirmation locataire</span>
+                    {terminationRequest.tenantPasswordConfirmed && (
+                      <UserCheck className="w-4 h-4 text-green-600" />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${terminationRequest.ownerSignature ? 'bg-green-500' : 'bg-gray-300'}`} />
+                    <span className="text-sm">Signature propriétaire</span>
+                    {terminationRequest.ownerSignature && (
+                      <FileText className="w-4 h-4 text-green-600" />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${terminationRequest.tenantSignature ? 'bg-green-500' : 'bg-gray-300'}`} />
+                    <span className="text-sm">Signature locataire</span>
+                    {terminationRequest.tenantSignature && (
+                      <FileText className="w-4 h-4 text-green-600" />
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="terms" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium">Conditions financières</Label>
+                    <p className="text-sm text-gray-700 mt-1">{terminationRequest.proposedTerms.financialTerms}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Délai</Label>
+                    <p className="text-sm text-gray-700 mt-1">{terminationRequest.proposedTerms.timeline}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Gestion de la caution</Label>
+                    <p className="text-sm text-gray-700 mt-1">{terminationRequest.proposedTerms.depositHandling}</p>
+                  </div>
+                  {terminationRequest.proposedTerms.rentRefund && (
+                    <div>
+                      <Label className="text-sm font-medium">Remboursement loyer</Label>
+                      <p className="text-sm text-gray-700 mt-1">{terminationRequest.proposedTerms.rentRefund}</p>
+                    </div>
+                  )}
+                </div>
+                {terminationRequest.proposedTerms.additionalConditions && (
+                  <div>
+                    <Label className="text-sm font-medium">Conditions supplémentaires</Label>
+                    <p className="text-sm text-gray-700 mt-1">{terminationRequest.proposedTerms.additionalConditions}</p>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="signatures" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="border rounded-lg p-4">
+                    <h4 className="font-medium mb-2">Propriétaire</h4>
+                    {terminationRequest.ownerSignature ? (
+                      <div>
+                        <img src={terminationRequest.ownerSignature} alt="Signature propriétaire" className="max-w-full h-20 border" />
+                        <p className="text-xs text-gray-600 mt-1">
+                          Signé le {terminationRequest.ownerSignedAt && formatDistanceToNow(new Date(terminationRequest.ownerSignedAt), { addSuffix: true, locale: fr })}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">Pas encore signé</p>
+                    )}
+                  </div>
+                  <div className="border rounded-lg p-4">
+                    <h4 className="font-medium mb-2">Locataire</h4>
+                    {terminationRequest.tenantSignature ? (
+                      <div>
+                        <img src={terminationRequest.tenantSignature} alt="Signature locataire" className="max-w-full h-20 border" />
+                        <p className="text-xs text-gray-600 mt-1">
+                          Signé le {terminationRequest.tenantSignedAt && formatDistanceToNow(new Date(terminationRequest.tenantSignedAt), { addSuffix: true, locale: fr })}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">Pas encore signé</p>
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-4">
+              {needsPasswordConfirmation && (
                 <Button 
-                  onClick={() => setShowCreateDialog(true)}
-                  className="bg-orange-600 hover:bg-orange-700"
-                  data-testid="button-create-termination"
+                  onClick={() => setShowPasswordDialog(true)}
+                  className="bg-blue-600 hover:bg-blue-700"
+                  data-testid="button-confirm-password"
                 >
-                  Créer une demande d'arrêt
+                  <Shield className="w-4 h-4 mr-2" />
+                  Confirmer avec mot de passe
+                </Button>
+              )}
+              
+              {needsSignature && (
+                <Button 
+                  onClick={() => setShowSigningDialog(true)}
+                  className="bg-purple-600 hover:bg-purple-700"
+                  data-testid="button-sign-document"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Signer le document
+                </Button>
+              )}
+
+              {terminationRequest.terminationDocumentUrl && (
+                <Button 
+                  variant="outline"
+                  onClick={() => window.open(terminationRequest.terminationDocumentUrl, '_blank')}
+                  data-testid="button-view-document"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Voir le document
                 </Button>
               )}
             </div>
-          )}
-
-          {terminationRequest && (
-            <div className="space-y-4">
-              {/* Status and Basic Info */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">Demande d'Arrêt #{terminationRequest.id}</h3>
-                  <p className="text-sm text-gray-600">
-                    Créée {formatDistanceToNow(new Date(terminationRequest.createdAt), { addSuffix: true, locale: fr })}
-                  </p>
-                </div>
-                {getStatusBadge(terminationRequest.status)}
-              </div>
-
-              <Separator />
-
-              {/* Termination Details */}
-              <Tabs defaultValue="details" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="details">Détails</TabsTrigger>
-                  <TabsTrigger value="progress">Progression</TabsTrigger>
-                  <TabsTrigger value="terms">Conditions</TabsTrigger>
-                  <TabsTrigger value="signatures">Signatures</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="details" className="space-y-4">
-                  <div>
-                    <Label className="text-sm font-medium">Raison principale</Label>
-                    <p className="text-sm text-gray-700 mt-1">{terminationRequest.reason}</p>
-                  </div>
-                  {terminationRequest.detailedReason && (
-                    <div>
-                      <Label className="text-sm font-medium">Explication détaillée</Label>
-                      <p className="text-sm text-gray-700 mt-1">{terminationRequest.detailedReason}</p>
-                    </div>
-                  )}
-                  <div>
-                    <Label className="text-sm font-medium">Type d'arrêt</Label>
-                    <p className="text-sm text-gray-700 mt-1 capitalize">{terminationRequest.terminationType.replace('_', ' ')}</p>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="progress" className="space-y-4">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${terminationRequest.status !== 'pending' ? 'bg-green-500' : 'bg-gray-300'}`} />
-                      <span className="text-sm">Demande créée</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${terminationRequest.ownerPasswordConfirmed ? 'bg-green-500' : 'bg-gray-300'}`} />
-                      <span className="text-sm">Confirmation propriétaire</span>
-                      {terminationRequest.ownerPasswordConfirmed && (
-                        <UserCheck className="w-4 h-4 text-green-600" />
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${terminationRequest.tenantPasswordConfirmed ? 'bg-green-500' : 'bg-gray-300'}`} />
-                      <span className="text-sm">Confirmation locataire</span>
-                      {terminationRequest.tenantPasswordConfirmed && (
-                        <UserCheck className="w-4 h-4 text-green-600" />
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${terminationRequest.ownerSignature ? 'bg-green-500' : 'bg-gray-300'}`} />
-                      <span className="text-sm">Signature propriétaire</span>
-                      {terminationRequest.ownerSignature && (
-                        <FileText className="w-4 h-4 text-green-600" />
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${terminationRequest.tenantSignature ? 'bg-green-500' : 'bg-gray-300'}`} />
-                      <span className="text-sm">Signature locataire</span>
-                      {terminationRequest.tenantSignature && (
-                        <FileText className="w-4 h-4 text-green-600" />
-                      )}
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="terms" className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm font-medium">Conditions financières</Label>
-                      <p className="text-sm text-gray-700 mt-1">{terminationRequest.proposedTerms.financialTerms}</p>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium">Délai</Label>
-                      <p className="text-sm text-gray-700 mt-1">{terminationRequest.proposedTerms.timeline}</p>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium">Gestion de la caution</Label>
-                      <p className="text-sm text-gray-700 mt-1">{terminationRequest.proposedTerms.depositHandling}</p>
-                    </div>
-                    {terminationRequest.proposedTerms.rentRefund && (
-                      <div>
-                        <Label className="text-sm font-medium">Remboursement loyer</Label>
-                        <p className="text-sm text-gray-700 mt-1">{terminationRequest.proposedTerms.rentRefund}</p>
-                      </div>
-                    )}
-                  </div>
-                  {terminationRequest.proposedTerms.additionalConditions && (
-                    <div>
-                      <Label className="text-sm font-medium">Conditions supplémentaires</Label>
-                      <p className="text-sm text-gray-700 mt-1">{terminationRequest.proposedTerms.additionalConditions}</p>
-                    </div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="signatures" className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="border rounded-lg p-4">
-                      <h4 className="font-medium mb-2">Propriétaire</h4>
-                      {terminationRequest.ownerSignature ? (
-                        <div>
-                          <img src={terminationRequest.ownerSignature} alt="Signature propriétaire" className="max-w-full h-20 border" />
-                          <p className="text-xs text-gray-600 mt-1">
-                            Signé le {terminationRequest.ownerSignedAt && formatDistanceToNow(new Date(terminationRequest.ownerSignedAt), { addSuffix: true, locale: fr })}
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="text-sm text-gray-500">Pas encore signé</p>
-                      )}
-                    </div>
-                    <div className="border rounded-lg p-4">
-                      <h4 className="font-medium mb-2">Locataire</h4>
-                      {terminationRequest.tenantSignature ? (
-                        <div>
-                          <img src={terminationRequest.tenantSignature} alt="Signature locataire" className="max-w-full h-20 border" />
-                          <p className="text-xs text-gray-600 mt-1">
-                            Signé le {terminationRequest.tenantSignedAt && formatDistanceToNow(new Date(terminationRequest.tenantSignedAt), { addSuffix: true, locale: fr })}
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="text-sm text-gray-500">Pas encore signé</p>
-                      )}
-                    </div>
-                  </div>
-                </TabsContent>
-              </Tabs>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 pt-4">
-                {needsPasswordConfirmation && (
-                  <Button 
-                    onClick={() => setShowPasswordDialog(true)}
-                    className="bg-blue-600 hover:bg-blue-700"
-                    data-testid="button-confirm-password"
-                  >
-                    <Shield className="w-4 h-4 mr-2" />
-                    Confirmer avec mot de passe
-                  </Button>
-                )}
-                
-                {needsSignature && (
-                  <Button 
-                    onClick={() => setShowSigningDialog(true)}
-                    className="bg-purple-600 hover:bg-purple-700"
-                    data-testid="button-sign-document"
-                  >
-                    <FileText className="w-4 h-4 mr-2" />
-                    Signer le document
-                  </Button>
-                )}
-
-                {terminationRequest.terminationDocumentUrl && (
-                  <Button 
-                    variant="outline"
-                    onClick={() => window.open(terminationRequest.terminationDocumentUrl, '_blank')}
-                    data-testid="button-view-document"
-                  >
-                    <FileText className="w-4 h-4 mr-2" />
-                    Voir le document
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        )}
 
       {/* Create Termination Request Dialog */}
       <AlertDialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
