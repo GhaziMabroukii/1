@@ -620,6 +620,140 @@ export default function PropertyDetails() {
                   </div>
                 )}
 
+                {/* Furnished Status & Furniture Details */}
+                <div className="mb-6">
+                  <h3 className="font-semibold mb-4 text-lg flex items-center space-x-2">
+                    <Armchair className="h-5 w-5 text-primary" />
+                    <span>Mobilier</span>
+                  </h3>
+                  
+                  <div className="p-4 rounded-lg bg-muted/50 border">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <div className={`w-3 h-3 rounded-full ${
+                        property.furnished ? 'bg-green-500' : 'bg-red-500'
+                      }`}></div>
+                      <span className="font-medium">
+                        {property.furnished ? 'Propriété meublée' : 'Propriété non meublée'}
+                      </span>
+                    </div>
+                    
+                    {property.furnished && property.furniture && property.furniture.length > 0 && (
+                      <div className="mt-4">
+                        <h4 className="text-sm font-medium text-muted-foreground mb-3">Meubles inclus :</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {property.furniture.map((furniture: any, index: number) => (
+                            <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-background border">
+                              <div className="flex items-center space-x-2">
+                                <Armchair className="h-4 w-4 text-primary" />
+                                <span className="text-sm font-medium">{furniture.item}</span>
+                              </div>
+                              <Badge 
+                                variant="outline" 
+                                className={`text-xs ${
+                                  furniture.condition === 'excellent' ? 'border-green-500 text-green-700' :
+                                  furniture.condition === 'bon' ? 'border-blue-500 text-blue-700' :
+                                  'border-yellow-500 text-yellow-700'
+                                }`}
+                              >
+                                {furniture.condition === 'excellent' ? '🌟 Excellent' :
+                                 furniture.condition === 'bon' ? '👍 Bon état' :
+                                 '⚠️ Acceptable'}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {property.furnished && (!property.furniture || property.furniture.length === 0) && (
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Détails du mobilier non spécifiés par le propriétaire.
+                      </p>
+                    )}
+                    
+                    {!property.furnished && (
+                      <p className="text-sm text-muted-foreground">
+                        Cette propriété est proposée vide. Vous devrez apporter vos propres meubles.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Availability Details */}
+                {property.availability && (
+                  <div className="mb-6">
+                    <h3 className="font-semibold mb-4 text-lg flex items-center space-x-2">
+                      <Calendar className="h-5 w-5 text-primary" />
+                      <span>Disponibilité</span>
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Current Status */}
+                      <div className="p-4 rounded-lg bg-muted/50 border">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <div className={`w-3 h-3 rounded-full ${
+                            property.availability.available ? 'bg-green-500' : 'bg-red-500'
+                          }`}></div>
+                          <span className="font-medium text-sm">
+                            {property.availability.available ? 'Actuellement disponible' : 'Actuellement occupé'}
+                          </span>
+                        </div>
+                        
+                        {property.availability.availableFrom && (
+                          <div className="mt-2">
+                            <p className="text-xs text-muted-foreground mb-1">Disponible à partir du :</p>
+                            <p className="text-sm font-semibold">
+                              {new Date(property.availability.availableFrom).toLocaleDateString('fr-FR', {
+                                day: 'numeric',
+                                month: 'long',
+                                year: 'numeric'
+                              })}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Stay Duration */}
+                      {(property.availability.minimumStay || property.availability.maximumStay) && (
+                        <div className="p-4 rounded-lg bg-muted/50 border">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <Clock3 className="h-4 w-4 text-primary" />
+                            <span className="font-medium text-sm">Durée de séjour</span>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            {property.availability.minimumStay && (
+                              <div>
+                                <p className="text-xs text-muted-foreground">Séjour minimum :</p>
+                                <p className="text-sm font-semibold">{property.availability.minimumStay}</p>
+                              </div>
+                            )}
+                            
+                            {property.availability.maximumStay && (
+                              <div>
+                                <p className="text-xs text-muted-foreground">Séjour maximum :</p>
+                                <p className="text-sm font-semibold">{property.availability.maximumStay}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {(!property.availability.minimumStay && !property.availability.maximumStay && !property.availability.availableFrom) && (
+                      <div className="p-4 rounded-lg bg-muted/50 border">
+                        <div className="flex items-center space-x-2">
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <span className="text-sm">Aucune restriction de durée spécifiée</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Contactez le propriétaire pour discuter des conditions de location.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Enhanced Location Section */}
                 <div className="mb-6">
                   <h3 className="font-semibold mb-4 text-lg flex items-center space-x-2">
