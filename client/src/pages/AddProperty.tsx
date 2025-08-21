@@ -347,7 +347,7 @@ const AddProperty = () => {
 
       const mapboxMap = new mapbox.Map({
         container: mapRef.current,
-        style: 'mapbox://styles/mapbox/satellite-streets-v12', // Satellite view
+        style: 'mapbox://styles/mapbox/streets-v12', // Style basique plus compatible
         center: [10.1815, 34.7406], // Tunisia center [lng, lat]
         zoom: 6
       });
