@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +33,7 @@ const ContractTermination = () => {
     return tabParam === 'my-requests' ? 'my-requests' : 'start-termination';
   });
   const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
   
   // Get user authentication
   const currentUserId = Number(localStorage.getItem("userId"));
@@ -148,6 +149,48 @@ const ContractTermination = () => {
       navigate(`/owner-termination-request/${contractId}`);
     } else {
       navigate(`/tenant-termination-request/${contractId}`);
+    }
+  };
+
+  // Mutation for responding to termination requests
+  const respondToRequestMutation = useMutation({
+    mutationFn: async ({ requestId, response }: { requestId: number, response: 'accepted' | 'rejected' }) => {
+      const apiResponse = await fetch(`/api/contract-termination-requests/${requestId}/respond`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          response,
+          userId: currentUserId
+        }),
+      });
+
+      if (!apiResponse.ok) {
+        const errorData = await apiResponse.json();
+        throw new Error(errorData.error || 'Failed to respond to termination request');
+      }
+
+      return apiResponse.json();
+    },
+    onSuccess: () => {
+      // Refresh both sent and received requests
+      queryClient.invalidateQueries({ queryKey: userType === 'owner' 
+        ? [`/api/owner-requests/${currentUserId}`] 
+        : [`/api/tenant-requests/${currentUserId}`] });
+      queryClient.invalidateQueries({ queryKey: userType === 'owner' 
+        ? [`/api/tenant-requests/${currentUserId}`] 
+        : [`/api/owner-requests/${currentUserId}`] });
+    },
+    onError: (error) => {
+      console.error('Error responding to termination request:', error);
+      alert('Erreur lors de la réponse à la demande: ' + error.message);
+    }
+  });
+
+  const handleRespondToRequest = (requestId: number, response: 'accepted' | 'rejected') => {
+    if (confirm(`Êtes-vous sûr de vouloir ${response === 'accepted' ? 'accepter' : 'refuser'} cette demande de résiliation ?`)) {
+      respondToRequestMutation.mutate({ requestId, response });
     }
   };
 
@@ -430,10 +473,18 @@ const ContractTermination = () => {
                             <div className="flex flex-col space-y-2">
                               {request.status === 'pending' && (
                                 <>
-                                  <Button size="sm" variant="destructive">
+                                  <Button 
+                                    size="sm" 
+                                    variant="destructive"
+                                    onClick={() => handleRespondToRequest(request.id, 'accepted')}
+                                  >
                                     Accepter
                                   </Button>
-                                  <Button size="sm" variant="outline">
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handleRespondToRequest(request.id, 'rejected')}
+                                  >
                                     Refuser
                                   </Button>
                                 </>
