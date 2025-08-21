@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import Header from '@/components/Header';
 import { ContractTerminationWorkflow } from '@/components/ContractTerminationWorkflow';
+import { apiRequest } from '@/lib/queryClient';
 
 interface TerminationRequest {
   id: number;
@@ -33,6 +34,7 @@ export function TenantTerminationWorkflow() {
   // Fetch termination request details
   const { data: request, isLoading, error } = useQuery<TerminationRequest>({
     queryKey: [`/api/contract-termination-requests/${requestId}`],
+    queryFn: () => apiRequest(`/api/contract-termination-requests/${requestId}`),
     enabled: !!requestId && !!currentUserId,
     retry: 2,
     staleTime: 0,
