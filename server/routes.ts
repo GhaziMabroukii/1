@@ -882,10 +882,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Signature and userType are required' });
       }
 
-      const [terminationRequest] = await db
-        .select()
-        .from(contractTerminationRequests)
-        .where(eq(contractTerminationRequests.contractId, contractId));
+      // Get termination request using storage interface
+      let terminationRequest;
+      if (db) {
+        [terminationRequest] = await db
+          .select()
+          .from(contractTerminationRequests)
+          .where(eq(contractTerminationRequests.contractId, contractId));
+      } else {
+        // Use storage interface
+        const allRequests = await storage.getContractTerminationRequests(contractId);
+        terminationRequest = allRequests[0];
+      }
       
       if (!terminationRequest) {
         return res.status(404).json({ error: 'No termination request found' });
@@ -908,11 +916,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updateData.tenantSignedAt = new Date();
       }
 
-      const [updatedRequest] = await db
-        .update(contractTerminationRequests)
-        .set(updateData)
-        .where(eq(contractTerminationRequests.id, terminationRequest.id))
-        .returning();
+      // Update signature using storage interface
+      let updatedRequest;
+      if (db) {
+        [updatedRequest] = await db
+          .update(contractTerminationRequests)
+          .set(updateData)
+          .where(eq(contractTerminationRequests.id, terminationRequest.id))
+          .returning();
+      } else {
+        console.log('Using storage interface for signature update');
+        updatedRequest = await storage.updateContractTerminationRequest(terminationRequest.id, updateData);
+      }
 
       // Check if both parties have signed and confirmed passwords
       const bothSigned = updatedRequest.ownerSignature && updatedRequest.tenantSignature;
@@ -920,49 +935,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (bothSigned && bothConfirmed) {
         // Complete the termination - all 5 steps are now complete
-        await db.update(contractTerminationRequests)
-          .set({ 
-            status: 'completed', 
+        if (db) {
+          await db.update(contractTerminationRequests)
+            .set({ 
+              status: 'completed', 
+              terminationEffectiveDate: new Date(),
+              finalTerms: terminationRequest.proposedTerms,
+              updatedAt: new Date()
+            })
+            .where(eq(contractTerminationRequests.id, terminationRequest.id));
+            
+          await db.update(contracts)
+            .set({ 
+              status: 'terminated', 
+              terminationReason: terminationRequest.reason, 
+              terminatedBy: terminationRequest.requestedBy,
+              terminatedAt: new Date(),
+              updatedAt: new Date()
+            })
+            .where(eq(contracts.id, contractId));
+
+          // Update property status to available
+          const [contract] = await db
+            .select()
+            .from(contracts)
+            .where(eq(contracts.id, contractId));
+            
+          if (contract) {
+            await storage.updatePropertyStatus(contract.propertyId, 'Disponible');
+            
+            // Notify both parties of completion
+            await storage.createNotification({
+              userId: contract.ownerId,
+              title: "Contrat résilié",
+              message: "Le contrat a été officiellement résilié. Toutes les signatures ont été complétées.",
+              type: "contract_terminated",
+              relatedId: contractId,
+            });
+            
+            await storage.createNotification({
+              userId: contract.tenantId,
+              title: "Contrat résilié", 
+              message: "Le contrat a été officiellement résilié. Toutes les signatures ont été complétées.",
+              type: "contract_terminated",
+              relatedId: contractId,
+            });
+          }
+        } else {
+          // Storage interface fallback for completing termination
+          console.log('Using storage interface for termination completion');
+          await storage.updateContractTerminationRequest(terminationRequest.id, {
+            status: 'completed',
             terminationEffectiveDate: new Date(),
             finalTerms: terminationRequest.proposedTerms,
             updatedAt: new Date()
-          })
-          .where(eq(contractTerminationRequests.id, terminationRequest.id));
-          
-        await db.update(contracts)
-          .set({ 
-            status: 'terminated', 
-            terminationReason: terminationRequest.reason, 
-            terminatedBy: terminationRequest.requestedBy,
-            terminatedAt: new Date(),
-            updatedAt: new Date()
-          })
-          .where(eq(contracts.id, contractId));
-
-        // Update property status to available
-        const [contract] = await db
-          .select()
-          .from(contracts)
-          .where(eq(contracts.id, contractId));
-          
-        if (contract) {
-          await storage.updatePropertyStatus(contract.propertyId, 'Disponible');
-          
-          // Notify both parties of completion
-          await storage.createNotification({
-            userId: contract.ownerId,
-            title: "Contrat résilié",
-            message: "Le contrat a été officiellement résilié. Toutes les signatures ont été complétées.",
-            type: "contract_terminated",
-            relatedId: contractId,
-          });
-          
-          await storage.createNotification({
-            userId: contract.tenantId,
-            title: "Contrat résilié", 
-            message: "Le contrat a été officiellement résilié. Toutes les signatures ont été complétées.",
-            type: "contract_terminated",
-            relatedId: contractId,
           });
         }
       }
