@@ -1433,6 +1433,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Enhanced Conversations routes with real-time messaging and media support
   
   // Get all conversations for a user
+  // Clean up duplicate conversations (dev only)
+  app.post("/api/dev/cleanup-conversations", async (req, res) => {
+    if (process.env.NODE_ENV !== 'development') {
+      return res.status(403).json({ error: "Only available in development" });
+    }
+
+    try {
+      // Get all conversations
+      const allConversations = await storage.getAllConversations();
+      
+      // Group by tenantId-ownerId-propertyId combination
+      const conversationGroups = new Map();
+      
+      for (const conv of allConversations) {
+        const key = `${conv.tenantId}-${conv.ownerId}-${conv.propertyId || 'null'}`;
+        if (!conversationGroups.has(key)) {
+          conversationGroups.set(key, []);
+        }
+        conversationGroups.get(key).push(conv);
+      }
+      
+      let duplicatesRemoved = 0;
+      
+      // Remove duplicates (keep the oldest one)
+      for (const [key, conversations] of conversationGroups) {
+        if (conversations.length > 1) {
+          // Sort by creation date, keep the first (oldest)
+          conversations.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+          const toKeep = conversations[0];
+          const toRemove = conversations.slice(1);
+          
+          for (const conv of toRemove) {
+            await storage.deleteConversation(conv.id);
+            duplicatesRemoved++;
+          }
+        }
+      }
+      
+      res.json({ 
+        message: `Cleanup completed. Removed ${duplicatesRemoved} duplicate conversations.`,
+        duplicatesRemoved 
+      });
+    } catch (error) {
+      console.error('Cleanup error:', error);
+      res.status(500).json({ error: 'Failed to cleanup conversations' });
+    }
+  });
+
   app.get("/api/conversations", async (req, res) => {
     try {
       const userId = parseInt(req.query.userId as string);

@@ -429,34 +429,33 @@ export class DatabaseStorage implements IStorage {
 
   async getOrCreateConversation(propertyId: number | null, tenantId: number, ownerId: number): Promise<any> {
     // Search for existing conversation between these users
-    let query = db.select()
-      .from(conversations)
-      .where(and(
-        eq(conversations.tenantId, tenantId),
-        eq(conversations.ownerId, ownerId)
-      ));
+    let whereConditions;
     
-    // If propertyId is provided, filter by it, otherwise look for any conversation between users
     if (propertyId) {
-      query = query.where(and(
+      // Look for property-specific conversation
+      whereConditions = and(
         eq(conversations.propertyId, propertyId),
         eq(conversations.tenantId, tenantId),
         eq(conversations.ownerId, ownerId)
-      ));
+      );
     } else {
-      // For general conversations without property context, allow any existing conversation
-      query = query.where(and(
+      // Look for general conversation (property is null)
+      whereConditions = and(
+        isNull(conversations.propertyId),
         eq(conversations.tenantId, tenantId),
         eq(conversations.ownerId, ownerId)
-      ));
+      );
     }
     
-    const [existing] = await query;
+    const [existing] = await db.select()
+      .from(conversations)
+      .where(whereConditions);
     
     if (existing) {
       return existing;
     }
     
+    // Create new conversation
     return await this.createConversation({
       propertyId,
       tenantId,

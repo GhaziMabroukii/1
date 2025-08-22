@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, decimal, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, decimal, varchar, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 import { z } from "zod";
@@ -139,7 +139,7 @@ export const notifications = pgTable("notifications", {
 // Conversations table for messaging
 export const conversations = pgTable("conversations", {
   id: serial("id").primaryKey(),
-  propertyId: integer("property_id").notNull().references(() => properties.id),
+  propertyId: integer("property_id").references(() => properties.id),
   tenantId: integer("tenant_id").notNull().references(() => users.id),
   ownerId: integer("owner_id").notNull().references(() => users.id),
   lastMessageAt: timestamp("last_message_at").defaultNow(),
