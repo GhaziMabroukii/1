@@ -7,7 +7,7 @@ import {
 } from "@shared/schema";
 // Database is only available in production
 let db: any = null;
-import { eq, desc, and, lt, or } from "drizzle-orm";
+import { eq, desc, and, lt, or, isNull, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -344,6 +344,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTerminationRequestStatus(id: number, status: string): Promise<any | undefined> {
+    // For now return undefined since we don't have database setup
+    return undefined;
+  }
+
+  async updateContractTerminationRequest(id: number, updates: Partial<any>): Promise<any | undefined> {
+    // For now return undefined since we don't have database setup
+    return undefined;
+  }
+
+  async getContractTerminationRequests(contractId: number): Promise<any[]> {
+    // For now return empty array since we don't have database setup
+    return [];
+  }
+
+  async getContractById(contractId: number): Promise<any | undefined> {
+    // For now return undefined since we don't have database setup
+    return undefined;
+  }
+
+  async getUserById(userId: number): Promise<any | undefined> {
     // For now return undefined since we don't have database setup
     return undefined;
   }

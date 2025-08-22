@@ -322,7 +322,6 @@ export const insertUserBlockSchema = createInsertSchema(userBlocks).omit({
 
 export const insertUserSessionSchema = createInsertSchema(userSessions).omit({
   id: true,
-  createdAt: true,
   updatedAt: true,
 });
 
