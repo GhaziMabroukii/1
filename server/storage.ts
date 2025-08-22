@@ -697,23 +697,15 @@ export class MemStorage implements IStorage {
       }
     ];
     
-    // Create sample conversations with amazing content
+    // Create sample conversations - ONE conversation per user pair
     this.conversations = [
       {
         id: 1,
-        propertyId: 1,
+        propertyId: null, // General conversation covering all properties
         tenantId: 1,
         ownerId: 2,
-        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-        updatedAt: new Date(Date.now() - 10 * 60 * 1000) // 10 minutes ago
-      },
-      {
-        id: 2,
-        propertyId: 2,
-        tenantId: 1,
-        ownerId: 2,
-        createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
-        updatedAt: new Date(Date.now() - 5 * 60 * 1000) // 5 minutes ago
+        lastMessageAt: new Date(Date.now() - 5 * 60 * 1000), // 5 minutes ago
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) // 2 days ago
       }
     ];
     
@@ -794,7 +786,7 @@ export class MemStorage implements IStorage {
       // Conversation 2 messages
       {
         id: 8,
-        conversationId: 2,
+        conversationId: 1,
         senderId: 1,
         content: "Bonsoir Marie ! Votre studio près de l'université m'intéresse beaucoup. Est-il toujours disponible ?",
         messageType: "text",
@@ -804,7 +796,7 @@ export class MemStorage implements IStorage {
       },
       {
         id: 9,
-        conversationId: 2,
+        conversationId: 1,
         senderId: 2,
         content: "Bonsoir ! Oui il est encore disponible. C'est parfait pour un étudiant, tout est inclus dans le prix 👨‍🎓",
         messageType: "text",
@@ -814,7 +806,7 @@ export class MemStorage implements IStorage {
       },
       {
         id: 10,
-        conversationId: 2,
+        conversationId: 1,
         senderId: 1,
         content: "📷 Image",
         messageType: "image",
@@ -824,7 +816,7 @@ export class MemStorage implements IStorage {
       },
       {
         id: 11,
-        conversationId: 2,
+        conversationId: 1,
         senderId: 2,
         content: "Belle photo ! Vous êtes étudiant dans quelle faculté ?",
         messageType: "text",
@@ -834,7 +826,7 @@ export class MemStorage implements IStorage {
       },
       {
         id: 12,
-        conversationId: 2,
+        conversationId: 1,
         senderId: 1,
         content: "Je suis en master informatique à l'ISAMM. Le studio est vraiment proche du campus ? 🎓💻",
         messageType: "text",
