@@ -16,7 +16,8 @@ import {
   FileText, MoreHorizontal, Search, User, UserMinus,
   Paperclip, Smile, X, Mic, MicOff, Play, Pause, 
   Heart, ThumbsUp, Laugh, AlertCircle, Camera, Clock,
-  Gift, Zap, MapPin, Plus, Settings, Bell, Phone, Video
+  Gift, Zap, MapPin, Plus, Settings, Bell, Phone, Video,
+  Download, Volume2, VolumeX, FileVideo, FileImage
 } from "lucide-react";
 import Header from "@/components/Header";
 
@@ -161,6 +162,9 @@ export default function Messages() {
   const [isUploading, setIsUploading] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [reactionPickerMessageId, setReactionPickerMessageId] = useState<number | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [playingVoiceId, setPlayingVoiceId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -429,15 +433,94 @@ export default function Messages() {
 
   // Handle file upload
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
 
-    setIsUploading(true);
-    uploadFile.mutate(file);
+    handleMultipleFiles(files);
     
     // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  // Handle multiple file uploads
+  const handleMultipleFiles = (files: File[]) => {
+    const validFiles = files.filter(file => {
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      const validTypes = [
+        'image/*', 'video/*', 'audio/*',
+        'application/pdf', 'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain'
+      ];
+      
+      if (file.size > maxSize) {
+        toast({
+          title: "Fichier trop volumineux",
+          description: `${file.name} dépasse 10MB`,
+          variant: "destructive"
+        });
+        return false;
+      }
+      
+      const isValidType = validTypes.some(type => {
+        if (type.endsWith('*')) {
+          return file.type.startsWith(type.slice(0, -1));
+        }
+        return file.type === type;
+      });
+      
+      if (!isValidType) {
+        toast({
+          title: "Type de fichier non supporté",
+          description: `${file.name} n'est pas un type de fichier supporté`,
+          variant: "destructive"
+        });
+        return false;
+      }
+      
+      return true;
+    });
+
+    if (validFiles.length === 0) return;
+
+    setIsUploading(true);
+    
+    // Upload files sequentially
+    const uploadSequentially = async () => {
+      for (const file of validFiles) {
+        try {
+          await uploadFile.mutateAsync(file);
+        } catch (error) {
+          console.error(`Failed to upload ${file.name}:`, error);
+        }
+      }
+      setIsUploading(false);
+    };
+    
+    uploadSequentially();
+  };
+
+  // Drag and drop handlers
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      handleMultipleFiles(files);
     }
   };
 
@@ -484,6 +567,43 @@ export default function Messages() {
       description: `Réaction ${emoji} ajoutée au message`,
     });
     setReactionPickerMessageId(null);
+  };
+
+  // Add emoji to message
+  const addEmojiToMessage = (emoji: string) => {
+    setNewMessage(prev => prev + emoji);
+    setShowEmojiPicker(false);
+  };
+
+  // Play voice message
+  const playVoiceMessage = (messageId: number, audioUrl: string) => {
+    if (playingVoiceId === messageId) {
+      // Stop current playback
+      setPlayingVoiceId(null);
+      return;
+    }
+    
+    setPlayingVoiceId(messageId);
+    
+    // Create audio element and play
+    const audio = new Audio(audioUrl);
+    audio.onended = () => setPlayingVoiceId(null);
+    audio.onerror = () => {
+      setPlayingVoiceId(null);
+      toast({
+        title: "Erreur de lecture",
+        description: "Impossible de lire le message vocal",
+        variant: "destructive"
+      });
+    };
+    audio.play().catch(() => {
+      setPlayingVoiceId(null);
+      toast({
+        title: "Erreur de lecture",
+        description: "Impossible de lire le message vocal",
+        variant: "destructive"
+      });
+    });
   };
 
   // Format duration for voice messages
@@ -763,6 +883,7 @@ export default function Messages() {
                         {messages.map((message: any, index: number) => {
                           const isOwn = message.senderId === currentUser.id;
                           const showAvatar = !isOwn && (index === 0 || messages[index - 1]?.senderId !== message.senderId);
+                          console.log('Message:', message.id, 'SenderId:', message.senderId, 'CurrentUserId:', currentUser.id, 'IsOwn:', isOwn);
                           
                           return (
                             <div
@@ -799,7 +920,8 @@ export default function Messages() {
                                         <img 
                                           src={message.fileUrl} 
                                           alt="Image partagée" 
-                                          className="max-w-full h-auto rounded-2xl shadow-sm"
+                                          className="max-w-full h-auto rounded-2xl shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
+                                          onClick={() => window.open(message.fileUrl, '_blank')}
                                         />
                                         {message.content !== '📷 Image' && (
                                           <p className="text-sm">{message.content}</p>
@@ -810,6 +932,7 @@ export default function Messages() {
                                         <video 
                                           src={message.fileUrl} 
                                           controls 
+                                          preload="metadata"
                                           className="max-w-full h-auto rounded-2xl shadow-sm"
                                         />
                                         {message.content !== '🎥 Vidéo' && (
@@ -828,7 +951,9 @@ export default function Messages() {
                                             <div className={`h-1 flex-1 rounded-full overflow-hidden ${
                                               isOwn ? 'bg-white/30' : 'bg-gray-200 dark:bg-gray-600'
                                             }`}>
-                                              <div className={`h-full w-1/3 rounded-full ${
+                                              <div className={`h-full rounded-full transition-all duration-300 ${
+                                                playingVoiceId === message.id ? 'w-full' : 'w-1/3'
+                                              } ${
                                                 isOwn ? 'bg-white' : 'bg-blue-500'
                                               }`}></div>
                                             </div>
@@ -840,19 +965,39 @@ export default function Messages() {
                                         <Button 
                                           variant="ghost" 
                                           size="sm" 
+                                          onClick={() => playVoiceMessage(message.id, message.fileUrl)}
                                           className={`rounded-full p-2 ${isOwn ? 'hover:bg-white/20 text-white' : 'hover:bg-blue-50 dark:hover:bg-blue-900 text-blue-600'}`}
                                         >
-                                          <Play className="h-4 w-4" />
+                                          {playingVoiceId === message.id ? (
+                                            <Pause className="h-4 w-4" />
+                                          ) : (
+                                            <Play className="h-4 w-4" />
+                                          )}
                                         </Button>
                                       </div>
                                     ) : message.messageType === 'file' && message.fileUrl ? (
-                                      <div className="flex items-center space-x-3">
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                                          isOwn ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-600'
-                                        }`}>
-                                          <FileText className={`h-5 w-5 ${isOwn ? 'text-white' : 'text-gray-600'}`} />
+                                      <div className="flex items-center justify-between space-x-3">
+                                        <div className="flex items-center space-x-3 flex-1">
+                                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                                            isOwn ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-600'
+                                          }`}>
+                                            <FileText className={`h-5 w-5 ${isOwn ? 'text-white' : 'text-gray-600'}`} />
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium truncate">{message.content}</p>
+                                            <p className={`text-xs ${isOwn ? 'text-white/70' : 'text-muted-foreground'}`}>
+                                              Cliquez pour télécharger
+                                            </p>
+                                          </div>
                                         </div>
-                                        <span className="text-sm font-medium">{message.content}</span>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => window.open(message.fileUrl, '_blank')}
+                                          className={`rounded-full p-2 ${isOwn ? 'hover:bg-white/20 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-600'}`}
+                                        >
+                                          <Download className="h-4 w-4" />
+                                        </Button>
                                       </div>
                                     ) : (
                                       <p className="text-sm leading-relaxed">{message.content}</p>
@@ -916,7 +1061,24 @@ export default function Messages() {
                 </CardContent>
 
                 {/* Message Input */}
-                <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm">
+                <div 
+                  className={`p-4 border-t border-gray-100 dark:border-gray-800 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm relative ${
+                    dragActive ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/20' : ''
+                  }`}
+                  onDragEnter={handleDrag}
+                  onDragLeave={handleDrag}
+                  onDragOver={handleDrag}
+                  onDrop={handleDrop}
+                >
+                  {dragActive && (
+                    <div className="absolute inset-0 bg-blue-500/10 border-2 border-dashed border-blue-500 rounded-lg flex items-center justify-center z-10">
+                      <div className="text-center">
+                        <Upload className="h-12 w-12 text-blue-500 mx-auto mb-2" />
+                        <p className="text-blue-600 font-semibold">Déposez vos fichiers ici</p>
+                        <p className="text-sm text-blue-500">Images, vidéos, documents supportés</p>
+                      </div>
+                    </div>
+                  )}
                   {/* Voice Recording Interface */}
                   {isRecording && (
                     <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-2xl border-2 border-red-200 dark:border-red-800">
@@ -953,6 +1115,44 @@ export default function Messages() {
                     </div>
                   )}
                   
+                  {/* File Upload Preview */}
+                  {selectedFiles.length > 0 && (
+                    <div className="mb-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-2xl border-2 border-green-200 dark:border-green-800">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-semibold text-green-700 dark:text-green-300">Fichiers sélectionnés</h4>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedFiles([])}
+                          className="text-green-600 hover:bg-green-100 dark:text-green-400 dark:hover:bg-green-900/40"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="space-y-2 max-h-32 overflow-y-auto">
+                        {selectedFiles.map((file, index) => (
+                          <div key={index} className="flex items-center space-x-3 p-2 bg-white dark:bg-gray-800 rounded-lg">
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center bg-green-100 dark:bg-green-900">
+                              {file.type.startsWith('image/') ? (
+                                <FileImage className="h-4 w-4 text-green-600" />
+                              ) : file.type.startsWith('video/') ? (
+                                <FileVideo className="h-4 w-4 text-green-600" />
+                              ) : (
+                                <FileText className="h-4 w-4 text-green-600" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{file.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {(file.size / 1024 / 1024).toFixed(2)} MB
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Voice Message Preview */}
                   {audioBlob && !isRecording && (
                     <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border-2 border-blue-200 dark:border-blue-800">
@@ -993,13 +1193,27 @@ export default function Messages() {
                       </div>
                     </div>
                   )}
+
+                  {/* Upload Progress */}
+                  {isUploading && (
+                    <div className="mb-4 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-2xl border-2 border-orange-200 dark:border-orange-800">
+                      <div className="flex items-center space-x-3">
+                        <div className="animate-spin h-6 w-6 border-2 border-orange-500 border-t-transparent rounded-full"></div>
+                        <div>
+                          <p className="font-semibold text-orange-700 dark:text-orange-300">Envoi en cours...</p>
+                          <p className="text-sm text-orange-600 dark:text-orange-400">Veuillez patienter</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   
                   <div className="flex items-end space-x-3">
                     <input
                       type="file"
                       ref={fileInputRef}
                       onChange={handleFileUpload}
-                      accept="image/*,video/*,.pdf,.doc,.docx"
+                      accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+                      multiple
                       className="hidden"
                       data-testid="file-input"
                     />
@@ -1047,17 +1261,71 @@ export default function Messages() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          onClick={() => {
+                            if (fileInputRef.current) {
+                              fileInputRef.current.accept = "image/*";
+                              fileInputRef.current.click();
+                            }
+                          }}
                           className="rounded-full w-8 h-8 p-0 hover:bg-gray-200 dark:hover:bg-gray-700"
                         >
                           <Camera className="h-4 w-4 text-blue-600" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="rounded-full w-8 h-8 p-0 hover:bg-gray-200 dark:hover:bg-gray-700"
-                        >
-                          <Smile className="h-4 w-4 text-blue-600" />
-                        </Button>
+                        <div className="relative">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                            className="rounded-full w-8 h-8 p-0 hover:bg-gray-200 dark:hover:bg-gray-700"
+                          >
+                            <Smile className="h-4 w-4 text-blue-600" />
+                          </Button>
+                          {showEmojiPicker && (
+                            <div className="absolute bottom-10 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-2xl p-4 shadow-lg z-20 w-80">
+                              <div className="grid grid-cols-8 gap-2 max-h-60 overflow-y-auto">
+                                {[
+                                  '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣',
+                                  '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰',
+                                  '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜',
+                                  '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏',
+                                  '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣',
+                                  '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠',
+                                  '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨',
+                                  '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥',
+                                  '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧',
+                                  '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐',
+                                  '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑',
+                                  '🤠', '👍', '👎', '👌', '✌️', '🤞', '🤟', '🤘',
+                                  '🤙', '👈', '👉', '👆', '👇', '☝️', '✋', '🤚',
+                                  '🖐️', '🖖', '👋', '🤙', '💪', '🖕', '✍️', '🙏',
+                                  '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍',
+                                  '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖',
+                                  '💘', '💝', '💟', '☮️', '✝️', '☪️', '🕉️', '☸️',
+                                  '✡️', '🔯', '🕎', '☯️', '☦️', '🛐', '⛎', '♈',
+                                  '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐',
+                                  '♑', '♒', '♓', '🆔', '⚛️', '🉑', '☢️', '☣️'
+                                ].map((emoji) => (
+                                  <button
+                                    key={emoji}
+                                    onClick={() => addEmojiToMessage(emoji)}
+                                    className="w-8 h-8 text-lg hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+                              <div className="flex justify-end mt-3">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setShowEmojiPicker(false)}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 
