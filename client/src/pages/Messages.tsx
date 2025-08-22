@@ -224,6 +224,9 @@ export default function Messages() {
   const [showUserSearch, setShowUserSearch] = useState(false);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showChatMenu, setShowChatMenu] = useState(false);
+  const [conversationSearchQuery, setConversationSearchQuery] = useState("");
+  const [showConversationSearch, setShowConversationSearch] = useState(false);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -784,9 +787,6 @@ export default function Messages() {
           </div>
           <div className="flex items-center space-x-2">
             <Button variant="ghost" size="sm" className="hover:bg-blue-50 dark:hover:bg-gray-800">
-              <Settings className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" className="hover:bg-blue-50 dark:hover:bg-gray-800">
               <Bell className="h-4 w-4" />
             </Button>
           </div>
@@ -956,18 +956,153 @@ export default function Messages() {
                       </div>
                     </div>
                     <div className="flex items-center space-x-1">
-                      <Button variant="ghost" size="sm" className="hover:bg-blue-50 dark:hover:bg-gray-800 rounded-full">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="hover:bg-blue-50 dark:hover:bg-gray-800 rounded-full"
+                        onClick={() => {
+                          toast({
+                            title: "Appel vocal",
+                            description: "Fonctionnalité bientôt disponible",
+                          });
+                        }}
+                      >
                         <Phone className="h-4 w-4 text-blue-600" />
                       </Button>
-                      <Button variant="ghost" size="sm" className="hover:bg-blue-50 dark:hover:bg-gray-800 rounded-full">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="hover:bg-blue-50 dark:hover:bg-gray-800 rounded-full"
+                        onClick={() => {
+                          toast({
+                            title: "Appel vidéo",
+                            description: "Fonctionnalité bientôt disponible",
+                          });
+                        }}
+                      >
                         <Video className="h-4 w-4 text-blue-600" />
                       </Button>
-                      <Button variant="ghost" size="sm" className="hover:bg-blue-50 dark:hover:bg-gray-800 rounded-full">
-                        <MoreHorizontal className="h-4 w-4 text-blue-600" />
-                      </Button>
+                      <div className="relative">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="hover:bg-blue-50 dark:hover:bg-gray-800 rounded-full"
+                          onClick={() => setShowChatMenu(!showChatMenu)}
+                        >
+                          <MoreHorizontal className="h-4 w-4 text-blue-600" />
+                        </Button>
+                        
+                        {/* Chat Menu Dropdown */}
+                        {showChatMenu && (
+                          <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-2xl shadow-lg z-30">
+                            <div className="p-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-full justify-start text-left h-auto p-3 hover:bg-blue-50 dark:hover:bg-gray-700 rounded-xl"
+                                onClick={() => {
+                                  setShowConversationSearch(!showConversationSearch);
+                                  setShowChatMenu(false);
+                                }}
+                              >
+                                <Search className="h-4 w-4 mr-3 text-blue-600" />
+                                <div>
+                                  <p className="font-medium">Rechercher dans la conversation</p>
+                                  <p className="text-xs text-muted-foreground">Trouver des messages spécifiques</p>
+                                </div>
+                              </Button>
+                              
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-full justify-start text-left h-auto p-3 hover:bg-blue-50 dark:hover:bg-gray-700 rounded-xl"
+                                onClick={() => {
+                                  // Toggle theme
+                                  const isDark = document.documentElement.classList.contains('dark');
+                                  if (isDark) {
+                                    document.documentElement.classList.remove('dark');
+                                    localStorage.setItem('theme', 'light');
+                                  } else {
+                                    document.documentElement.classList.add('dark');
+                                    localStorage.setItem('theme', 'dark');
+                                  }
+                                  setShowChatMenu(false);
+                                  toast({
+                                    title: "Thème modifié",
+                                    description: `Mode ${isDark ? 'clair' : 'sombre'} activé`,
+                                  });
+                                }}
+                              >
+                                <div className="h-4 w-4 mr-3 text-blue-600 flex items-center justify-center">
+                                  🌙
+                                </div>
+                                <div>
+                                  <p className="font-medium">Changer le thème</p>
+                                  <p className="text-xs text-muted-foreground">Basculer entre clair et sombre</p>
+                                </div>
+                              </Button>
+
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-full justify-start text-left h-auto p-3 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl text-red-600"
+                                onClick={() => {
+                                  if (selectedConversation?.participant?.id) {
+                                    blockUser.mutate(selectedConversation.participant.id);
+                                    setShowChatMenu(false);
+                                  }
+                                }}
+                                disabled={blockUser.isPending}
+                              >
+                                <UserMinus className="h-4 w-4 mr-3" />
+                                <div>
+                                  <p className="font-medium">Bloquer l'utilisateur</p>
+                                  <p className="text-xs text-muted-foreground">Empêcher les futurs messages</p>
+                                </div>
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </CardHeader>
+
+                {/* Conversation Search */}
+                {showConversationSearch && (
+                  <div className="border-b border-gray-100 dark:border-gray-800 bg-white/90 dark:bg-gray-900/90 p-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="flex-1 relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Rechercher dans cette conversation..."
+                          value={conversationSearchQuery}
+                          onChange={(e) => setConversationSearchQuery(e.target.value)}
+                          className="pl-10 border-0 bg-gray-50 dark:bg-gray-800 rounded-full focus:ring-2 focus:ring-blue-500"
+                          data-testid="search-messages-input"
+                        />
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => {
+                          setShowConversationSearch(false);
+                          setConversationSearchQuery("");
+                        }}
+                        className="rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {conversationSearchQuery && (
+                      <div className="mt-2 text-sm text-muted-foreground">
+                        {messages.filter((msg: any) => 
+                          msg.content?.toLowerCase().includes(conversationSearchQuery.toLowerCase())
+                        ).length} résultat(s) trouvé(s)
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Messages */}
                 <CardContent className="flex-1 p-0 bg-gradient-to-b from-blue-50/30 to-purple-50/30 dark:from-gray-800/30 dark:to-gray-900/30">
@@ -1580,7 +1715,7 @@ export default function Messages() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Nom, prénom ou email..."
+                  placeholder="Nom, email ou téléphone..."
                   value={userSearchQuery}
                   onChange={(e) => setUserSearchQuery(e.target.value)}
                   className="pl-10"
