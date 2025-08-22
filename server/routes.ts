@@ -2263,10 +2263,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     storage: storage_config,
     limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit for videos
     fileFilter: (req, file, cb) => {
-      // Allow images, videos, and common document types
-      const allowedTypes = /\.(jpg|jpeg|png|gif|webp|mp4|mov|avi|pdf|doc|docx)$/i;
+      // Allow images, videos, audio, and common document types
+      const allowedTypes = /\.(jpg|jpeg|png|gif|webp|mp4|mov|avi|webm|mp3|wav|ogg|m4a|pdf|doc|docx)$/i;
       if (file.mimetype.startsWith('image/') || 
           file.mimetype.startsWith('video/') || 
+          file.mimetype.startsWith('audio/') ||
           allowedTypes.test(file.originalname)) {
         cb(null, true);
       } else {
