@@ -2114,19 +2114,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/avatars", (req, res) => {
     const { gender } = req.query;
     const maleAvatars = [
-      'https://api.dicebear.com/7.x/avataaars/svg?seed=male1&gender=male',
-      'https://api.dicebear.com/7.x/avataaars/svg?seed=male2&gender=male', 
-      'https://api.dicebear.com/7.x/avataaars/svg?seed=male3&gender=male',
-      'https://api.dicebear.com/7.x/avataaars/svg?seed=male4&gender=male',
-      'https://api.dicebear.com/7.x/avataaars/svg?seed=male5&gender=male'
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=John&gender=male&backgroundColor=b6e3f4&topType=ShortHairDreads01&hairColor=BrownDark',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Mike&gender=male&backgroundColor=c0aede&topType=ShortHairTheCaesar&hairColor=Black',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex&gender=male&backgroundColor=ffd93d&topType=ShortHairShortCurly&hairColor=Brown',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=David&gender=male&backgroundColor=ffdfbf&topType=ShortHairSides&hairColor=Blonde',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=James&gender=male&backgroundColor=d1d4f9&topType=ShortHairShortFlat&hairColor=Auburn'
     ];
     
     const femaleAvatars = [
-      'https://api.dicebear.com/7.x/avataaars/svg?seed=female1&gender=female',
-      'https://api.dicebear.com/7.x/avataaars/svg?seed=female2&gender=female',
-      'https://api.dicebear.com/7.x/avataaars/svg?seed=female3&gender=female', 
-      'https://api.dicebear.com/7.x/avataaars/svg?seed=female4&gender=female',
-      'https://api.dicebear.com/7.x/avataaars/svg?seed=female5&gender=female'
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Emma&gender=female&backgroundColor=ffd93d&topType=LongHairStraight&hairColor=BrownDark',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Sofia&gender=female&backgroundColor=ffdfbf&topType=LongHairCurly&hairColor=Black',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Maya&gender=female&backgroundColor=c0aede&topType=LongHairBigHair&hairColor=Brown',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Aria&gender=female&backgroundColor=b6e3f4&topType=LongHairStraight2&hairColor=Blonde',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Luna&gender=female&backgroundColor=d1d4f9&topType=LongHairCurvy&hairColor=Auburn'
     ];
     
     if (gender === 'male') {

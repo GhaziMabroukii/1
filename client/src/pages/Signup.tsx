@@ -22,7 +22,7 @@ const Signup = () => {
     userType: "",
     cinNumber: "",
     profilePicture: null as File | null,
-    gender: "" as "male" | "female" | "other" | "",
+    gender: "" as "male" | "female" | "",
     avatarUrl: "",
     acceptTerms: false,
     studentInfo: {
@@ -179,7 +179,6 @@ const Signup = () => {
                       <SelectContent>
                         <SelectItem value="male">Homme</SelectItem>
                         <SelectItem value="female">Femme</SelectItem>
-                        <SelectItem value="other">Autre</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

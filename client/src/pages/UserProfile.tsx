@@ -411,11 +411,10 @@ const UserProfile = () => {
                         <option value="">Sélectionner...</option>
                         <option value="male">Homme</option>
                         <option value="female">Femme</option>
-                        <option value="other">Autre</option>
                       </select>
                     ) : (
                       <p className="p-2 bg-muted rounded">
-                        {userProfile.gender === 'male' ? 'Homme' : userProfile.gender === 'female' ? 'Femme' : userProfile.gender === 'other' ? 'Autre' : 'Non spécifié'}
+                        {userProfile.gender === 'male' ? 'Homme' : userProfile.gender === 'female' ? 'Femme' : 'Non spécifié'}
                       </p>
                     )}
                   </div>
