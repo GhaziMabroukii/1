@@ -2376,7 +2376,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         mimetype: req.file.mimetype,
         size: req.file.size,
         type: req.file.mimetype.startsWith('image/') ? 'image' : 
-              req.file.mimetype.startsWith('video/') ? 'video' : 'file'
+              req.file.mimetype.startsWith('video/') ? 'video' : 
+              req.file.mimetype.startsWith('audio/') ? 'voice' : 'file'
       };
       
       res.json(fileInfo);

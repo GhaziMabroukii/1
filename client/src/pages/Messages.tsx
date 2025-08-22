@@ -40,7 +40,7 @@ function useVoiceRecorder() {
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'audio/wav' });
+        const blob = new Blob(chunks, { type: 'audio/webm' });
         setAudioBlob(blob);
         stream.getTracks().forEach(track => track.stop());
         // Clear interval when recording stops
@@ -580,7 +580,7 @@ export default function Messages() {
     setIsUploading(true);
     try {
       const formData = new FormData();
-      formData.append('file', audioBlob, 'voice_message.wav');
+      formData.append('file', audioBlob, 'voice_message.webm');
       
       const response = await fetch('/api/upload/message-file', {
         method: 'POST',
@@ -626,9 +626,10 @@ export default function Messages() {
     setPlayingVoiceId(messageId);
     
     // Create audio element and play
-    const audio = new Audio(audioUrl);
+    const audio = new Audio();
     audio.onended = () => setPlayingVoiceId(null);
-    audio.onerror = () => {
+    audio.onerror = (e) => {
+      console.error('Audio playback error:', e, 'URL:', audioUrl);
       setPlayingVoiceId(null);
       toast({
         title: "Erreur de lecture",
@@ -636,7 +637,13 @@ export default function Messages() {
         variant: "destructive"
       });
     };
-    audio.play().catch(() => {
+    
+    // Set the source and load the audio
+    audio.src = audioUrl;
+    audio.load();
+    
+    audio.play().catch((error) => {
+      console.error('Audio play error:', error, 'URL:', audioUrl);
       setPlayingVoiceId(null);
       toast({
         title: "Erreur de lecture",
@@ -1414,7 +1421,8 @@ export default function Messages() {
                       <Button 
                         onMouseDown={startRecording}
                         onMouseUp={stopRecording}
-                        onMouseLeave={stopRecording}
+                        onTouchStart={startRecording}
+                        onTouchEnd={stopRecording}
                         className={`rounded-full w-12 h-12 p-0 transition-all duration-200 ${
                           isRecording 
                             ? 'bg-red-500 hover:bg-red-600 scale-110' 
