@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { insertPropertySchema, insertOfferSchema, insertContractSchema, insertNotificationSchema, insertConversationSchema, insertMessageSchema, insertReviewSchema, insertContractTerminationRequestSchema, contracts, users, conversations, messages, reviews, properties, offers, contractTerminationRequests } from "@shared/schema";
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
@@ -1429,56 +1430,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Conversations routes
+  // Enhanced Conversations routes with real-time messaging and media support
+  
+  // Get all conversations for a user
+  app.get("/api/conversations", async (req, res) => {
+    try {
+      const userId = parseInt(req.query.userId as string);
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      const conversations = await storage.getConversations(userId);
+      res.json(conversations);
+    } catch (error) {
+      console.error("Error fetching conversations:", error);
+      res.status(500).json({ error: "Failed to fetch conversations" });
+    }
+  });
+  
+  // Create conversation or send message
   app.post("/api/conversations", async (req, res) => {
     try {
-      const { propertyId, tenantId, ownerId, message } = req.body;
+      const { propertyId, tenantId, ownerId, message, messageType = 'text', fileUrl } = req.body;
       
-      // Check if conversation already exists
-      let [existingConversation] = await db.select()
-        .from(conversations)
-        .where(and(
-          eq(conversations.propertyId, propertyId),
-          eq(conversations.tenantId, tenantId),
-          eq(conversations.ownerId, ownerId)
-        ));
-
-      if (!existingConversation) {
-        // Create new conversation
-        [existingConversation] = await db.insert(conversations)
-          .values({ propertyId, tenantId, ownerId })
-          .returning();
+      if (!propertyId || !tenantId || !ownerId || !message) {
+        return res.status(400).json({ error: "Missing required fields" });
       }
-
-      // Add message to conversation
-      await db.insert(messages).values({
-        conversationId: existingConversation.id,
-        senderId: tenantId,
+      
+      // Get or create conversation
+      const conversation = await storage.getOrCreateConversation(propertyId, tenantId, ownerId);
+      
+      // Create message
+      const newMessage = await storage.createMessage({
+        conversationId: conversation.id,
+        senderId: tenantId, // Usually tenant sends initial message
         content: message,
+        messageType,
+        fileUrl
       });
-
-      // Update last message timestamp
-      await db.update(conversations)
-        .set({ lastMessageAt: new Date() })
-        .where(eq(conversations.id, existingConversation.id));
-
-      res.json({ success: true, conversationId: existingConversation.id });
+      
+      // Broadcast real-time message to participants
+      const server = req.app.get('server') || (req as any).server;
+      if (server && server.broadcastToUsers) {
+        const messageData = {
+          type: 'new_message',
+          conversationId: conversation.id,
+          message: newMessage
+        };
+        server.broadcastToUsers([tenantId, ownerId], messageData);
+      }
+      
+      res.json({ 
+        success: true, 
+        conversationId: conversation.id,
+        message: newMessage 
+      });
     } catch (error) {
       console.error("Conversation error:", error);
       res.status(500).json({ error: "Failed to send message" });
     }
   });
+  
+  // Send message to existing conversation
+  app.post("/api/conversations/:id/messages", async (req, res) => {
+    try {
+      const conversationId = parseInt(req.params.id);
+      const { senderId, content, messageType = 'text', fileUrl } = req.body;
+      
+      if (!senderId || !content) {
+        return res.status(400).json({ error: "Sender ID and content are required" });
+      }
+      
+      // Create message
+      const newMessage = await storage.createMessage({
+        conversationId,
+        senderId,
+        content,
+        messageType,
+        fileUrl
+      });
+      
+      // Get conversation to find participants
+      const conversation = await storage.getConversation(conversationId);
+      if (conversation) {
+        const participants = [conversation.tenantId, conversation.ownerId];
+        
+        // Broadcast real-time message to participants
+        const server = req.app.get('server') || (req as any).server;
+        if (server && server.broadcastToUsers) {
+          const messageData = {
+            type: 'new_message',
+            conversationId,
+            message: newMessage
+          };
+          server.broadcastToUsers(participants, messageData);
+        }
+      }
+      
+      res.json(newMessage);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      res.status(500).json({ error: "Failed to send message" });
+    }
+  });
 
+  // Get messages for a conversation
   app.get("/api/conversations/:id/messages", async (req, res) => {
     try {
       const conversationId = parseInt(req.params.id);
-      const messagesList = await db.select()
-        .from(messages)
-        .where(eq(messages.conversationId, conversationId))
-        .orderBy(messages.createdAt);
+      const messagesList = await storage.getConversationMessages(conversationId);
       res.json(messagesList);
     } catch (error) {
+      console.error("Error fetching messages:", error);
       res.status(500).json({ error: "Failed to fetch messages" });
+    }
+  });
+  
+  // Mark message as read
+  app.put("/api/messages/:id/read", async (req, res) => {
+    try {
+      const messageId = parseInt(req.params.id);
+      const success = await storage.markMessageAsRead(messageId);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Message not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking message as read:", error);
+      res.status(500).json({ error: "Failed to mark message as read" });
     }
   });
 
@@ -2077,17 +2158,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Configure multer for file uploads
+  // Configure multer for file uploads (photos, videos, documents)
   const storage_config = multer.memoryStorage();
   const upload = multer({ 
     storage: storage_config,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit for videos
     fileFilter: (req, file, cb) => {
-      if (file.mimetype.startsWith('image/')) {
+      // Allow images, videos, and common document types
+      const allowedTypes = /\.(jpg|jpeg|png|gif|webp|mp4|mov|avi|pdf|doc|docx)$/i;
+      if (file.mimetype.startsWith('image/') || 
+          file.mimetype.startsWith('video/') || 
+          allowedTypes.test(file.originalname)) {
         cb(null, true);
       } else {
-        cb(new Error('Only image files are allowed'), false);
+        cb(new Error('File type not allowed'), false);
       }
+    }
+  });
+  
+  // File upload endpoint for messages
+  app.post("/api/upload/message-file", upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+      
+      // In a real implementation, you'd save to cloud storage
+      // For demo, we'll create a data URL from the uploaded file
+      const base64Data = req.file.buffer.toString('base64');
+      const fileUrl = `data:${req.file.mimetype};base64,${base64Data}`;
+      
+      const fileInfo = {
+        url: fileUrl,
+        filename: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        type: req.file.mimetype.startsWith('image/') ? 'image' : 
+              req.file.mimetype.startsWith('video/') ? 'video' : 'file'
+      };
+      
+      res.json(fileInfo);
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      res.status(500).json({ error: "Failed to upload file" });
     }
   });
 
@@ -2359,5 +2472,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  
+  // WebSocket server for real-time messaging
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  const clients = new Map<number, WebSocket>();
+  
+  wss.on('connection', (ws: WebSocket, req) => {
+    console.log('WebSocket client connected');
+    
+    ws.on('message', (message: string) => {
+      try {
+        const data = JSON.parse(message);
+        
+        if (data.type === 'auth') {
+          // Store client with user ID for targeted messaging
+          const userId = data.userId;
+          clients.set(userId, ws);
+          console.log(`User ${userId} connected to WebSocket`);
+          
+          ws.send(JSON.stringify({ type: 'auth_success', userId }));
+        }
+      } catch (error) {
+        console.error('WebSocket message error:', error);
+      }
+    });
+    
+    ws.on('close', () => {
+      // Remove client from map when disconnected
+      for (const [userId, client] of clients.entries()) {
+        if (client === ws) {
+          clients.delete(userId);
+          console.log(`User ${userId} disconnected from WebSocket`);
+          break;
+        }
+      }
+    });
+  });
+  
+  // Function to broadcast message to specific users
+  const broadcastToUsers = (userIds: number[], message: any) => {
+    userIds.forEach(userId => {
+      const client = clients.get(userId);
+      if (client && client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(message));
+      }
+    });
+  };
+  
+  // Store broadcast function for use in routes
+  (httpServer as any).broadcastToUsers = broadcastToUsers;
+  
   return httpServer;
 }

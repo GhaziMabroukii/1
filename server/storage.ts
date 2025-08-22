@@ -58,6 +58,15 @@ export interface IStorage {
   getNotifications(userId: number): Promise<Notification[]>;
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationRead(id: number): Promise<boolean>;
+  
+  // Conversation and messaging operations
+  getConversations(userId: number): Promise<any[]>;
+  getConversation(id: number): Promise<any | undefined>;
+  createConversation(conversation: any): Promise<any>;
+  getConversationMessages(conversationId: number): Promise<any[]>;
+  createMessage(message: any): Promise<any>;
+  markMessageAsRead(messageId: number): Promise<boolean>;
+  getOrCreateConversation(propertyId: number, tenantId: number, ownerId: number): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -336,6 +345,8 @@ export class MemStorage implements IStorage {
   private contracts: Contract[] = [];
   private notifications: Notification[] = [];
   private terminationRequests: any[] = [];
+  private conversations: any[] = [];
+  private messages: any[] = [];
   private nextId = 1;
 
   private getNextId() {
@@ -610,6 +621,152 @@ export class MemStorage implements IStorage {
     return true;
   }
 
+  // Conversation operations
+  async getConversations(userId: number): Promise<any[]> {
+    const userConversations = this.conversations.filter(conv => 
+      conv.tenantId === userId || conv.ownerId === userId
+    );
+    
+    // Enrich with property, participant, and last message info
+    const enrichedConversations = await Promise.all(
+      userConversations.map(async (conv) => {
+        const property = await this.getProperty(conv.propertyId);
+        const tenant = await this.getUser(conv.tenantId);
+        const owner = await this.getUser(conv.ownerId);
+        
+        // Get last message
+        const conversationMessages = this.messages
+          .filter(msg => msg.conversationId === conv.id)
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        
+        const lastMessage = conversationMessages[0];
+        const unreadCount = conversationMessages.filter(msg => 
+          msg.senderId !== userId && !msg.readAt
+        ).length;
+        
+        return {
+          ...conv,
+          property: property ? {
+            title: property.title,
+            address: property.address,
+            images: property.images
+          } : null,
+          tenant: tenant ? {
+            id: tenant.id,
+            firstName: tenant.firstName,
+            lastName: tenant.lastName,
+            profilePicture: tenant.profilePicture
+          } : null,
+          owner: owner ? {
+            id: owner.id,
+            firstName: owner.firstName,
+            lastName: owner.lastName,
+            profilePicture: owner.profilePicture
+          } : null,
+          lastMessage,
+          unreadCount,
+          participant: userId === conv.tenantId ? {
+            id: owner?.id,
+            name: `${owner?.firstName} ${owner?.lastName}`,
+            profilePicture: owner?.profilePicture,
+            role: 'Propriétaire'
+          } : {
+            id: tenant?.id,
+            name: `${tenant?.firstName} ${tenant?.lastName}`,
+            profilePicture: tenant?.profilePicture,
+            role: 'Locataire'
+          }
+        };
+      })
+    );
+    
+    return enrichedConversations.sort((a, b) => 
+      new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+    );
+  }
+  
+  async getConversation(id: number): Promise<any | undefined> {
+    return this.conversations.find(conv => conv.id === id);
+  }
+  
+  async createConversation(conversation: any): Promise<any> {
+    const newConversation = {
+      id: this.getNextId(),
+      ...conversation,
+      lastMessageAt: new Date(),
+      createdAt: new Date()
+    };
+    this.conversations.push(newConversation);
+    return newConversation;
+  }
+  
+  async getOrCreateConversation(propertyId: number, tenantId: number, ownerId: number): Promise<any> {
+    let conversation = this.conversations.find(conv => 
+      conv.propertyId === propertyId && 
+      conv.tenantId === tenantId && 
+      conv.ownerId === ownerId
+    );
+    
+    if (!conversation) {
+      conversation = await this.createConversation({
+        propertyId,
+        tenantId,
+        ownerId
+      });
+    }
+    
+    return conversation;
+  }
+  
+  async getConversationMessages(conversationId: number): Promise<any[]> {
+    const conversationMessages = this.messages
+      .filter(msg => msg.conversationId === conversationId)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      
+    // Enrich messages with sender info
+    const enrichedMessages = await Promise.all(
+      conversationMessages.map(async (msg) => {
+        const sender = await this.getUser(msg.senderId);
+        return {
+          ...msg,
+          sender: sender ? {
+            id: sender.id,
+            firstName: sender.firstName,
+            lastName: sender.lastName,
+            profilePicture: sender.profilePicture
+          } : null
+        };
+      })
+    );
+    
+    return enrichedMessages;
+  }
+  
+  async createMessage(message: any): Promise<any> {
+    const newMessage = {
+      id: this.getNextId(),
+      ...message,
+      createdAt: new Date()
+    };
+    this.messages.push(newMessage);
+    
+    // Update conversation last message time
+    const convIndex = this.conversations.findIndex(conv => conv.id === message.conversationId);
+    if (convIndex !== -1) {
+      this.conversations[convIndex].lastMessageAt = new Date();
+    }
+    
+    return newMessage;
+  }
+  
+  async markMessageAsRead(messageId: number): Promise<boolean> {
+    const messageIndex = this.messages.findIndex(msg => msg.id === messageId);
+    if (messageIndex === -1) return false;
+    
+    this.messages[messageIndex].readAt = new Date();
+    return true;
+  }
+  
   // Termination request operations
   async createTerminationRequest(request: any): Promise<any> {
     const terminationRequest = {
