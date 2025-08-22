@@ -2133,11 +2133,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateUser(userId, updateData);
 
       // In a real implementation, send email/SMS here
-      console.log(`Verification code for ${user[type]}: ${code}`);
+      const contactInfo = type === 'email' ? user.email : user.phone;
+      console.log(`Verification code for ${contactInfo}: ${code}`);
 
       // For demo purposes, always succeed
       res.json({ 
-        message: `Verification code sent to ${user[type]}`,
+        message: `Verification code sent to ${contactInfo}`,
         // In development, return code for testing
         ...(process.env.NODE_ENV === 'development' && { code })
       });
@@ -2195,8 +2196,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updateData.verificationScore = user.documentVerified ? 100 : 50;
       }
 
-      if (updateData.verificationScore >= 50) {
-        updateData.isVerified = true;
+      if (updateData.verificationScore && updateData.verificationScore >= 50) {
+        (updateData as any).isVerified = true;
       }
 
       const updatedUser = await storage.updateUser(userId, updateData);
