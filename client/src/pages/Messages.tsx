@@ -177,7 +177,7 @@ export default function Messages() {
   const queryClient = useQueryClient();
 
   // Get current user from localStorage
-  const currentUser = JSON.parse(localStorage.getItem("user") || '{"id": 1, "userType": "tenant"}');
+  const currentUser = JSON.parse(localStorage.getItem("userData") || '{"id": 1, "userType": "tenant"}');
 
   // Parse query parameters
   const urlParams = new URLSearchParams(location.split('?')[1] || '');
