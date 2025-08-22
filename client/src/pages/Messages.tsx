@@ -16,7 +16,7 @@ import {
   FileText, MoreHorizontal, Search, User, UserMinus,
   Paperclip, Smile, X, Mic, MicOff, Play, Pause, 
   Heart, ThumbsUp, Laugh, AlertCircle, Camera, Clock,
-  Gift, Zap, MapPin, Plus, Settings, Bell
+  Gift, Zap, MapPin, Plus, Settings, Bell, Phone, Video
 } from "lucide-react";
 import Header from "@/components/Header";
 
@@ -394,9 +394,11 @@ export default function Messages() {
 
   // Smart conversation auto-selection and creation
   useEffect(() => {
-    if (propertyIdParam && ownerIdParam && conversations.length >= 0) {
+    if (propertyIdParam && ownerIdParam && conversations !== undefined) {
       const propertyId = parseInt(propertyIdParam);
       const ownerId = parseInt(ownerIdParam);
+      
+      console.log('URL params detected:', { propertyId, ownerId, currentUserType: currentUser.userType, currentUserId: currentUser.id });
       
       // Determine who the other user is based on current user type
       const otherUserId = currentUser.userType === 'owner' ? 
@@ -409,6 +411,7 @@ export default function Messages() {
           // Match by property and participants
           const matchesProperty = conv.property?.id === propertyId || conv.propertyId === propertyId;
           const matchesParticipant = conv.participant?.id === otherUserId;
+          console.log('Checking conversation:', conv.id, { matchesProperty, matchesParticipant, participantId: conv.participant?.id });
           return matchesProperty && matchesParticipant;
         });
         
