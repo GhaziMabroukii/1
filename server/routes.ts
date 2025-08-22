@@ -5,6 +5,8 @@ import { insertPropertySchema, insertOfferSchema, insertContractSchema, insertNo
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcrypt";
+import multer from "multer";
+import path from "path";
 
 // Conditionally import db only if DATABASE_URL is available
 let db: any = null;
@@ -2075,19 +2077,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Configure multer for file uploads
+  const storage_config = multer.memoryStorage();
+  const upload = multer({ 
+    storage: storage_config,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: (req, file, cb) => {
+      if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only image files are allowed'), false);
+      }
+    }
+  });
+
+  // Default avatars based on gender
+  const getDefaultAvatar = (gender: string) => {
+    const avatars = {
+      male: [
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=male1&gender=male',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=male2&gender=male',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=male3&gender=male'
+      ],
+      female: [
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=female1&gender=female', 
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=female2&gender=female',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=female3&gender=female'
+      ]
+    };
+    
+    const genderAvatars = avatars[gender.toLowerCase() as keyof typeof avatars] || avatars.male;
+    return genderAvatars[Math.floor(Math.random() * genderAvatars.length)];
+  };
+
+  // Get available avatars endpoint
+  app.get("/api/avatars", (req, res) => {
+    const { gender } = req.query;
+    const maleAvatars = [
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=male1&gender=male',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=male2&gender=male', 
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=male3&gender=male',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=male4&gender=male',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=male5&gender=male'
+    ];
+    
+    const femaleAvatars = [
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=female1&gender=female',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=female2&gender=female',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=female3&gender=female', 
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=female4&gender=female',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=female5&gender=female'
+    ];
+    
+    if (gender === 'male') {
+      res.json({ avatars: maleAvatars });
+    } else if (gender === 'female') {
+      res.json({ avatars: femaleAvatars });
+    } else {
+      res.json({ 
+        male: maleAvatars,
+        female: femaleAvatars 
+      });
+    }
+  });
+
   // File upload endpoint for profile photos
-  app.post("/api/upload/profile-photo", async (req, res) => {
+  app.post("/api/upload/profile-photo", upload.single('photo'), async (req, res) => {
     try {
-      // For this demo, we'll simulate file upload by returning a URL
-      // In a real implementation, you'd handle multipart/form-data with multer
-      const userId = req.body.userId || req.query.userId;
+      const userId = req.body.userId;
       
       if (!userId) {
         return res.status(400).json({ error: "User ID required" });
       }
 
-      // Simulate uploading and return a placeholder URL
-      const profilePictureUrl = `/uploads/profiles/${userId}_${Date.now()}.jpg`;
+      let profilePictureUrl;
+      
+      if (req.file) {
+        // In a real implementation, you'd save to cloud storage
+        // For demo, we'll create a data URL from the uploaded file
+        const base64Data = req.file.buffer.toString('base64');
+        profilePictureUrl = `data:${req.file.mimetype};base64,${base64Data}`;
+      } else {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
       
       // Update user with new profile picture URL
       const updatedUser = await storage.updateUser(parseInt(userId), {
@@ -2105,6 +2177,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error uploading profile photo:", error);
       res.status(500).json({ error: "Failed to upload profile photo" });
+    }
+  });
+
+  // Set avatar endpoint
+  app.post("/api/set-avatar", async (req, res) => {
+    try {
+      const { userId, avatarUrl } = req.body;
+      
+      if (!userId || !avatarUrl) {
+        return res.status(400).json({ error: "User ID and avatar URL required" });
+      }
+      
+      const updatedUser = await storage.updateUser(parseInt(userId), {
+        profilePicture: avatarUrl
+      });
+      
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      res.json({ 
+        profilePictureUrl: avatarUrl,
+        message: "Avatar updated successfully" 
+      });
+    } catch (error) {
+      console.error("Error setting avatar:", error);
+      res.status(500).json({ error: "Failed to set avatar" });
     }
   });
 

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { MapPin, GraduationCap, Users, Building, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 
 const Signup = () => {
   const [formData, setFormData] = useState({
@@ -21,6 +22,8 @@ const Signup = () => {
     userType: "",
     cinNumber: "",
     profilePicture: null as File | null,
+    gender: "" as "male" | "female" | "other" | "",
+    avatarUrl: "",
     acceptTerms: false,
     studentInfo: {
       university: "",
@@ -32,6 +35,8 @@ const Signup = () => {
       linkedin: ""
     }
   });
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [selectedGender, setSelectedGender] = useState<"male" | "female" | null>(null);
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
@@ -91,9 +96,25 @@ const Signup = () => {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setFormData({ ...formData, profilePicture: file });
+      setFormData({ ...formData, profilePicture: file, avatarUrl: "" });
     }
   };
+
+  const handleAvatarSelect = (avatarUrl: string) => {
+    setFormData({ ...formData, avatarUrl, profilePicture: null });
+    setShowAvatarModal(false);
+  };
+
+  // Fetch avatars
+  const { data: avatarsData } = useQuery({
+    queryKey: ["/api/avatars", selectedGender],
+    queryFn: async () => {
+      const response = await fetch(`/api/avatars?gender=${selectedGender}`);
+      if (!response.ok) throw new Error("Failed to fetch avatars");
+      return response.json();
+    },
+    enabled: showAvatarModal && !!selectedGender
+  });
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -142,6 +163,82 @@ const Signup = () => {
                   </Label>
                 </div>
               </RadioGroup>
+            </div>
+
+            {/* Photo et Avatar */}
+            <div className="space-y-3">
+              <Label>Photo de profil (optionnel)</Label>
+              <div className="flex items-center space-x-4">
+                <div className="flex-1">
+                  <div className="space-y-2">
+                    <Label>Genre</Label>
+                    <Select value={formData.gender} onValueChange={(value) => setFormData({ ...formData, gender: value as any })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionner votre genre" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="male">Homme</SelectItem>
+                        <SelectItem value="female">Femme</SelectItem>
+                        <SelectItem value="other">Autre</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex space-x-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedGender("male");
+                      setShowAvatarModal(true);
+                    }}
+                    disabled={!formData.gender}
+                  >
+                    👨 Avatar H
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedGender("female");
+                      setShowAvatarModal(true);
+                    }}
+                    disabled={!formData.gender}
+                  >
+                    👩 Avatar F
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById('profile-picture')?.click()}
+                  >
+                    <Upload className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              
+              {(formData.profilePicture || formData.avatarUrl) && (
+                <div className="flex items-center justify-center">
+                  <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-border">
+                    {formData.avatarUrl ? (
+                      <img src={formData.avatarUrl} alt="Avatar sélectionné" className="w-full h-full object-cover" />
+                    ) : formData.profilePicture ? (
+                      <img src={URL.createObjectURL(formData.profilePicture)} alt="Photo téléchargée" className="w-full h-full object-cover" />
+                    ) : null}
+                  </div>
+                </div>
+              )}
+              
+              <input
+                id="profile-picture"
+                type="file"
+                accept="image/*"
+                onChange={handleFileUpload}
+                style={{ display: 'none' }}
+              />
             </div>
 
             {/* Informations personnelles */}
@@ -343,6 +440,43 @@ const Signup = () => {
           </CardFooter>
         </form>
       </Card>
+
+      {/* Avatar Selection Modal */}
+      {showAvatarModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAvatarModal(false)}>
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold">
+                Choisir un avatar {selectedGender === 'male' ? 'masculin' : 'féminin'}
+              </h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAvatarModal(false)}
+              >
+                ✕
+              </Button>
+            </div>
+            
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
+              {avatarsData?.avatars?.map((avatarUrl: string, index: number) => (
+                <button
+                  key={index}
+                  onClick={() => handleAvatarSelect(avatarUrl)}
+                  className="relative group rounded-full overflow-hidden hover:ring-4 hover:ring-primary/20 transition-all"
+                >
+                  <img
+                    src={avatarUrl}
+                    alt={`Avatar ${index + 1}`}
+                    className="w-20 h-20 object-cover rounded-full"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-full" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

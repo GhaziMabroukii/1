@@ -40,6 +40,11 @@ const UserProfile = () => {
     isOpen: boolean;
     type: "email" | "phone" | "document" | null;
   }>({ isOpen: false, type: null });
+  
+  const [avatarModal, setAvatarModal] = useState<{
+    isOpen: boolean;
+    gender: "male" | "female" | null;
+  }>({ isOpen: false, gender: null });
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -56,6 +61,17 @@ const UserProfile = () => {
       return response.json();
     },
     enabled: !!currentUserId
+  });
+
+  // Fetch avatars
+  const { data: avatarsData } = useQuery({
+    queryKey: ["/api/avatars", avatarModal.gender],
+    queryFn: async () => {
+      const response = await fetch(`/api/avatars?gender=${avatarModal.gender}`);
+      if (!response.ok) throw new Error("Failed to fetch avatars");
+      return response.json();
+    },
+    enabled: avatarModal.isOpen && !!avatarModal.gender
   });
 
   // Update profile mutation
@@ -90,10 +106,18 @@ const UserProfile = () => {
       formData.append("photo", file);
       formData.append("userId", currentUserId.toString());
       
-      return await apiRequest("/api/upload/profile-photo", {
+      // Use native fetch for FormData to avoid JSON parsing issues
+      const response = await fetch("/api/upload/profile-photo", {
         method: "POST",
         body: formData
       });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Upload failed");
+      }
+      
+      return response.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/user/profile", currentUserId] });
@@ -106,6 +130,30 @@ const UserProfile = () => {
       toast({
         title: "Erreur",
         description: error.message || "Impossible de télécharger la photo",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Set avatar mutation
+  const setAvatarMutation = useMutation({
+    mutationFn: async (avatarUrl: string) => {
+      return await apiRequest("/api/set-avatar", {
+        method: "POST",
+        body: JSON.stringify({ userId: currentUserId, avatarUrl })
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/profile", currentUserId] });
+      toast({
+        title: "Avatar mis à jour",
+        description: "Votre avatar a été mis à jour avec succès"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de mettre à jour l'avatar",
         variant: "destructive"
       });
     }
@@ -164,6 +212,15 @@ const UserProfile = () => {
 
       uploadPhotoMutation.mutate(file);
     }
+  };
+
+  const handleAvatarSelect = (avatarUrl: string) => {
+    setAvatarMutation.mutate(avatarUrl);
+    setAvatarModal({ isOpen: false, gender: null });
+  };
+
+  const openAvatarModal = (gender: "male" | "female") => {
+    setAvatarModal({ isOpen: true, gender });
   };
 
   if (isLoading || !userProfile) {
@@ -342,15 +399,74 @@ const UserProfile = () => {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Genre</Label>
+                    {isEditing ? (
+                      <select 
+                        value={editData.gender || ""} 
+                        onChange={(e) => setEditData({ ...editData, gender: e.target.value })}
+                        className="w-full p-2 border rounded focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="">Sélectionner...</option>
+                        <option value="male">Homme</option>
+                        <option value="female">Femme</option>
+                        <option value="other">Autre</option>
+                      </select>
+                    ) : (
+                      <p className="p-2 bg-muted rounded">
+                        {userProfile.gender === 'male' ? 'Homme' : userProfile.gender === 'female' ? 'Femme' : userProfile.gender === 'other' ? 'Autre' : 'Non spécifié'}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label>Date de naissance</Label>
+                    {isEditing ? (
+                      <Input
+                        type="date"
+                        value={editData.dateOfBirth || ""}
+                        onChange={(e) => setEditData({ ...editData, dateOfBirth: e.target.value })}
+                      />
+                    ) : (
+                      <p className="p-2 bg-muted rounded">
+                        {userProfile.dateOfBirth ? new Date(userProfile.dateOfBirth).toLocaleDateString() : 'Non spécifiée'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Adresse</Label>
+                  {isEditing ? (
+                    <Input
+                      value={editData.address || ""}
+                      onChange={(e) => setEditData({ ...editData, address: e.target.value })}
+                      placeholder="Votre adresse complète"
+                    />
+                  ) : (
+                    <div className="p-2 bg-muted rounded flex items-center space-x-2">
+                      <MapPin className="h-4 w-4" />
+                      <span>{userProfile.address || 'Non spécifiée'}</span>
+                    </div>
+                  )}
+                </div>
+
                 {isEditing && (
                   <div>
                     <Label>Biographie (optionnel)</Label>
                     <Textarea
                       value={editData.bio || ""}
                       onChange={(e) => setEditData({ ...editData, bio: e.target.value })}
-                      placeholder="Parlez-vous de vous..."
+                      placeholder="Parlez-nous de vous..."
                       rows={3}
                     />
+                  </div>
+                )}
+                
+                {!isEditing && userProfile.bio && (
+                  <div>
+                    <Label>Biographie</Label>
+                    <p className="p-2 bg-muted rounded italic">"{userProfile.bio}"</p>
                   </div>
                 )}
               </CardContent>
@@ -469,14 +585,35 @@ const UserProfile = () => {
                   
                   {isEditing && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button 
-                        size="sm" 
-                        variant="secondary"
-                        onClick={() => document.getElementById('photo-upload')?.click()}
-                        disabled={uploadPhotoMutation.isPending}
-                      >
-                        <Camera className="h-4 w-4" />
-                      </Button>
+                      <div className="flex space-x-1">
+                        <Button 
+                          size="sm" 
+                          variant="secondary"
+                          onClick={() => document.getElementById('photo-upload')?.click()}
+                          disabled={uploadPhotoMutation.isPending || setAvatarMutation.isPending}
+                          title="Télécharger une photo"
+                        >
+                          <Camera className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => openAvatarModal("male")}
+                          disabled={uploadPhotoMutation.isPending || setAvatarMutation.isPending}
+                          title="Choisir un avatar masculin"
+                        >
+                          👨
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => openAvatarModal("female")}
+                          disabled={uploadPhotoMutation.isPending || setAvatarMutation.isPending}
+                          title="Choisir un avatar féminin"
+                        >
+                          👩
+                        </Button>
+                      </div>
                       <input
                         id="photo-upload"
                         type="file"
@@ -571,6 +708,51 @@ const UserProfile = () => {
         verificationType={verificationModal.type}
         userProfile={userProfile}
       />
+
+      {/* Avatar Selection Modal */}
+      {avatarModal.isOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setAvatarModal({ isOpen: false, gender: null })}>
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold">
+                Choisir un avatar {avatarModal.gender === 'male' ? 'masculin' : 'féminin'}
+              </h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setAvatarModal({ isOpen: false, gender: null })}
+              >
+                ✕
+              </Button>
+            </div>
+            
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
+              {avatarsData?.avatars?.map((avatarUrl: string, index: number) => (
+                <button
+                  key={index}
+                  onClick={() => handleAvatarSelect(avatarUrl)}
+                  className="relative group rounded-full overflow-hidden hover:ring-4 hover:ring-primary/20 transition-all"
+                  disabled={setAvatarMutation.isPending}
+                >
+                  <img
+                    src={avatarUrl}
+                    alt={`Avatar ${index + 1}`}
+                    className="w-20 h-20 object-cover rounded-full"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-full" />
+                </button>
+              ))}
+            </div>
+            
+            {setAvatarMutation.isPending && (
+              <div className="flex items-center justify-center mt-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                <span className="ml-2 text-sm">Mise à jour en cours...</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
