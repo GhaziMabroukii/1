@@ -557,11 +557,14 @@ export class MemStorage implements IStorage {
   }
 
   private initializeTestData() {
-    // Create test users
+    // Create test users with hashed passwords (bcrypt hash of 'password123')
+    const hashedPassword = '$2b$10$9409EDjn9m.1RE0NkAnNSuq9s1iLjXGQChlbq1H5S7lq.uXC9am7K';
+    
     this.users = [
       {
         id: 1,
         username: "locataire@test.com",
+        password: hashedPassword,
         email: "locataire@test.com",
         firstName: "Jean",
         lastName: "Dupont",
@@ -576,6 +579,7 @@ export class MemStorage implements IStorage {
       {
         id: 2,
         username: "proprietaire@test.com",
+        password: hashedPassword,
         email: "proprietaire@test.com",
         firstName: "Marie",
         lastName: "Martin",
@@ -590,6 +594,7 @@ export class MemStorage implements IStorage {
       {
         id: 3,
         username: "sarah@test.com",
+        password: hashedPassword,
         email: "sarah@test.com",
         firstName: "Sarah",
         lastName: "Belgacem",
