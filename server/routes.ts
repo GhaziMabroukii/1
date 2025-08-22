@@ -1453,36 +1453,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { propertyId, tenantId, ownerId, message, messageType = 'text', fileUrl } = req.body;
       
-      if (!propertyId || !tenantId || !ownerId || !message) {
-        return res.status(400).json({ error: "Missing required fields" });
+      if (!tenantId || !ownerId) {
+        return res.status(400).json({ error: "tenantId and ownerId are required" });
       }
       
       // Get or create conversation
-      const conversation = await storage.getOrCreateConversation(propertyId, tenantId, ownerId);
+      const conversation = await storage.getOrCreateConversation(
+        propertyId || null, 
+        tenantId, 
+        ownerId
+      );
       
-      // Create message
-      const newMessage = await storage.createMessage({
-        conversationId: conversation.id,
-        senderId: tenantId, // Usually tenant sends initial message
-        content: message,
-        messageType,
-        fileUrl
-      });
+      let newMessage = null;
       
-      // Broadcast real-time message to participants
-      const server = req.app.get('server') || (req as any).server;
-      if (server && server.broadcastToUsers) {
-        const messageData = {
-          type: 'new_message',
+      // Create message if provided
+      if (message) {
+        newMessage = await storage.createMessage({
           conversationId: conversation.id,
-          message: newMessage
-        };
-        server.broadcastToUsers([tenantId, ownerId], messageData);
+          senderId: tenantId, // Usually tenant sends initial message
+          content: message,
+          messageType,
+          fileUrl
+        });
+        
+        // Broadcast real-time message to participants
+        const server = req.app.get('server') || (req as any).server;
+        if (server && server.broadcastToUsers) {
+          const messageData = {
+            type: 'new_message',
+            conversationId: conversation.id,
+            message: newMessage
+          };
+          server.broadcastToUsers([tenantId, ownerId], messageData);
+        }
       }
       
       res.json({ 
         success: true, 
         conversationId: conversation.id,
+        conversation,
         message: newMessage 
       });
     } catch (error) {
@@ -1560,6 +1569,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error marking message as read:", error);
       res.status(500).json({ error: "Failed to mark message as read" });
+    }
+  });
+
+  // User search endpoint for messaging
+  app.get("/api/users/search", async (req, res) => {
+    try {
+      const query = req.query.q as string;
+      const userId = parseInt(req.query.userId as string);
+      
+      if (!query || !userId) {
+        return res.json([]);
+      }
+      
+      if (query.length < 2) {
+        return res.json([]);
+      }
+      
+      const searchResults = await storage.searchUsers(query, userId);
+      res.json(searchResults);
+    } catch (error) {
+      console.error("Error searching users:", error);
+      res.status(500).json({ error: "Failed to search users" });
     }
   });
 

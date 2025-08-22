@@ -154,7 +154,7 @@ function useWebSocket(userId: number) {
 }
 
 export default function Messages() {
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -174,6 +174,12 @@ export default function Messages() {
 
   // Get current user from localStorage
   const currentUser = JSON.parse(localStorage.getItem("user") || '{"id": 1, "userType": "tenant"}');
+
+  // Parse query parameters
+  const urlParams = new URLSearchParams(location.split('?')[1] || '');
+  const propertyIdParam = urlParams.get('propertyId');
+  const ownerIdParam = urlParams.get('ownerId');
+  const tenantIdParam = urlParams.get('tenantId');
   
   // Voice recording
   const {
@@ -202,10 +208,11 @@ export default function Messages() {
   // Search users for new conversations
   const { data: searchedUsers = [], isLoading: loadingUserSearch } = useQuery({
     queryKey: ["/api/users/search", userSearchQuery, currentUser.id],
-    queryFn: () => {
+    queryFn: async () => {
       if (!userSearchQuery.trim()) return [];
-      return fetch(`/api/users/search?q=${encodeURIComponent(userSearchQuery)}&userId=${currentUser.id}`)
-        .then(res => res.json());
+      const res = await fetch(`/api/users/search?q=${encodeURIComponent(userSearchQuery)}&userId=${currentUser.id}`);
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     },
     enabled: !!userSearchQuery.trim(),
   });
@@ -325,8 +332,8 @@ export default function Messages() {
     });
   };
 
-  // Handle starting conversation with searched user
-  const handleStartConversation = async (user: any) => {
+  // Handle starting conversation with searched user or from URL params
+  const handleStartConversation = async (user: any, propertyId?: number) => {
     try {
       // Create or get conversation with this user
       const response = await apiRequest('/api/conversations', {
@@ -334,11 +341,12 @@ export default function Messages() {
         body: JSON.stringify({
           tenantId: currentUser.userType === 'tenant' ? currentUser.id : user.id,
           ownerId: currentUser.userType === 'owner' ? currentUser.id : user.id,
-          propertyId: null // For general messaging
+          propertyId: propertyId || null,
+          message: "Bonjour! Je suis intéressé par votre propriété."
         })
       });
       
-      setSelectedConversationId(response.id);
+      setSelectedConversationId(response.conversationId || response.id);
       setShowUserSearch(false);
       setUserSearchQuery("");
       queryClient.invalidateQueries({ queryKey: ["/api/conversations", currentUser.id] });
@@ -350,6 +358,30 @@ export default function Messages() {
       });
     }
   };
+
+  // Handle URL parameters to auto-start conversations
+  useEffect(() => {
+    if (propertyIdParam && (ownerIdParam || tenantIdParam)) {
+      const otherUserId = currentUser.userType === 'owner' ? 
+        parseInt(tenantIdParam || '0') : parseInt(ownerIdParam || '0');
+      
+      if (otherUserId) {
+        // Find or start conversation with this user about this property
+        const existingConv = conversations.find((conv: any) => 
+          conv.property?.id === parseInt(propertyIdParam) &&
+          (conv.participant?.id === otherUserId)
+        );
+        
+        if (existingConv) {
+          setSelectedConversationId(existingConv.id);
+        } else {
+          // Create new conversation
+          const mockUser = { id: otherUserId };
+          handleStartConversation(mockUser, parseInt(propertyIdParam));
+        }
+      }
+    }
+  }, [propertyIdParam, ownerIdParam, tenantIdParam, conversations, currentUser]);
 
   // Handle file upload
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
