@@ -1197,29 +1197,15 @@ export class MemStorage implements IStorage {
   }
   
   async getOrCreateConversation(propertyId: number | null, tenantId: number, ownerId: number): Promise<any> {
-    // Find existing conversation for the specific property and user pair
-    let conversation;
-    
-    if (propertyId) {
-      // Look for property-specific conversation
-      conversation = this.conversations.find(conv => 
-        conv.propertyId === propertyId && 
-        conv.tenantId === tenantId && 
-        conv.ownerId === ownerId
-      );
-    } else {
-      // Look for general conversation (propertyId is null)
-      conversation = this.conversations.find(conv => 
-        conv.propertyId === null && 
-        conv.tenantId === tenantId && 
-        conv.ownerId === ownerId
-      );
-    }
+    // Find any existing conversation between these two users, regardless of property
+    let conversation = this.conversations.find(conv => 
+      conv.tenantId === tenantId && conv.ownerId === ownerId
+    );
     
     if (!conversation) {
-      // Create new conversation with the specified propertyId
+      // Create new conversation - set propertyId to null for general conversation
       conversation = await this.createConversation({
-        propertyId, // Use the actual propertyId passed in
+        propertyId: null, // Always null to make it a general conversation that covers all properties
         tenantId,
         ownerId
       });
