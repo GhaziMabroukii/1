@@ -46,22 +46,25 @@ function useVoiceRecorder() {
         // Clear interval when recording stops
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
+          intervalRef.current = null;
         }
       };
 
       mediaRecorderRef.current = mediaRecorder;
-      mediaRecorder.start();
       setIsRecording(true);
       setDuration(0);
+      mediaRecorder.start();
 
-      // Start the timer
+      // Start the timer immediately after setting recording state
       intervalRef.current = setInterval(() => {
         setDuration(prev => {
           const newDuration = prev + 1;
-          console.log('Voice recording duration:', newDuration);
+          console.log('Voice recording duration:', newDuration, 'seconds');
           return newDuration;
         });
       }, 1000);
+      
+      console.log('Started voice recording with timer');
     } catch (error) {
       console.error('Error accessing microphone:', error);
     }
@@ -1004,15 +1007,24 @@ export default function Messages() {
                                         )}
                                       </div>
                                     ) : message.messageType === 'voice' && message.fileUrl ? (
-                                      <div className="flex items-center space-x-3 py-1">
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                                          isOwn ? 'bg-white/20' : 'bg-blue-100 dark:bg-blue-900'
-                                        }`}>
-                                          <Mic className={`h-5 w-5 ${isOwn ? 'text-white' : 'text-blue-600'}`} />
-                                        </div>
+                                      <div className="flex items-center space-x-3 py-2">
+                                        <Button 
+                                          variant="ghost" 
+                                          size="sm" 
+                                          onClick={() => playVoiceMessage(message.id, message.fileUrl)}
+                                          className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                                            isOwn ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-blue-100 hover:bg-blue-200 dark:bg-blue-900 dark:hover:bg-blue-800 text-blue-600'
+                                          }`}
+                                        >
+                                          {playingVoiceId === message.id ? (
+                                            <Pause className="h-6 w-6" />
+                                          ) : (
+                                            <Play className="h-6 w-6" />
+                                          )}
+                                        </Button>
                                         <div className="flex-1">
                                           <div className="flex items-center space-x-2">
-                                            <div className={`h-1 flex-1 rounded-full overflow-hidden ${
+                                            <div className={`h-2 flex-1 rounded-full overflow-hidden ${
                                               isOwn ? 'bg-white/30' : 'bg-gray-200 dark:bg-gray-600'
                                             }`}>
                                               <div className={`h-full rounded-full transition-all duration-300 ${
@@ -1022,22 +1034,10 @@ export default function Messages() {
                                               }`}></div>
                                             </div>
                                           </div>
-                                          <p className={`text-xs mt-1 ${isOwn ? 'text-white/80' : 'text-muted-foreground'}`}>
+                                          <p className={`text-sm mt-1 font-medium ${isOwn ? 'text-white' : 'text-gray-900 dark:text-gray-100'}`}>
                                             {message.content}
                                           </p>
                                         </div>
-                                        <Button 
-                                          variant="ghost" 
-                                          size="sm" 
-                                          onClick={() => playVoiceMessage(message.id, message.fileUrl)}
-                                          className={`rounded-full p-2 ${isOwn ? 'hover:bg-white/20 text-white' : 'hover:bg-blue-50 dark:hover:bg-blue-900 text-blue-600'}`}
-                                        >
-                                          {playingVoiceId === message.id ? (
-                                            <Pause className="h-4 w-4" />
-                                          ) : (
-                                            <Play className="h-4 w-4" />
-                                          )}
-                                        </Button>
                                       </div>
                                     ) : message.messageType === 'file' && message.fileUrl ? (
                                       <div className="space-y-3">
@@ -1064,7 +1064,31 @@ export default function Messages() {
                                           <Button
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() => window.open(message.fileUrl, '_blank')}
+                                            onClick={() => {
+                                              // For PDFs, create a proper blob URL
+                                              if (message.fileUrl?.toLowerCase().includes('.pdf')) {
+                                                fetch(message.fileUrl)
+                                                  .then(response => response.blob())
+                                                  .then(blob => {
+                                                    const url = URL.createObjectURL(blob);
+                                                    const link = document.createElement('a');
+                                                    link.href = url;
+                                                    link.target = '_blank';
+                                                    link.rel = 'noopener noreferrer';
+                                                    document.body.appendChild(link);
+                                                    link.click();
+                                                    document.body.removeChild(link);
+                                                    // Clean up the blob URL
+                                                    setTimeout(() => URL.revokeObjectURL(url), 100);
+                                                  })
+                                                  .catch(() => {
+                                                    // Fallback to direct link
+                                                    window.open(message.fileUrl, '_blank');
+                                                  });
+                                              } else {
+                                                window.open(message.fileUrl, '_blank');
+                                              }
+                                            }}
                                             className={`flex-1 rounded-xl py-2 text-xs ${isOwn ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600'}`}
                                           >
                                             <Eye className="h-3 w-3 mr-1" />
@@ -1091,22 +1115,6 @@ export default function Messages() {
                                     )}
                                   </div>
                                   
-                                  {/* Quick Reactions */}
-                                  <div className={`absolute -bottom-2 ${isOwn ? '-left-16' : '-right-16'} opacity-0 group-hover:opacity-100 transition-opacity duration-200`}>
-                                    <div className="flex space-x-1 bg-white dark:bg-gray-800 rounded-full p-1 shadow-lg border border-gray-200 dark:border-gray-600">
-                                      {['❤️', '👍', '😂', '😮', '😢', '😡'].map((emoji) => (
-                                        <Button
-                                          key={emoji}
-                                          variant="ghost"
-                                          size="sm"
-                                          className="w-8 h-8 p-0 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-                                          onClick={() => addReaction(message.id, emoji)}
-                                        >
-                                          <span className="text-sm">{emoji}</span>
-                                        </Button>
-                                      ))}
-                                    </div>
-                                  </div>
                                 </div>
                                 
                                 <div className={`flex items-center mt-1 space-x-2 ${isOwn ? 'justify-end' : 'justify-start'}`}>
@@ -1176,8 +1184,8 @@ export default function Messages() {
                           </div>
                           <div>
                             <p className="font-semibold text-red-700 dark:text-red-300">Enregistrement vocal</p>
-                            <p className="text-sm text-red-600 dark:text-red-400">
-                              Durée: {formatDuration(duration)}
+                            <p className="text-sm text-red-600 dark:text-red-400 font-mono text-lg">
+                              {Math.floor(duration / 60).toString().padStart(2, '0')}:{(duration % 60).toString().padStart(2, '0')}
                             </p>
                           </div>
                         </div>
@@ -1250,8 +1258,8 @@ export default function Messages() {
                           </div>
                           <div>
                             <p className="font-semibold text-blue-700 dark:text-blue-300">Message vocal prêt</p>
-                            <p className="text-sm text-blue-600 dark:text-blue-400">
-                              Durée: {formatDuration(duration)}
+                            <p className="text-sm text-blue-600 dark:text-blue-400 font-mono text-lg">
+                              {Math.floor(duration / 60).toString().padStart(2, '0')}:{(duration % 60).toString().padStart(2, '0')}
                             </p>
                           </div>
                         </div>
