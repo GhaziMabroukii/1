@@ -1177,20 +1177,15 @@ export class MemStorage implements IStorage {
   }
   
   async getOrCreateConversation(propertyId: number | null, tenantId: number, ownerId: number): Promise<any> {
-    // Find existing conversation with proper null handling
-    let conversation = this.conversations.find(conv => {
-      // Handle null propertyId cases properly
-      const propertyMatches = (propertyId === null && conv.propertyId === null) || 
-                             (propertyId !== null && conv.propertyId === propertyId);
-      
-      return propertyMatches && 
-             conv.tenantId === tenantId && 
-             conv.ownerId === ownerId;
-    });
+    // Find any existing conversation between these two users, regardless of property
+    let conversation = this.conversations.find(conv => 
+      conv.tenantId === tenantId && conv.ownerId === ownerId
+    );
     
     if (!conversation) {
+      // Create new conversation - set propertyId to null for general conversation
       conversation = await this.createConversation({
-        propertyId,
+        propertyId: null, // Always null to make it a general conversation
         tenantId,
         ownerId
       });
@@ -1214,6 +1209,56 @@ export class MemStorage implements IStorage {
     // Delete the conversation
     this.conversations.splice(index, 1);
     return true;
+  }
+
+  // Manual merge of conversations by user pairs
+  async mergeConversationsByUserPairs(): Promise<{duplicatesRemoved: number, conversationsMerged: number}> {
+    const userPairGroups = new Map();
+    
+    // Group conversations by tenantId-ownerId
+    for (const conv of this.conversations) {
+      const key = `${conv.tenantId}-${conv.ownerId}`;
+      if (!userPairGroups.has(key)) {
+        userPairGroups.set(key, []);
+      }
+      userPairGroups.get(key).push(conv);
+    }
+    
+    let duplicatesRemoved = 0;
+    let conversationsMerged = 0;
+    
+    // Merge conversations for each user pair
+    for (const [key, conversations] of userPairGroups) {
+      if (conversations.length > 1) {
+        // Sort by creation date, keep the first (oldest)
+        conversations.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        const toKeep = conversations[0];
+        const toMerge = conversations.slice(1);
+        
+        // Update the kept conversation to have null propertyId (general conversation)
+        toKeep.propertyId = null;
+        
+        // Move all messages from duplicate conversations to the kept one
+        for (const conv of toMerge) {
+          // Update all messages to reference the kept conversation
+          for (const message of this.messages) {
+            if (message.conversationId === conv.id) {
+              message.conversationId = toKeep.id;
+            }
+          }
+          
+          // Remove the duplicate conversation
+          const index = this.conversations.findIndex(c => c.id === conv.id);
+          if (index !== -1) {
+            this.conversations.splice(index, 1);
+            duplicatesRemoved++;
+          }
+        }
+        conversationsMerged++;
+      }
+    }
+    
+    return { duplicatesRemoved, conversationsMerged };
   }
   
   async getConversationMessages(conversationId: number): Promise<any[]> {
