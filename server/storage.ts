@@ -349,6 +349,252 @@ export class MemStorage implements IStorage {
   private messages: any[] = [];
   private nextId = 1;
 
+  constructor() {
+    // Initialize with test users and sample conversations
+    this.initializeTestData();
+  }
+
+  private initializeTestData() {
+    // Create test users
+    this.users = [
+      {
+        id: 1,
+        username: "locataire@test.com",
+        email: "locataire@test.com",
+        firstName: "Jean",
+        lastName: "Dupont",
+        phoneNumber: "+33 1 23 45 67 89",
+        role: "tenant",
+        profilePicture: null,
+        cin: "12345678",
+        address: "123 Rue de la Paix, Paris",
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 2,
+        username: "proprietaire@test.com",
+        email: "proprietaire@test.com",
+        firstName: "Marie",
+        lastName: "Martin",
+        phoneNumber: "+33 1 98 76 54 32",
+        role: "owner",
+        profilePicture: null,
+        cin: "87654321",
+        address: "456 Avenue des Champs, Lyon",
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 3,
+        username: "sarah@test.com",
+        email: "sarah@test.com",
+        firstName: "Sarah",
+        lastName: "Belgacem",
+        phoneNumber: "+216 20 123 456",
+        role: "owner",
+        profilePicture: null,
+        cin: "09876543",
+        address: "789 Rue Ibn Khaldoun, Tunis",
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ];
+    
+    this.nextId = 4;
+    
+    // Create sample properties
+    this.properties = [
+      {
+        id: 1,
+        title: "Appartement moderne à Tunis Centre",
+        description: "Magnifique appartement de 85m² avec vue sur mer",
+        price: 850,
+        location: "Tunis Centre",
+        latitude: "36.8065",
+        longitude: "10.1815",
+        bedrooms: 2,
+        bathrooms: 1,
+        surface: 85,
+        furnished: true,
+        category: "Appartement",
+        amenities: ["wifi", "climatisation", "parking"],
+        images: [],
+        availability: "Disponible",
+        ownerId: 2,
+        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+        updatedAt: new Date()
+      },
+      {
+        id: 2,
+        title: "Studio cozy près de l'université",
+        description: "Studio parfait pour étudiant avec tout équipé",
+        price: 420,
+        location: "Manouba",
+        latitude: "36.8189",
+        longitude: "10.0983",
+        bedrooms: 1,
+        bathrooms: 1,
+        surface: 35,
+        furnished: true,
+        category: "Studio",
+        amenities: ["wifi", "climatisation"],
+        images: [],
+        availability: "Disponible",
+        ownerId: 3,
+        createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+        updatedAt: new Date()
+      }
+    ];
+    
+    // Create sample conversations with amazing content
+    this.conversations = [
+      {
+        id: 1,
+        propertyId: 1,
+        tenantId: 1,
+        ownerId: 2,
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+        updatedAt: new Date(Date.now() - 10 * 60 * 1000) // 10 minutes ago
+      },
+      {
+        id: 2,
+        propertyId: 2,
+        tenantId: 1,
+        ownerId: 3,
+        createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+        updatedAt: new Date(Date.now() - 5 * 60 * 1000) // 5 minutes ago
+      }
+    ];
+    
+    // Create sample messages with diverse content
+    this.messages = [
+      // Conversation 1 messages
+      {
+        id: 1,
+        conversationId: 1,
+        senderId: 1,
+        content: "Bonjour ! Je suis très intéressé par votre appartement à Tunis Centre. Serait-il possible de le visiter cette semaine ? 😊",
+        messageType: "text",
+        fileUrl: null,
+        isRead: true,
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
+      },
+      {
+        id: 2,
+        conversationId: 1,
+        senderId: 2,
+        content: "Bonjour Jean ! Bien sûr, je serais ravi de vous faire visiter. Êtes-vous disponible demain après-midi vers 15h ?",
+        messageType: "text",
+        fileUrl: null,
+        isRead: true,
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 30 * 60 * 1000)
+      },
+      {
+        id: 3,
+        conversationId: 1,
+        senderId: 1,
+        content: "Parfait ! 15h me convient très bien. Pouvez-vous m'envoyer l'adresse exacte ?",
+        messageType: "text",
+        fileUrl: null,
+        isRead: true,
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 45 * 60 * 1000)
+      },
+      {
+        id: 4,
+        conversationId: 1,
+        senderId: 2,
+        content: "🎤 Message vocal (0:15)",
+        messageType: "voice",
+        fileUrl: "/uploads/voice_sample.wav",
+        isRead: true,
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000)
+      },
+      {
+        id: 5,
+        conversationId: 1,
+        senderId: 1,
+        content: "Merci beaucoup ! L'appartement a l'air magnifique sur les photos 📸",
+        messageType: "text",
+        fileUrl: null,
+        isRead: true,
+        createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)
+      },
+      {
+        id: 6,
+        conversationId: 1,
+        senderId: 2,
+        content: "Merci ! J'espère qu'il vous plaira encore plus en vrai. À demain ! 🏡✨",
+        messageType: "text",
+        fileUrl: null,
+        isRead: true,
+        createdAt: new Date(Date.now() - 20 * 60 * 1000)
+      },
+      {
+        id: 7,
+        conversationId: 1,
+        senderId: 1,
+        content: "Hâte de le voir ! Bonne soirée 🌙",
+        messageType: "text",
+        fileUrl: null,
+        isRead: false,
+        createdAt: new Date(Date.now() - 10 * 60 * 1000)
+      },
+      
+      // Conversation 2 messages
+      {
+        id: 8,
+        conversationId: 2,
+        senderId: 1,
+        content: "Bonsoir Sarah ! Votre studio près de l'université m'intéresse beaucoup. Est-il toujours disponible ?",
+        messageType: "text",
+        fileUrl: null,
+        isRead: true,
+        createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)
+      },
+      {
+        id: 9,
+        conversationId: 2,
+        senderId: 3,
+        content: "Bonsoir ! Oui il est encore disponible. C'est parfait pour un étudiant, tout est inclus dans le prix 👨‍🎓",
+        messageType: "text",
+        fileUrl: null,
+        isRead: true,
+        createdAt: new Date(Date.now() - 23 * 60 * 60 * 1000)
+      },
+      {
+        id: 10,
+        conversationId: 2,
+        senderId: 1,
+        content: "📷 Image",
+        messageType: "image",
+        fileUrl: "/uploads/student_room.jpg",
+        isRead: true,
+        createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000)
+      },
+      {
+        id: 11,
+        conversationId: 2,
+        senderId: 3,
+        content: "Belle photo ! Vous êtes étudiant dans quelle faculté ?",
+        messageType: "text",
+        fileUrl: null,
+        isRead: true,
+        createdAt: new Date(Date.now() - 8 * 60 * 60 * 1000)
+      },
+      {
+        id: 12,
+        conversationId: 2,
+        senderId: 1,
+        content: "Je suis en master informatique à l'ISAMM. Le studio est vraiment proche du campus ? 🎓💻",
+        messageType: "text",
+        fileUrl: null,
+        isRead: false,
+        createdAt: new Date(Date.now() - 5 * 60 * 1000)
+      }
+    ];
+  }
+
   private getNextId() {
     return this.nextId++;
   }

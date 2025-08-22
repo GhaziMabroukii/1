@@ -14,9 +14,101 @@ import { apiRequest } from "@/lib/queryClient";
 import { 
   ArrowLeft, Send, MessageCircle, Upload, Image as ImageIcon, 
   Video, FileText, MoreHorizontal, Phone, Search,
-  Paperclip, Smile, X
+  Paperclip, Smile, X, Mic, MicOff, Play, Pause, 
+  Heart, ThumbsUp, Laugh, AlertCircle, Camera,
+  Gift, Zap, MapPin, Plus, Settings, Bell
 } from "lucide-react";
 import Header from "@/components/Header";
+
+// Voice recording hook
+function useVoiceRecorder() {
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [duration, setDuration] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      const chunks: BlobPart[] = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        chunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'audio/wav' });
+        setAudioBlob(blob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+      setIsRecording(true);
+      setDuration(0);
+
+      intervalRef.current = setInterval(() => {
+        setDuration(prev => prev + 1);
+      }, 1000);
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    }
+  };
+
+  const cancelRecording = () => {
+    stopRecording();
+    setAudioBlob(null);
+    setDuration(0);
+  };
+
+  return {
+    isRecording,
+    audioBlob,
+    duration,
+    startRecording,
+    stopRecording,
+    cancelRecording,
+    setAudioBlob
+  };
+}
+
+// Typing indicator hook
+function useTypingIndicator(conversationId: number | null, userId: number) {
+  const [isTyping, setIsTyping] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const startTyping = () => {
+    setIsTyping(true);
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+    }, 3000);
+  };
+
+  const stopTyping = () => {
+    setIsTyping(false);
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+  };
+
+  return { isTyping, typingUsers, startTyping, stopTyping };
+}
 
 // WebSocket hook for real-time messaging
 function useWebSocket(userId: number) {
@@ -67,13 +159,30 @@ export default function Messages() {
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [reactionPickerMessageId, setReactionPickerMessageId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   // Get current user from localStorage
   const currentUser = JSON.parse(localStorage.getItem("user") || '{"id": 1, "userType": "tenant"}');
+  
+  // Voice recording
+  const {
+    isRecording,
+    audioBlob,
+    duration,
+    startRecording,
+    stopRecording,
+    cancelRecording,
+    setAudioBlob
+  } = useVoiceRecorder();
+  
+  // Typing indicator
+  const { isTyping, startTyping, stopTyping } = useTypingIndicator(selectedConversationId, currentUser.id);
   
   // WebSocket connection for real-time messaging
   const { isConnected } = useWebSocket(currentUser.id);
@@ -190,6 +299,58 @@ export default function Messages() {
     }
   };
 
+  // Handle voice message
+  const handleVoiceSend = async () => {
+    if (!audioBlob || !selectedConversationId) return;
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', audioBlob, 'voice_message.wav');
+      
+      const response = await fetch('/api/upload/message-file', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      const fileData = await response.json();
+      
+      sendMessage.mutate({
+        conversationId: selectedConversationId,
+        senderId: currentUser.id,
+        content: `🎤 Message vocal (${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')})`,
+        messageType: 'voice',
+        fileUrl: fileData.url
+      });
+      
+      setAudioBlob(null);
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible d'envoyer le message vocal",
+        variant: "destructive",
+      });
+    }
+    setIsUploading(false);
+  };
+
+  // Handle emoji reactions
+  const addReaction = (messageId: number, emoji: string) => {
+    // In a real app, this would send to the server
+    toast({
+      title: "Réaction ajoutée",
+      description: `Réaction ${emoji} ajoutée au message`,
+    });
+    setReactionPickerMessageId(null);
+  };
+
+  // Format duration for voice messages
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   // Auto-scroll to bottom of messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -219,105 +380,153 @@ export default function Messages() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <Header />
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold gradient-text flex items-center">
-              <MessageCircle className="h-8 w-8 mr-3" />
-              Messages
-            </h1>
-            <p className="text-muted-foreground flex items-center mt-2">
-              {isConnected ? (
-                <><span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>En ligne</>
-              ) : (
-                <><span className="w-2 h-2 bg-gray-400 rounded-full mr-2"></span>Hors ligne</>
+      <div className="container mx-auto px-4 py-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-4">
+            <div className="relative">
+              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                <MessageCircle className="h-6 w-6 text-white" />
+              </div>
+              {isConnected && (
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full animate-pulse"></div>
               )}
-            </p>
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Messages
+              </h1>
+              <p className="text-sm text-muted-foreground flex items-center">
+                {isConnected ? (
+                  <><Zap className="h-3 w-3 mr-1 text-green-500" />Connecté en temps réel</>
+                ) : (
+                  <><AlertCircle className="h-3 w-3 mr-1 text-amber-500" />Reconnexion...</>
+                )}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button variant="ghost" size="sm" className="hover:bg-blue-50 dark:hover:bg-gray-800">
+              <Settings className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm" className="hover:bg-blue-50 dark:hover:bg-gray-800">
+              <Bell className="h-4 w-4" />
+            </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-180px)]">
           {/* Conversations List */}
           <div className="lg:col-span-1">
-            <Card className="h-full glass">
-              <CardHeader className="pb-3">
+            <Card className="h-full border-0 shadow-xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl">
+              <CardHeader className="pb-3 border-b border-gray-100 dark:border-gray-800">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Conversations</CardTitle>
-                  <Badge variant="secondary">{conversations.length}</Badge>
+                  <div className="flex items-center space-x-2">
+                    <CardTitle className="text-lg font-semibold">Chats</CardTitle>
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300">
+                      {conversations.length}
+                    </Badge>
+                  </div>
+                  <Button variant="ghost" size="sm" className="rounded-full hover:bg-blue-50 dark:hover:bg-gray-800">
+                    <Plus className="h-4 w-4" />
+                  </Button>
                 </div>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Rechercher..."
+                    placeholder="Rechercher dans les conversations..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 border-0 bg-gray-50 dark:bg-gray-800 rounded-full focus:ring-2 focus:ring-blue-500"
                     data-testid="search-conversations"
                   />
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <ScrollArea className="h-[calc(100vh-320px)]">
+                <ScrollArea className="h-[calc(100vh-300px)]">
                   {loadingConversations ? (
-                    <div className="p-4 text-center text-muted-foreground">
-                      <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mx-auto" />
-                      <p className="mt-2">Chargement...</p>
+                    <div className="p-6 text-center">
+                      <div className="animate-spin h-8 w-8 border-3 border-blue-500 border-t-transparent rounded-full mx-auto" />
+                      <p className="mt-3 text-muted-foreground">Chargement des conversations...</p>
                     </div>
                   ) : filteredConversations.length === 0 ? (
-                    <div className="p-4 text-center text-muted-foreground">
-                      <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>Aucune conversation</p>
-                      <p className="text-sm">Vos conversations apparaîtront ici</p>
+                    <div className="p-8 text-center text-muted-foreground">
+                      <div className="relative">
+                        <MessageCircle className="h-16 w-16 mx-auto mb-4 opacity-30" />
+                        <div className="absolute -top-2 -right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                          <Plus className="h-4 w-4 text-white" />
+                        </div>
+                      </div>
+                      <h3 className="font-semibold text-lg mb-2">Aucune conversation</h3>
+                      <p className="text-sm">Commencez à discuter avec les propriétaires</p>
                     </div>
                   ) : (
                     filteredConversations.map((conversation: any) => (
                       <div
                         key={conversation.id}
                         onClick={() => setSelectedConversationId(conversation.id)}
-                        className={`p-4 border-b cursor-pointer hover:bg-muted/50 transition-colors ${
-                          selectedConversationId === conversation.id ? 'bg-muted' : ''
+                        className={`p-4 cursor-pointer transition-all duration-200 hover:bg-blue-50 dark:hover:bg-gray-800 ${
+                          selectedConversationId === conversation.id 
+                            ? 'bg-blue-100 dark:bg-gray-800 border-r-4 border-blue-500' 
+                            : 'border-b border-gray-50 dark:border-gray-800'
                         }`}
                         data-testid={`conversation-${conversation.id}`}
                       >
                         <div className="flex items-start space-x-3">
-                          <Avatar className="h-12 w-12">
-                            <AvatarImage 
-                              src={conversation.participant?.profilePicture} 
-                              alt={conversation.participant?.name}
-                            />
-                            <AvatarFallback>
-                              {conversation.participant?.name?.split(' ').map((n: string) => n[0]).join('')}
-                            </AvatarFallback>
-                          </Avatar>
+                          <div className="relative">
+                            <Avatar className="h-14 w-14 ring-2 ring-white dark:ring-gray-700">
+                              <AvatarImage 
+                                src={conversation.participant?.profilePicture} 
+                                alt={conversation.participant?.name}
+                                className="object-cover"
+                              />
+                              <AvatarFallback className="bg-gradient-to-br from-blue-400 to-purple-500 text-white font-semibold">
+                                {conversation.participant?.name?.split(' ').map((n: string) => n[0]).join('')}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+                          </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <p className="font-semibold text-sm truncate">
+                            <div className="flex items-center justify-between mb-1">
+                              <p className="font-semibold text-base truncate text-gray-900 dark:text-gray-100">
                                 {conversation.participant?.name}
                               </p>
                               {conversation.lastMessage && (
-                                <span className="text-xs text-muted-foreground">
+                                <span className="text-xs text-blue-500 font-medium">
                                   {formatMessageTime(conversation.lastMessage.createdAt)}
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-muted-foreground mb-1">
-                              {conversation.participant?.role} • {conversation.property?.title}
-                            </p>
+                            <div className="flex items-center space-x-2 mb-1">
+                              <Badge variant="outline" className="text-xs border-blue-200 text-blue-600">
+                                {conversation.participant?.role}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground truncate">
+                                {conversation.property?.title}
+                              </span>
+                            </div>
                             {conversation.lastMessage ? (
-                              <p className="text-sm text-muted-foreground truncate">
-                                {conversation.lastMessage.content}
-                              </p>
+                              <div className="flex items-center justify-between">
+                                <p className={`text-sm truncate flex-1 ${
+                                  conversation.unreadCount > 0 
+                                    ? 'text-gray-900 dark:text-gray-100 font-medium' 
+                                    : 'text-muted-foreground'
+                                }`}>
+                                  {conversation.lastMessage.content}
+                                </p>
+                                {conversation.unreadCount > 0 && (
+                                  <div className="ml-2 min-w-0">
+                                    <Badge className="bg-blue-500 hover:bg-blue-600 text-white text-xs h-5 w-5 rounded-full p-0 flex items-center justify-center">
+                                      {conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}
+                                    </Badge>
+                                  </div>
+                                )}
+                              </div>
                             ) : (
                               <p className="text-sm text-muted-foreground italic">
-                                Aucun message
+                                Nouvelle conversation
                               </p>
-                            )}
-                            {conversation.unreadCount > 0 && (
-                              <Badge variant="destructive" className="mt-1 text-xs">
-                                {conversation.unreadCount}
-                              </Badge>
                             )}
                           </div>
                         </div>
@@ -332,112 +541,224 @@ export default function Messages() {
           {/* Chat Interface */}
           <div className="lg:col-span-2">
             {selectedConversationId ? (
-              <Card className="h-full glass flex flex-col">
+              <Card className="h-full border-0 shadow-xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl flex flex-col">
                 {/* Chat Header */}
-                <CardHeader className="pb-3 border-b">
+                <CardHeader className="pb-3 border-b border-gray-100 dark:border-gray-800 bg-white/90 dark:bg-gray-900/90">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <Avatar>
-                        <AvatarImage 
-                          src={selectedConversation?.participant?.profilePicture} 
-                          alt={selectedConversation?.participant?.name}
-                        />
-                        <AvatarFallback>
-                          {selectedConversation?.participant?.name?.split(' ').map((n: string) => n[0]).join('')}
-                        </AvatarFallback>
-                      </Avatar>
+                    <div className="flex items-center space-x-4">
+                      <div className="relative">
+                        <Avatar className="h-12 w-12 ring-2 ring-blue-200 dark:ring-blue-700">
+                          <AvatarImage 
+                            src={selectedConversation?.participant?.profilePicture} 
+                            alt={selectedConversation?.participant?.name}
+                            className="object-cover"
+                          />
+                          <AvatarFallback className="bg-gradient-to-br from-blue-400 to-purple-500 text-white font-semibold">
+                            {selectedConversation?.participant?.name?.split(' ').map((n: string) => n[0]).join('')}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+                      </div>
                       <div>
-                        <h3 className="font-semibold">{selectedConversation?.participant?.name}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {selectedConversation?.participant?.role} • {selectedConversation?.property?.title}
-                        </p>
+                        <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
+                          {selectedConversation?.participant?.name}
+                        </h3>
+                        <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                          <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                          <span>Actif maintenant</span>
+                          <span>•</span>
+                          <span>{selectedConversation?.participant?.role}</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Button variant="ghost" size="sm">
-                        <Phone className="h-4 w-4" />
+                    <div className="flex items-center space-x-1">
+                      <Button variant="ghost" size="sm" className="hover:bg-blue-50 dark:hover:bg-gray-800 rounded-full">
+                        <Phone className="h-4 w-4 text-blue-600" />
                       </Button>
-                      <Button variant="ghost" size="sm">
-                        <MoreHorizontal className="h-4 w-4" />
+                      <Button variant="ghost" size="sm" className="hover:bg-blue-50 dark:hover:bg-gray-800 rounded-full">
+                        <Video className="h-4 w-4 text-blue-600" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="hover:bg-blue-50 dark:hover:bg-gray-800 rounded-full">
+                        <MoreHorizontal className="h-4 w-4 text-blue-600" />
                       </Button>
                     </div>
                   </div>
                 </CardHeader>
 
                 {/* Messages */}
-                <CardContent className="flex-1 p-0">
-                  <ScrollArea className="h-[calc(100vh-400px)] p-4">
+                <CardContent className="flex-1 p-0 bg-gradient-to-b from-blue-50/30 to-purple-50/30 dark:from-gray-800/30 dark:to-gray-900/30">
+                  <ScrollArea className="h-[calc(100vh-380px)] p-6">
                     {loadingMessages ? (
-                      <div className="flex justify-center py-8">
-                        <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+                      <div className="flex justify-center py-12">
+                        <div className="text-center">
+                          <div className="animate-spin h-8 w-8 border-3 border-blue-500 border-t-transparent rounded-full mx-auto" />
+                          <p className="mt-3 text-muted-foreground">Chargement des messages...</p>
+                        </div>
                       </div>
                     ) : messages.length === 0 ? (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                        <p>Aucun message pour le moment</p>
-                        <p className="text-sm">Commencez la conversation !</p>
+                      <div className="text-center py-12 text-muted-foreground">
+                        <div className="relative mb-6">
+                          <div className="w-20 h-20 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center mx-auto">
+                            <MessageCircle className="h-10 w-10 text-white" />
+                          </div>
+                          <div className="absolute -top-2 -right-2 w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center">
+                            <Zap className="h-4 w-4 text-white" />
+                          </div>
+                        </div>
+                        <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Commencez à discuter !</h3>
+                        <p className="text-sm">Envoyez un message pour démarrer la conversation</p>
                       </div>
                     ) : (
-                      <div className="space-y-4">
-                        {messages.map((message: any) => (
-                          <div
-                            key={message.id}
-                            className={`flex ${message.senderId === currentUser.id ? 'justify-end' : 'justify-start'}`}
-                            data-testid={`message-${message.id}`}
-                          >
-                            <div className={`max-w-[70%] ${message.senderId === currentUser.id ? 'order-2' : 'order-1'}`}>
-                              <div
-                                className={`px-4 py-2 rounded-2xl ${message.senderId === currentUser.id
-                                  ? 'bg-primary text-primary-foreground ml-auto'
-                                  : 'bg-muted text-foreground'
-                                }`}
-                              >
-                                {message.messageType === 'image' && message.fileUrl ? (
-                                  <div>
-                                    <img 
-                                      src={message.fileUrl} 
-                                      alt="Image partagée" 
-                                      className="max-w-full h-auto rounded-lg mb-2"
-                                    />
-                                    <p className="text-sm">{message.content}</p>
+                      <div className="space-y-6">
+                        {messages.map((message: any, index: number) => {
+                          const isOwn = message.senderId === currentUser.id;
+                          const showAvatar = !isOwn && (index === 0 || messages[index - 1]?.senderId !== message.senderId);
+                          
+                          return (
+                            <div
+                              key={message.id}
+                                className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group`}
+                              data-testid={`message-${message.id}`}
+                            >
+                              {!isOwn && showAvatar && (
+                                <Avatar className="h-8 w-8 mr-2 self-end">
+                                  <AvatarImage 
+                                    src={message.sender?.profilePicture} 
+                                    alt={message.sender?.firstName}
+                                    className="object-cover"
+                                  />
+                                  <AvatarFallback className="bg-gradient-to-br from-green-400 to-blue-500 text-white text-xs">
+                                    {message.sender?.firstName?.[0]}{message.sender?.lastName?.[0]}
+                                  </AvatarFallback>
+                                </Avatar>
+                              )}
+                              {!isOwn && !showAvatar && <div className="w-10" />}
+                              
+                              <div className={`max-w-[75%] ${isOwn ? 'ml-auto' : ''}`}>
+                                <div className="relative group">
+                                  <div
+                                    className={`px-4 py-3 rounded-3xl shadow-sm transition-all duration-200 hover:shadow-md ${
+                                      isOwn
+                                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
+                                        : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-100 dark:border-gray-600'
+                                    }`}
+                                    onDoubleClick={() => setReactionPickerMessageId(message.id)}
+                                  >
+                                    {message.messageType === 'image' && message.fileUrl ? (
+                                      <div className="space-y-2">
+                                        <img 
+                                          src={message.fileUrl} 
+                                          alt="Image partagée" 
+                                          className="max-w-full h-auto rounded-2xl shadow-sm"
+                                        />
+                                        {message.content !== '📷 Image' && (
+                                          <p className="text-sm">{message.content}</p>
+                                        )}
+                                      </div>
+                                    ) : message.messageType === 'video' && message.fileUrl ? (
+                                      <div className="space-y-2">
+                                        <video 
+                                          src={message.fileUrl} 
+                                          controls 
+                                          className="max-w-full h-auto rounded-2xl shadow-sm"
+                                        />
+                                        {message.content !== '🎥 Vidéo' && (
+                                          <p className="text-sm">{message.content}</p>
+                                        )}
+                                      </div>
+                                    ) : message.messageType === 'voice' && message.fileUrl ? (
+                                      <div className="flex items-center space-x-3 py-1">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                                          isOwn ? 'bg-white/20' : 'bg-blue-100 dark:bg-blue-900'
+                                        }`}>
+                                          <Mic className={`h-5 w-5 ${isOwn ? 'text-white' : 'text-blue-600'}`} />
+                                        </div>
+                                        <div className="flex-1">
+                                          <div className="flex items-center space-x-2">
+                                            <div className={`h-1 flex-1 rounded-full overflow-hidden ${
+                                              isOwn ? 'bg-white/30' : 'bg-gray-200 dark:bg-gray-600'
+                                            }`}>
+                                              <div className={`h-full w-1/3 rounded-full ${
+                                                isOwn ? 'bg-white' : 'bg-blue-500'
+                                              }`}></div>
+                                            </div>
+                                          </div>
+                                          <p className={`text-xs mt-1 ${isOwn ? 'text-white/80' : 'text-muted-foreground'}`}>
+                                            {message.content}
+                                          </p>
+                                        </div>
+                                        <Button 
+                                          variant="ghost" 
+                                          size="sm" 
+                                          className={`rounded-full p-2 ${isOwn ? 'hover:bg-white/20 text-white' : 'hover:bg-blue-50 dark:hover:bg-blue-900 text-blue-600'}`}
+                                        >
+                                          <Play className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    ) : message.messageType === 'file' && message.fileUrl ? (
+                                      <div className="flex items-center space-x-3">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                                          isOwn ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-600'
+                                        }`}>
+                                          <FileText className={`h-5 w-5 ${isOwn ? 'text-white' : 'text-gray-600'}`} />
+                                        </div>
+                                        <span className="text-sm font-medium">{message.content}</span>
+                                      </div>
+                                    ) : (
+                                      <p className="text-sm leading-relaxed">{message.content}</p>
+                                    )}
                                   </div>
-                                ) : message.messageType === 'video' && message.fileUrl ? (
-                                  <div>
-                                    <video 
-                                      src={message.fileUrl} 
-                                      controls 
-                                      className="max-w-full h-auto rounded-lg mb-2"
-                                    />
-                                    <p className="text-sm">{message.content}</p>
+                                  
+                                  {/* Quick Reactions */}
+                                  <div className={`absolute -bottom-2 ${isOwn ? '-left-16' : '-right-16'} opacity-0 group-hover:opacity-100 transition-opacity duration-200`}>
+                                    <div className="flex space-x-1 bg-white dark:bg-gray-800 rounded-full p-1 shadow-lg border border-gray-200 dark:border-gray-600">
+                                      {['❤️', '👍', '😂', '😮', '😢', '😡'].map((emoji) => (
+                                        <Button
+                                          key={emoji}
+                                          variant="ghost"
+                                          size="sm"
+                                          className="w-8 h-8 p-0 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+                                          onClick={() => addReaction(message.id, emoji)}
+                                        >
+                                          <span className="text-sm">{emoji}</span>
+                                        </Button>
+                                      ))}
+                                    </div>
                                   </div>
-                                ) : message.messageType === 'file' && message.fileUrl ? (
-                                  <div className="flex items-center space-x-2">
-                                    <FileText className="h-4 w-4" />
-                                    <span className="text-sm">{message.content}</span>
-                                  </div>
-                                ) : (
-                                  <p className="text-sm">{message.content}</p>
-                                )}
+                                </div>
+                                
+                                <div className={`flex items-center mt-1 space-x-2 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatMessageTime(message.createdAt)}
+                                  </span>
+                                  {isOwn && (
+                                    <span className="text-xs text-blue-500">✓✓</span>
+                                  )}
+                                </div>
                               </div>
-                              <p className={`text-xs text-muted-foreground mt-1 ${
-                                message.senderId === currentUser.id ? 'text-right' : 'text-left'
-                              }`}>
-                                {formatMessageTime(message.createdAt)}
-                              </p>
                             </div>
-                            {message.senderId !== currentUser.id && (
-                              <Avatar className="h-8 w-8 order-1 mr-2">
-                                <AvatarImage 
-                                  src={message.sender?.profilePicture} 
-                                  alt={message.sender?.firstName}
-                                />
-                                <AvatarFallback className="text-xs">
-                                  {message.sender?.firstName?.[0]}{message.sender?.lastName?.[0]}
+                          )}
+                        )}
+                        
+                        {/* Typing Indicator */}
+                        {isTyping && (
+                          <div className="flex justify-start">
+                            <div className="flex items-center space-x-2 px-4 py-3 bg-white dark:bg-gray-700 rounded-3xl shadow-sm">
+                              <Avatar className="h-6 w-6">
+                                <AvatarImage src={selectedConversation?.participant?.profilePicture} />
+                                <AvatarFallback className="bg-gradient-to-br from-green-400 to-blue-500 text-white text-xs">
+                                  {selectedConversation?.participant?.name?.split(' ').map((n: string) => n[0]).join('')}
                                 </AvatarFallback>
                               </Avatar>
-                            )}
+                              <div className="flex space-x-1">
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                              </div>
+                            </div>
                           </div>
-                        ))}
+                        )}
+                        
                         <div ref={messagesEndRef} />
                       </div>
                     )}
@@ -445,8 +766,85 @@ export default function Messages() {
                 </CardContent>
 
                 {/* Message Input */}
-                <div className="p-4 border-t">
-                  <div className="flex items-end space-x-2">
+                <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm">
+                  {/* Voice Recording Interface */}
+                  {isRecording && (
+                    <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-2xl border-2 border-red-200 dark:border-red-800">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center animate-pulse">
+                            <Mic className="h-6 w-6 text-white" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-red-700 dark:text-red-300">Enregistrement vocal</p>
+                            <p className="text-sm text-red-600 dark:text-red-400">
+                              Durée: {formatDuration(duration)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={cancelRecording}
+                            className="text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-900/40"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={stopRecording}
+                            className="bg-red-500 hover:bg-red-600 text-white"
+                          >
+                            <MicOff className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Voice Message Preview */}
+                  {audioBlob && !isRecording && (
+                    <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border-2 border-blue-200 dark:border-blue-800">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                            <Mic className="h-6 w-6 text-white" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-blue-700 dark:text-blue-300">Message vocal prêt</p>
+                            <p className="text-sm text-blue-600 dark:text-blue-400">
+                              Durée: {formatDuration(duration)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setAudioBlob(null)}
+                            className="text-blue-600 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900/40"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={handleVoiceSend}
+                            disabled={isUploading}
+                            className="bg-blue-500 hover:bg-blue-600 text-white"
+                          >
+                            {isUploading ? (
+                              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                            ) : (
+                              <Send className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="flex items-end space-x-3">
                     <input
                       type="file"
                       ref={fileInputRef}
@@ -456,64 +854,137 @@ export default function Messages() {
                       data-testid="file-input"
                     />
                     
+                    {/* Attachment Button */}
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploading}
+                      disabled={isUploading || isRecording}
+                      className="rounded-full w-10 h-10 p-0 hover:bg-blue-50 dark:hover:bg-gray-800"
                       data-testid="upload-button"
                     >
                       {isUploading ? (
-                        <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+                        <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
                       ) : (
-                        <Paperclip className="h-4 w-4" />
+                        <Plus className="h-4 w-4 text-blue-600" />
                       )}
                     </Button>
 
-                    <div className="flex-1 relative">
+                    {/* Message Input */}
+                    <div className="flex-1 relative bg-gray-50 dark:bg-gray-800 rounded-3xl">
                       <Textarea
+                        ref={messageInputRef}
                         value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
+                        onChange={(e) => {
+                          setNewMessage(e.target.value);
+                          startTyping();
+                        }}
                         onKeyPress={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
                             handleSendMessage();
                           }
                         }}
-                        placeholder="Tapez votre message..."
-                        className="min-h-[40px] max-h-32 resize-none pr-12"
+                        placeholder="Écrivez un message..."
+                        className="min-h-[44px] max-h-32 resize-none border-0 bg-transparent focus:ring-0 px-4 py-3 pr-20 rounded-3xl"
                         rows={1}
+                        disabled={isRecording}
                         data-testid="message-input"
                       />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-2 bottom-2"
-                      >
-                        <Smile className="h-4 w-4" />
-                      </Button>
+                      
+                      {/* Emoji & Camera Buttons */}
+                      <div className="absolute right-2 bottom-2 flex items-center space-x-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="rounded-full w-8 h-8 p-0 hover:bg-gray-200 dark:hover:bg-gray-700"
+                        >
+                          <Camera className="h-4 w-4 text-blue-600" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="rounded-full w-8 h-8 p-0 hover:bg-gray-200 dark:hover:bg-gray-700"
+                        >
+                          <Smile className="h-4 w-4 text-blue-600" />
+                        </Button>
+                      </div>
                     </div>
 
-                    <Button 
-                      onClick={handleSendMessage}
-                      disabled={!newMessage.trim() || sendMessage.isPending}
-                      data-testid="send-button"
-                    >
-                      {sendMessage.isPending ? (
-                        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                      ) : (
-                        <Send className="h-4 w-4" />
-                      )}
-                    </Button>
+                    {/* Send/Voice Button */}
+                    {newMessage.trim() ? (
+                      <Button 
+                        onClick={handleSendMessage}
+                        disabled={sendMessage.isPending}
+                        className="rounded-full w-12 h-12 p-0 bg-blue-500 hover:bg-blue-600 shadow-lg"
+                        data-testid="send-button"
+                      >
+                        {sendMessage.isPending ? (
+                          <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
+                        ) : (
+                          <Send className="h-5 w-5 text-white" />
+                        )}
+                      </Button>
+                    ) : (
+                      <Button 
+                        onMouseDown={startRecording}
+                        onMouseUp={stopRecording}
+                        onMouseLeave={stopRecording}
+                        className={`rounded-full w-12 h-12 p-0 transition-all duration-200 ${
+                          isRecording 
+                            ? 'bg-red-500 hover:bg-red-600 scale-110' 
+                            : 'bg-blue-500 hover:bg-blue-600'
+                        } shadow-lg`}
+                        data-testid="voice-button"
+                      >
+                        <Mic className={`h-5 w-5 text-white ${isRecording ? 'animate-pulse' : ''}`} />
+                      </Button>
+                    )}
+                  </div>
+                  
+                  <div className="mt-2 text-center">
+                    <p className="text-xs text-muted-foreground">
+                      Maintenez le bouton micro pour enregistrer un message vocal
+                    </p>
                   </div>
                 </div>
               </Card>
             ) : (
-              <Card className="h-full glass flex items-center justify-center">
-                <div className="text-center text-muted-foreground">
-                  <MessageCircle className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                  <h3 className="text-lg font-semibold mb-2">Sélectionnez une conversation</h3>
-                  <p>Choisissez une conversation dans la liste pour commencer à discuter</p>
+              <Card className="h-full border-0 shadow-xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl flex items-center justify-center">
+                <div className="text-center text-muted-foreground max-w-md">
+                  <div className="relative mb-8">
+                    <div className="w-24 h-24 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center mx-auto">
+                      <MessageCircle className="h-12 w-12 text-white" />
+                    </div>
+                    <div className="absolute -top-2 -right-8 w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center animate-bounce">
+                      <Zap className="h-4 w-4 text-white" />
+                    </div>
+                    <div className="absolute -bottom-2 -left-8 w-8 h-8 bg-green-400 rounded-full flex items-center justify-center animate-pulse">
+                      <Heart className="h-4 w-4 text-white" />
+                    </div>
+                  </div>
+                  <h3 className="text-2xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    Sélectionnez une conversation
+                  </h3>
+                  <p className="text-lg mb-6">Choisissez une conversation dans la liste pour commencer à discuter</p>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="flex items-center space-x-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                      <Mic className="h-5 w-5 text-blue-500" />
+                      <span>Messages vocaux</span>
+                    </div>
+                    <div className="flex items-center space-x-2 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
+                      <ImageIcon className="h-5 w-5 text-purple-500" />
+                      <span>Photos & Vidéos</span>
+                    </div>
+                    <div className="flex items-center space-x-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                      <Heart className="h-5 w-5 text-green-500" />
+                      <span>Réactions rapides</span>
+                    </div>
+                    <div className="flex items-center space-x-2 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-xl">
+                      <Zap className="h-5 w-5 text-orange-500" />
+                      <span>Temps réel</span>
+                    </div>
+                  </div>
                 </div>
               </Card>
             )}
