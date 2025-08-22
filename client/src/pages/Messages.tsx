@@ -13,9 +13,9 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { 
   ArrowLeft, Send, MessageCircle, Upload, Image as ImageIcon, 
-  Video, FileText, MoreHorizontal, Phone, Search,
+  FileText, MoreHorizontal, Search, User, UserMinus,
   Paperclip, Smile, X, Mic, MicOff, Play, Pause, 
-  Heart, ThumbsUp, Laugh, AlertCircle, Camera,
+  Heart, ThumbsUp, Laugh, AlertCircle, Camera, Clock,
   Gift, Zap, MapPin, Plus, Settings, Bell
 } from "lucide-react";
 import Header from "@/components/Header";
@@ -163,6 +163,11 @@ export default function Messages() {
   const [reactionPickerMessageId, setReactionPickerMessageId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Additional state for new features
+  const [showUserSearch, setShowUserSearch] = useState(false);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -192,6 +197,41 @@ export default function Messages() {
     queryKey: ["/api/conversations", currentUser.id],
     queryFn: () => fetch(`/api/conversations?userId=${currentUser.id}`).then(res => res.json()),
     refetchInterval: 5000, // Refetch every 5 seconds as fallback
+  });
+
+  // Search users for new conversations
+  const { data: searchedUsers = [], isLoading: loadingUserSearch } = useQuery({
+    queryKey: ["/api/users/search", userSearchQuery, currentUser.id],
+    queryFn: () => {
+      if (!userSearchQuery.trim()) return [];
+      return fetch(`/api/users/search?q=${encodeURIComponent(userSearchQuery)}&userId=${currentUser.id}`)
+        .then(res => res.json());
+    },
+    enabled: !!userSearchQuery.trim(),
+  });
+
+  // Block user mutation
+  const blockUser = useMutation({
+    mutationFn: async (userId: number) => {
+      return await apiRequest(`/api/users/${userId}/block`, {
+        method: "POST",
+        body: JSON.stringify({ blockerId: currentUser.id }),
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Utilisateur bloqué",
+        description: "L'utilisateur a été bloqué avec succès",
+      });
+      setShowProfileMenu(false);
+    },
+    onError: () => {
+      toast({
+        title: "Erreur",
+        description: "Impossible de bloquer l'utilisateur",
+        variant: "destructive",
+      });
+    }
   });
 
   // Fetch messages for selected conversation
@@ -283,6 +323,32 @@ export default function Messages() {
       content: newMessage.trim(),
       messageType: 'text'
     });
+  };
+
+  // Handle starting conversation with searched user
+  const handleStartConversation = async (user: any) => {
+    try {
+      // Create or get conversation with this user
+      const response = await apiRequest('/api/conversations', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenantId: currentUser.userType === 'tenant' ? currentUser.id : user.id,
+          ownerId: currentUser.userType === 'owner' ? currentUser.id : user.id,
+          propertyId: null // For general messaging
+        })
+      });
+      
+      setSelectedConversationId(response.id);
+      setShowUserSearch(false);
+      setUserSearchQuery("");
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations", currentUser.id] });
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de démarrer la conversation",
+        variant: "destructive",
+      });
+    }
   };
 
   // Handle file upload
@@ -428,7 +494,12 @@ export default function Messages() {
                       {conversations.length}
                     </Badge>
                   </div>
-                  <Button variant="ghost" size="sm" className="rounded-full hover:bg-blue-50 dark:hover:bg-gray-800">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="rounded-full hover:bg-blue-50 dark:hover:bg-gray-800"
+                    onClick={() => setShowUserSearch(true)}
+                  >
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
@@ -991,6 +1062,71 @@ export default function Messages() {
           </div>
         </div>
       </div>
+
+      {/* User Search Modal */}
+      {showUserSearch && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Chercher un utilisateur</CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => setShowUserSearch(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Nom, prénom ou email..."
+                  value={userSearchQuery}
+                  onChange={(e) => setUserSearchQuery(e.target.value)}
+                  className="pl-10"
+                  autoFocus
+                />
+              </div>
+              
+              <ScrollArea className="h-64">
+                {loadingUserSearch ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto" />
+                    <p className="mt-2 text-sm text-muted-foreground">Recherche...</p>
+                  </div>
+                ) : searchedUsers.length === 0 && userSearchQuery.trim() ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>Aucun utilisateur trouvé</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {searchedUsers.map((user: any) => (
+                      <div
+                        key={user.id}
+                        onClick={() => handleStartConversation(user)}
+                        className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
+                      >
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={user.profilePicture} />
+                          <AvatarFallback className="bg-gradient-to-br from-blue-400 to-purple-500 text-white">
+                            {user.firstName?.[0]}{user.lastName?.[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="font-medium">{user.firstName} {user.lastName}</p>
+                          <p className="text-sm text-muted-foreground">{user.email}</p>
+                          <Badge variant="outline" className="text-xs mt-1">
+                            {user.userType === 'owner' ? 'Propriétaire' : 'Locataire'}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

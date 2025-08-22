@@ -152,9 +152,29 @@ export const messages = pgTable("messages", {
   conversationId: integer("conversation_id").notNull().references(() => conversations.id),
   senderId: integer("sender_id").notNull().references(() => users.id),
   content: text("content").notNull(),
-  messageType: text("message_type").notNull().default("text"), // text, image, file
+  messageType: text("message_type").notNull().default("text"), // text, image, file, voice
+  fileUrl: text("file_url"), // URL for uploaded files/images/voice messages
+  fileName: text("file_name"), // Original filename
+  fileSize: integer("file_size"), // File size in bytes
   readAt: timestamp("read_at"),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+// User blocks table for blocking functionality
+export const userBlocks = pgTable("user_blocks", {
+  id: serial("id").primaryKey(),
+  blockerId: integer("blocker_id").notNull().references(() => users.id),
+  blockedId: integer("blocked_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// User online status
+export const userSessions = pgTable("user_sessions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  lastSeen: timestamp("last_seen").defaultNow(),
+  isOnline: boolean("is_online").default(false),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Reviews table for property reviews
@@ -295,6 +315,17 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
   createdAt: true,
 });
 
+export const insertUserBlockSchema = createInsertSchema(userBlocks).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertUserSessionSchema = createInsertSchema(userSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertReviewSchema = createInsertSchema(reviews).omit({
   id: true,
   createdAt: true,
@@ -323,6 +354,10 @@ export type Conversation = typeof conversations.$inferSelect;
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type UserBlock = typeof userBlocks.$inferSelect;
+export type InsertUserBlock = z.infer<typeof insertUserBlockSchema>;
+export type UserSession = typeof userSessions.$inferSelect;
+export type InsertUserSession = z.infer<typeof insertUserSessionSchema>;
 export type Review = typeof reviews.$inferSelect;
 export type InsertReview = z.infer<typeof insertReviewSchema>;
 

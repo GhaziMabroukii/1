@@ -2176,6 +2176,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Search users for messaging
+  app.get("/api/users/search", async (req, res) => {
+    try {
+      const query = req.query.q as string;
+      const currentUserId = parseInt(req.query.userId as string);
+      
+      if (!query || !currentUserId) {
+        return res.status(400).json({ error: "Query and user ID are required" });
+      }
+      
+      const users = await storage.searchUsers(query, currentUserId);
+      res.json(users);
+    } catch (error) {
+      console.error("Failed to search users:", error);
+      res.status(500).json({ error: "Failed to search users" });
+    }
+  });
+
+  // Block/unblock user
+  app.post("/api/users/:userId/block", async (req, res) => {
+    try {
+      const blockerId = parseInt(req.body.blockerId);
+      const blockedId = parseInt(req.params.userId);
+      
+      if (!blockerId || !blockedId) {
+        return res.status(400).json({ error: "Blocker and blocked user IDs are required" });
+      }
+      
+      const block = await storage.blockUser(blockerId, blockedId);
+      res.json({ message: "User blocked successfully", block });
+    } catch (error) {
+      console.error("Failed to block user:", error);
+      res.status(500).json({ error: "Failed to block user" });
+    }
+  });
+
+  app.delete("/api/users/:userId/block", async (req, res) => {
+    try {
+      const blockerId = parseInt(req.body.blockerId);
+      const blockedId = parseInt(req.params.userId);
+      
+      if (!blockerId || !blockedId) {
+        return res.status(400).json({ error: "Blocker and blocked user IDs are required" });
+      }
+      
+      const success = await storage.unblockUser(blockerId, blockedId);
+      if (success) {
+        res.json({ message: "User unblocked successfully" });
+      } else {
+        res.status(404).json({ error: "Block relationship not found" });
+      }
+    } catch (error) {
+      console.error("Failed to unblock user:", error);
+      res.status(500).json({ error: "Failed to unblock user" });
+    }
+  });
+
+  // Get user online status
+  app.get("/api/users/:userId/status", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const status = await storage.getUserOnlineStatus(userId);
+      res.json(status);
+    } catch (error) {
+      console.error("Failed to get user status:", error);
+      res.status(500).json({ error: "Failed to get user status" });
+    }
+  });
+
+  // Update user online status
+  app.post("/api/users/:userId/status", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const { isOnline } = req.body;
+      
+      await storage.updateUserOnlineStatus(userId, isOnline);
+      res.json({ message: "Status updated successfully" });
+    } catch (error) {
+      console.error("Failed to update user status:", error);
+      res.status(500).json({ error: "Failed to update user status" });
+    }
+  });
+
   // File upload endpoint for messages
   app.post("/api/upload/message-file", upload.single('file'), async (req, res) => {
     try {

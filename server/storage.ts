@@ -1,8 +1,9 @@
 import { 
-  users, properties, offers, contracts, notifications,
+  users, properties, offers, contracts, notifications, conversations, messages, userBlocks, userSessions,
   type User, type InsertUser, type Property, type InsertProperty,
   type Offer, type InsertOffer, type Contract, type InsertContract,
-  type Notification, type InsertNotification 
+  type Notification, type InsertNotification, type Message, type InsertMessage,
+  type UserBlock, type InsertUserBlock, type UserSession, type InsertUserSession
 } from "@shared/schema";
 // Database is only available in production
 let db: any = null;
@@ -23,7 +24,7 @@ export interface IStorage {
   deleteProperty(id: number): Promise<boolean>;
   
   // Offer operations
-  getOffers(): Promise<Offer[]>;
+  getOffers(userId?: number, type?: 'sent' | 'received'): Promise<Offer[]>;
   getOffer(id: number): Promise<Offer | undefined>;
   getOffersByTenantAndProperty(tenantId: number, propertyId: number): Promise<Offer[]>;
   createOffer(offer: InsertOffer): Promise<Offer>;
@@ -63,10 +64,21 @@ export interface IStorage {
   getConversations(userId: number): Promise<any[]>;
   getConversation(id: number): Promise<any | undefined>;
   createConversation(conversation: any): Promise<any>;
-  getConversationMessages(conversationId: number): Promise<any[]>;
-  createMessage(message: any): Promise<any>;
+  getConversationMessages(conversationId: number): Promise<Message[]>;
+  createMessage(message: InsertMessage): Promise<Message>;
   markMessageAsRead(messageId: number): Promise<boolean>;
   getOrCreateConversation(propertyId: number, tenantId: number, ownerId: number): Promise<any>;
+  
+  // User blocking operations
+  blockUser(blockerId: number, blockedId: number): Promise<UserBlock>;
+  unblockUser(blockerId: number, blockedId: number): Promise<boolean>;
+  getBlockedUsers(userId: number): Promise<number[]>;
+  isUserBlocked(blockerId: number, blockedId: number): Promise<boolean>;
+  
+  // User session operations
+  updateUserOnlineStatus(userId: number, isOnline: boolean): Promise<void>;
+  getUserOnlineStatus(userId: number): Promise<{ isOnline: boolean; lastSeen: Date | null }>;
+  searchUsers(query: string, currentUserId: number): Promise<User[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -335,6 +347,194 @@ export class DatabaseStorage implements IStorage {
     // For now return undefined since we don't have database setup
     return undefined;
   }
+
+  // Messaging operations
+  async getConversations(userId: number): Promise<any[]> {
+    const userConversations = await db.select()
+      .from(conversations)
+      .where(or(eq(conversations.tenantId, userId), eq(conversations.ownerId, userId)))
+      .orderBy(desc(conversations.lastMessageAt));
+    
+    return Promise.all(userConversations.map(async (conv) => {
+      const property = await this.getProperty(conv.propertyId);
+      const participant = conv.tenantId === userId 
+        ? await this.getUser(conv.ownerId)
+        : await this.getUser(conv.tenantId);
+      
+      const lastMessage = await db.select()
+        .from(messages)
+        .where(eq(messages.conversationId, conv.id))
+        .orderBy(desc(messages.createdAt))
+        .limit(1);
+      
+      const unreadCount = await db.select({ count: sql`count(*)` })
+        .from(messages)
+        .where(and(
+          eq(messages.conversationId, conv.id),
+          eq(messages.senderId, userId === conv.tenantId ? conv.ownerId : conv.tenantId),
+          sql`read_at IS NULL`
+        ));
+      
+      return {
+        ...conv,
+        property,
+        participant,
+        lastMessage: lastMessage[0] || null,
+        unreadCount: unreadCount[0]?.count || 0
+      };
+    }));
+  }
+
+  async getConversation(id: number): Promise<any | undefined> {
+    const [conversation] = await db.select().from(conversations).where(eq(conversations.id, id));
+    return conversation || undefined;
+  }
+
+  async createConversation(conversation: any): Promise<any> {
+    const [newConversation] = await db
+      .insert(conversations)
+      .values(conversation)
+      .returning();
+    return newConversation;
+  }
+
+  async getConversationMessages(conversationId: number): Promise<Message[]> {
+    return await db.select()
+      .from(messages)
+      .where(eq(messages.conversationId, conversationId))
+      .orderBy(messages.createdAt);
+  }
+
+  async createMessage(message: InsertMessage): Promise<Message> {
+    const [newMessage] = await db
+      .insert(messages)
+      .values(message)
+      .returning();
+    
+    // Update conversation last message timestamp
+    await db.update(conversations)
+      .set({ lastMessageAt: new Date() })
+      .where(eq(conversations.id, message.conversationId));
+    
+    return newMessage;
+  }
+
+  async markMessageAsRead(messageId: number): Promise<boolean> {
+    const result = await db
+      .update(messages)
+      .set({ readAt: new Date() })
+      .where(eq(messages.id, messageId));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async getOrCreateConversation(propertyId: number, tenantId: number, ownerId: number): Promise<any> {
+    const [existing] = await db.select()
+      .from(conversations)
+      .where(and(
+        eq(conversations.propertyId, propertyId),
+        eq(conversations.tenantId, tenantId),
+        eq(conversations.ownerId, ownerId)
+      ));
+    
+    if (existing) {
+      return existing;
+    }
+    
+    return await this.createConversation({
+      propertyId,
+      tenantId,
+      ownerId
+    });
+  }
+
+  // User blocking operations
+  async blockUser(blockerId: number, blockedId: number): Promise<UserBlock> {
+    const [block] = await db
+      .insert(userBlocks)
+      .values({ blockerId, blockedId })
+      .returning();
+    return block;
+  }
+
+  async unblockUser(blockerId: number, blockedId: number): Promise<boolean> {
+    const result = await db
+      .delete(userBlocks)
+      .where(and(
+        eq(userBlocks.blockerId, blockerId),
+        eq(userBlocks.blockedId, blockedId)
+      ));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async getBlockedUsers(userId: number): Promise<number[]> {
+    const blocks = await db.select({ blockedId: userBlocks.blockedId })
+      .from(userBlocks)
+      .where(eq(userBlocks.blockerId, userId));
+    return blocks.map(b => b.blockedId);
+  }
+
+  async isUserBlocked(blockerId: number, blockedId: number): Promise<boolean> {
+    const [block] = await db.select()
+      .from(userBlocks)
+      .where(and(
+        eq(userBlocks.blockerId, blockerId),
+        eq(userBlocks.blockedId, blockedId)
+      ));
+    return !!block;
+  }
+
+  // User session operations
+  async updateUserOnlineStatus(userId: number, isOnline: boolean): Promise<void> {
+    const [existing] = await db.select()
+      .from(userSessions)
+      .where(eq(userSessions.userId, userId));
+    
+    if (existing) {
+      await db.update(userSessions)
+        .set({ 
+          isOnline, 
+          lastSeen: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(userSessions.userId, userId));
+    } else {
+      await db.insert(userSessions)
+        .values({ 
+          userId, 
+          isOnline, 
+          lastSeen: new Date()
+        });
+    }
+  }
+
+  async getUserOnlineStatus(userId: number): Promise<{ isOnline: boolean; lastSeen: Date | null }> {
+    const [session] = await db.select()
+      .from(userSessions)
+      .where(eq(userSessions.userId, userId));
+    
+    if (!session) {
+      return { isOnline: false, lastSeen: null };
+    }
+    
+    return {
+      isOnline: session.isOnline,
+      lastSeen: session.lastSeen
+    };
+  }
+
+  async searchUsers(query: string, currentUserId: number): Promise<User[]> {
+    const blockedUsers = await this.getBlockedUsers(currentUserId);
+    
+    const searchResults = await db.select()
+      .from(users)
+      .where(and(
+        sql`(first_name ILIKE ${`%${query}%`} OR last_name ILIKE ${`%${query}%`} OR username ILIKE ${`%${query}%`})`,
+        sql`id != ${currentUserId}`
+      ))
+      .limit(20);
+    
+    return searchResults.filter(user => !blockedUsers.includes(user.id));
+  }
 }
 
 // In-memory storage implementation for development
@@ -347,6 +547,8 @@ export class MemStorage implements IStorage {
   private terminationRequests: any[] = [];
   private conversations: any[] = [];
   private messages: any[] = [];
+  private userBlocks: any[] = [];
+  private userSessions: any[] = [];
   private nextId = 1;
 
   constructor() {
@@ -363,11 +565,11 @@ export class MemStorage implements IStorage {
         email: "locataire@test.com",
         firstName: "Jean",
         lastName: "Dupont",
-        phoneNumber: "+33 1 23 45 67 89",
-        role: "tenant",
+        phone: "+33 1 23 45 67 89",
+        userType: "tenant",
         profilePicture: null,
-        cin: "12345678",
-        address: "123 Rue de la Paix, Paris",
+        documentNumber: "12345678",
+        bio: "Locataire sérieux et respectueux",
         createdAt: new Date(),
         updatedAt: new Date()
       },
@@ -377,11 +579,11 @@ export class MemStorage implements IStorage {
         email: "proprietaire@test.com",
         firstName: "Marie",
         lastName: "Martin",
-        phoneNumber: "+33 1 98 76 54 32",
-        role: "owner",
+        phone: "+33 1 98 76 54 32",
+        userType: "owner",
         profilePicture: null,
-        cin: "87654321",
-        address: "456 Avenue des Champs, Lyon",
+        documentNumber: "87654321",
+        bio: "Propriétaire attentif et disponible",
         createdAt: new Date(),
         updatedAt: new Date()
       },
@@ -391,11 +593,11 @@ export class MemStorage implements IStorage {
         email: "sarah@test.com",
         firstName: "Sarah",
         lastName: "Belgacem",
-        phoneNumber: "+216 20 123 456",
-        role: "owner",
+        phone: "+216 20 123 456",
+        userType: "owner",
         profilePicture: null,
-        cin: "09876543",
-        address: "789 Rue Ibn Khaldoun, Tunis",
+        documentNumber: "09876543",
+        bio: "Propriétaire expérimenté",
         createdAt: new Date(),
         updatedAt: new Date()
       }
@@ -477,7 +679,7 @@ export class MemStorage implements IStorage {
         content: "Bonjour ! Je suis très intéressé par votre appartement à Tunis Centre. Serait-il possible de le visiter cette semaine ? 😊",
         messageType: "text",
         fileUrl: null,
-        isRead: true,
+        readAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 40 * 60 * 1000),
         createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
       },
       {
@@ -487,7 +689,7 @@ export class MemStorage implements IStorage {
         content: "Bonjour Jean ! Bien sûr, je serais ravi de vous faire visiter. Êtes-vous disponible demain après-midi vers 15h ?",
         messageType: "text",
         fileUrl: null,
-        isRead: true,
+        readAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 40 * 60 * 1000),
         createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 30 * 60 * 1000)
       },
       {
@@ -497,7 +699,7 @@ export class MemStorage implements IStorage {
         content: "Parfait ! 15h me convient très bien. Pouvez-vous m'envoyer l'adresse exacte ?",
         messageType: "text",
         fileUrl: null,
-        isRead: true,
+        readAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 40 * 60 * 1000),
         createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 45 * 60 * 1000)
       },
       {
@@ -507,7 +709,7 @@ export class MemStorage implements IStorage {
         content: "🎤 Message vocal (0:15)",
         messageType: "voice",
         fileUrl: "/uploads/voice_sample.wav",
-        isRead: true,
+        readAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 40 * 60 * 1000),
         createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000)
       },
       {
@@ -517,7 +719,7 @@ export class MemStorage implements IStorage {
         content: "Merci beaucoup ! L'appartement a l'air magnifique sur les photos 📸",
         messageType: "text",
         fileUrl: null,
-        isRead: true,
+        readAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 40 * 60 * 1000),
         createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)
       },
       {
@@ -527,7 +729,7 @@ export class MemStorage implements IStorage {
         content: "Merci ! J'espère qu'il vous plaira encore plus en vrai. À demain ! 🏡✨",
         messageType: "text",
         fileUrl: null,
-        isRead: true,
+        readAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 40 * 60 * 1000),
         createdAt: new Date(Date.now() - 20 * 60 * 1000)
       },
       {
@@ -537,7 +739,7 @@ export class MemStorage implements IStorage {
         content: "Hâte de le voir ! Bonne soirée 🌙",
         messageType: "text",
         fileUrl: null,
-        isRead: false,
+        readAt: null,
         createdAt: new Date(Date.now() - 10 * 60 * 1000)
       },
       
@@ -549,7 +751,7 @@ export class MemStorage implements IStorage {
         content: "Bonsoir Sarah ! Votre studio près de l'université m'intéresse beaucoup. Est-il toujours disponible ?",
         messageType: "text",
         fileUrl: null,
-        isRead: true,
+        readAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 40 * 60 * 1000),
         createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)
       },
       {
@@ -559,7 +761,7 @@ export class MemStorage implements IStorage {
         content: "Bonsoir ! Oui il est encore disponible. C'est parfait pour un étudiant, tout est inclus dans le prix 👨‍🎓",
         messageType: "text",
         fileUrl: null,
-        isRead: true,
+        readAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 40 * 60 * 1000),
         createdAt: new Date(Date.now() - 23 * 60 * 60 * 1000)
       },
       {
@@ -569,7 +771,7 @@ export class MemStorage implements IStorage {
         content: "📷 Image",
         messageType: "image",
         fileUrl: "/uploads/student_room.jpg",
-        isRead: true,
+        readAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 40 * 60 * 1000),
         createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000)
       },
       {
@@ -579,7 +781,7 @@ export class MemStorage implements IStorage {
         content: "Belle photo ! Vous êtes étudiant dans quelle faculté ?",
         messageType: "text",
         fileUrl: null,
-        isRead: true,
+        readAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 40 * 60 * 1000),
         createdAt: new Date(Date.now() - 8 * 60 * 60 * 1000)
       },
       {
@@ -589,7 +791,7 @@ export class MemStorage implements IStorage {
         content: "Je suis en master informatique à l'ISAMM. Le studio est vraiment proche du campus ? 🎓💻",
         messageType: "text",
         fileUrl: null,
-        isRead: false,
+        readAt: null,
         createdAt: new Date(Date.now() - 5 * 60 * 1000)
       }
     ];
@@ -1108,6 +1310,95 @@ export class MemStorage implements IStorage {
       updatedAt: new Date()
     };
     return this.terminationRequests[index];
+  }
+
+  // User blocking operations
+  async blockUser(blockerId: number, blockedId: number): Promise<UserBlock> {
+    const block = {
+      id: this.getNextId(),
+      blockerId,
+      blockedId,
+      createdAt: new Date()
+    };
+    // Note: In memory, we'll use a simple array to track blocks
+    if (!this.userBlocks) this.userBlocks = [];
+    this.userBlocks.push(block);
+    return block as UserBlock;
+  }
+
+  async unblockUser(blockerId: number, blockedId: number): Promise<boolean> {
+    if (!this.userBlocks) return false;
+    const index = this.userBlocks.findIndex(b => b.blockerId === blockerId && b.blockedId === blockedId);
+    if (index === -1) return false;
+    this.userBlocks.splice(index, 1);
+    return true;
+  }
+
+  async getBlockedUsers(userId: number): Promise<number[]> {
+    if (!this.userBlocks) return [];
+    return this.userBlocks
+      .filter(b => b.blockerId === userId)
+      .map(b => b.blockedId);
+  }
+
+  async isUserBlocked(blockerId: number, blockedId: number): Promise<boolean> {
+    if (!this.userBlocks) return false;
+    return this.userBlocks.some(b => b.blockerId === blockerId && b.blockedId === blockedId);
+  }
+
+  // User session operations
+  async updateUserOnlineStatus(userId: number, isOnline: boolean): Promise<void> {
+    if (!this.userSessions) this.userSessions = [];
+    const existingIndex = this.userSessions.findIndex(s => s.userId === userId);
+    
+    if (existingIndex !== -1) {
+      this.userSessions[existingIndex] = {
+        ...this.userSessions[existingIndex],
+        isOnline,
+        lastSeen: new Date(),
+        updatedAt: new Date()
+      };
+    } else {
+      this.userSessions.push({
+        id: this.getNextId(),
+        userId,
+        isOnline,
+        lastSeen: new Date(),
+        updatedAt: new Date()
+      });
+    }
+  }
+
+  async getUserOnlineStatus(userId: number): Promise<{ isOnline: boolean; lastSeen: Date | null }> {
+    if (!this.userSessions) return { isOnline: false, lastSeen: null };
+    const session = this.userSessions.find(s => s.userId === userId);
+    
+    if (!session) {
+      return { isOnline: false, lastSeen: null };
+    }
+    
+    return {
+      isOnline: session.isOnline,
+      lastSeen: session.lastSeen
+    };
+  }
+
+  async searchUsers(query: string, currentUserId: number): Promise<User[]> {
+    const blockedUsers = await this.getBlockedUsers(currentUserId);
+    const lowerQuery = query.toLowerCase();
+    
+    return this.users.filter(user => {
+      if (user.id === currentUserId) return false;
+      if (blockedUsers.includes(user.id)) return false;
+      
+      const fullName = `${user.firstName || ''} ${user.lastName || ''}`.toLowerCase();
+      const username = (user.username || '').toLowerCase();
+      const email = (user.email || '').toLowerCase();
+      
+      return fullName.includes(lowerQuery) || 
+             username.includes(lowerQuery) || 
+             email.includes(lowerQuery);
+    }).slice(0, 20);
   }
 
   async getContractTerminationRequests(contractId: number): Promise<any[]> {
