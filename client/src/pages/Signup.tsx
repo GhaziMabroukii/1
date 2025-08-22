@@ -296,18 +296,6 @@ const Signup = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="profilePicture">Photo de profil (facultative)</Label>
-              <Input
-                id="profilePicture"
-                type="file"
-                accept="image/*"
-                onChange={handleFileUpload}
-              />
-              {formData.profilePicture && (
-                <p className="text-sm text-success">✓ Photo sélectionnée: {formData.profilePicture.name}</p>
-              )}
-            </div>
 
             {/* Social Accounts */}
             <div className="space-y-4 p-4 glass-card rounded-lg">
