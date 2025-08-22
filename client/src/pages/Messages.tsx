@@ -332,25 +332,58 @@ export default function Messages() {
     });
   };
 
-  // Handle starting conversation with searched user or from URL params
-  const handleStartConversation = async (user: any, propertyId?: number) => {
+  // Smart conversation creation with proper user assignment
+  const handleStartConversation = async (user: any, propertyId?: number, autoMessage?: boolean) => {
     try {
-      // Create or get conversation with this user
+      // Smart user role assignment
+      let tenantId, ownerId;
+      
+      if (currentUser.userType === 'tenant') {
+        tenantId = currentUser.id;
+        ownerId = user.id;
+      } else {
+        tenantId = user.id;
+        ownerId = currentUser.id;
+      }
+      
+      console.log('Creating conversation:', { tenantId, ownerId, propertyId, currentUserType: currentUser.userType });
+      
+      // Create conversation (may or may not include initial message)
+      const requestData: any = {
+        tenantId,
+        ownerId,
+        propertyId: propertyId || null
+      };
+      
+      // Add initial message for property conversations
+      if (propertyId && autoMessage !== false) {
+        requestData.message = currentUser.userType === 'tenant' 
+          ? "Bonjour! Je suis intéressé par votre propriété. Pouvons-nous discuter?" 
+          : "Bonjour! Vous étiez intéressé par ma propriété. Comment puis-je vous aider?";
+      }
+      
       const response = await apiRequest('/api/conversations', {
         method: 'POST',
-        body: JSON.stringify({
-          tenantId: currentUser.userType === 'tenant' ? currentUser.id : user.id,
-          ownerId: currentUser.userType === 'owner' ? currentUser.id : user.id,
-          propertyId: propertyId || null,
-          message: "Bonjour! Je suis intéressé par votre propriété."
-        })
+        body: JSON.stringify(requestData)
       });
       
-      setSelectedConversationId(response.conversationId || response.id);
+      const conversationId = response.conversationId || response.conversation?.id || response.id;
+      console.log('Created conversation with ID:', conversationId);
+      
+      setSelectedConversationId(conversationId);
       setShowUserSearch(false);
       setUserSearchQuery("");
+      
+      // Refresh conversations list
       queryClient.invalidateQueries({ queryKey: ["/api/conversations", currentUser.id] });
+      
+      // Small delay to ensure UI updates
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/conversations", conversationId, "messages"] });
+      }, 100);
+      
     } catch (error) {
+      console.error('Conversation creation error:', error);
       toast({
         title: "Erreur",
         description: "Impossible de démarrer la conversation",
@@ -359,29 +392,37 @@ export default function Messages() {
     }
   };
 
-  // Handle URL parameters to auto-start conversations
+  // Smart conversation auto-selection and creation
   useEffect(() => {
-    if (propertyIdParam && (ownerIdParam || tenantIdParam)) {
+    if (propertyIdParam && ownerIdParam && conversations.length >= 0) {
+      const propertyId = parseInt(propertyIdParam);
+      const ownerId = parseInt(ownerIdParam);
+      
+      // Determine who the other user is based on current user type
       const otherUserId = currentUser.userType === 'owner' ? 
-        parseInt(tenantIdParam || '0') : parseInt(ownerIdParam || '0');
+        // If current user is owner, they want to talk to a tenant (this case shouldn't happen from property details)
+        null : ownerId; // If current user is tenant, they want to talk to the owner
       
       if (otherUserId) {
-        // Find or start conversation with this user about this property
-        const existingConv = conversations.find((conv: any) => 
-          conv.property?.id === parseInt(propertyIdParam) &&
-          (conv.participant?.id === otherUserId)
-        );
+        // First check if conversation already exists
+        const existingConv = conversations.find((conv: any) => {
+          // Match by property and participants
+          const matchesProperty = conv.property?.id === propertyId || conv.propertyId === propertyId;
+          const matchesParticipant = conv.participant?.id === otherUserId;
+          return matchesProperty && matchesParticipant;
+        });
         
         if (existingConv) {
+          console.log('Found existing conversation:', existingConv.id);
           setSelectedConversationId(existingConv.id);
         } else {
-          // Create new conversation
-          const mockUser = { id: otherUserId };
-          handleStartConversation(mockUser, parseInt(propertyIdParam));
+          // Auto-create conversation
+          console.log('Creating new conversation between', currentUser.id, 'and', otherUserId, 'for property', propertyId);
+          handleStartConversation({ id: otherUserId }, propertyId);
         }
       }
     }
-  }, [propertyIdParam, ownerIdParam, tenantIdParam, conversations, currentUser]);
+  }, [propertyIdParam, ownerIdParam, conversations, currentUser.id, currentUser.userType]);
 
   // Handle file upload
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -568,7 +609,10 @@ export default function Messages() {
                     filteredConversations.map((conversation: any) => (
                       <div
                         key={conversation.id}
-                        onClick={() => setSelectedConversationId(conversation.id)}
+                        onClick={() => {
+                          console.log('Selected conversation:', conversation.id);
+                          setSelectedConversationId(conversation.id);
+                        }}
                         className={`p-4 cursor-pointer transition-all duration-200 hover:bg-blue-50 dark:hover:bg-gray-800 ${
                           selectedConversationId === conversation.id 
                             ? 'bg-blue-100 dark:bg-gray-800 border-r-4 border-blue-500' 
@@ -657,14 +701,14 @@ export default function Messages() {
                             className="object-cover"
                           />
                           <AvatarFallback className="bg-gradient-to-br from-blue-400 to-purple-500 text-white font-semibold">
-                            {selectedConversation?.participant?.name?.split(' ').map((n: string) => n[0]).join('')}
+                            {selectedConversation?.participant?.name?.split(' ').map((n: string) => n[0]).join('') || 'U'}
                           </AvatarFallback>
                         </Avatar>
                         <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
                       </div>
                       <div>
                         <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
-                          {selectedConversation?.participant?.name}
+                          {selectedConversation?.participant?.name || 'Utilisateur'}
                         </h3>
                         <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                           <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
