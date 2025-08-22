@@ -623,10 +623,10 @@ export default function Messages() {
     // If this voice is currently playing, pause it
     if (playingVoiceId === messageId) {
       const audio = audioRefs.current[messageId];
-      if (audio) {
+      if (audio && !audio.paused) {
         audio.pause();
         setPlayingVoiceId(null);
-        return;
+        return; // Important: return here to prevent continuing execution
       }
     }
     
@@ -647,6 +647,11 @@ export default function Messages() {
           ...prev,
           [messageId]: audio.duration
         }));
+        // Initialize progress to 0 when metadata loads
+        setAudioProgress(prev => ({
+          ...prev,
+          [messageId]: 0
+        }));
       };
       
       audio.ontimeupdate = () => {
@@ -666,6 +671,13 @@ export default function Messages() {
         audio.currentTime = 0;
       };
       
+      audio.onpause = () => {
+        // Only clear playing state if this was the playing audio
+        if (playingVoiceId === messageId) {
+          setPlayingVoiceId(null);
+        }
+      };
+      
       audio.onerror = (e) => {
         console.error('Audio playback error:', e, 'URL:', audioUrl);
         setPlayingVoiceId(null);
@@ -679,9 +691,14 @@ export default function Messages() {
       audio.src = audioUrl;
     }
     
-    // Always start from the beginning if not already started
-    if (audio.currentTime === 0 || audio.ended) {
+    // If resuming from a paused state, don't reset to beginning
+    // Only reset if the audio has ended or never been played
+    if (audio.ended) {
       audio.currentTime = 0;
+      setAudioProgress(prev => ({
+        ...prev,
+        [messageId]: 0
+      }));
     }
     
     setPlayingVoiceId(messageId);
@@ -699,8 +716,14 @@ export default function Messages() {
 
   // Format duration for voice messages
   const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    // Handle invalid values
+    if (!seconds || !isFinite(seconds) || isNaN(seconds)) {
+      return '0:00';
+    }
+    
+    const totalSeconds = Math.floor(seconds);
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
@@ -1056,8 +1079,8 @@ export default function Messages() {
                                                 }`}
                                                 style={{
                                                   width: `${
-                                                    audioDurations[message.id] 
-                                                      ? (audioProgress[message.id] || 0) / audioDurations[message.id] * 100 
+                                                    audioDurations[message.id] && isFinite(audioDurations[message.id]) && audioDurations[message.id] > 0
+                                                      ? Math.min(100, Math.max(0, (audioProgress[message.id] || 0) / audioDurations[message.id] * 100))
                                                       : 0
                                                   }%`
                                                 }}
