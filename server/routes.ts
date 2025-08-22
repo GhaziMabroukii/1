@@ -1414,7 +1414,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/users/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const [user] = await db.select().from(users).where(eq(users.id, id));
+      const user = await storage.getUser(id);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
@@ -1422,6 +1422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { password, ...userWithoutPassword } = user;
       res.json(userWithoutPassword);
     } catch (error) {
+      console.error("User fetch error:", error);
       res.status(500).json({ error: "Failed to fetch user" });
     }
   });
