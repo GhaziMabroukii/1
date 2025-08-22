@@ -2035,6 +2035,228 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User profile endpoints
+  app.get("/api/users/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      // Don't send password in response
+      const { password, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ error: "Failed to fetch user" });
+    }
+  });
+
+  app.put("/api/users/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      
+      // Remove sensitive fields from updates
+      const { password, emailVerificationCode, phoneVerificationCode, ...safeUpdates } = updates;
+      
+      const updatedUser = await storage.updateUser(id, safeUpdates);
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Don't send password in response
+      const { password: pwd, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
+  // File upload endpoint for profile photos
+  app.post("/api/upload/profile-photo", async (req, res) => {
+    try {
+      // For this demo, we'll simulate file upload by returning a URL
+      // In a real implementation, you'd handle multipart/form-data with multer
+      const userId = req.body.userId || req.query.userId;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "User ID required" });
+      }
+
+      // Simulate uploading and return a placeholder URL
+      const profilePictureUrl = `/uploads/profiles/${userId}_${Date.now()}.jpg`;
+      
+      // Update user with new profile picture URL
+      const updatedUser = await storage.updateUser(parseInt(userId), {
+        profilePicture: profilePictureUrl
+      });
+      
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      res.json({ 
+        profilePictureUrl,
+        message: "Profile photo uploaded successfully" 
+      });
+    } catch (error) {
+      console.error("Error uploading profile photo:", error);
+      res.status(500).json({ error: "Failed to upload profile photo" });
+    }
+  });
+
+  // Verification endpoints
+  app.post("/api/verification/send-code", async (req, res) => {
+    try {
+      const { type, userId } = req.body;
+      
+      if (!type || !userId || !['email', 'phone'].includes(type)) {
+        return res.status(400).json({ error: "Invalid verification type or user ID" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Generate 6-digit verification code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+
+      // Update user with verification code
+      const updateData = type === 'email' 
+        ? { emailVerificationCode: code, emailVerificationExpiry: expiry }
+        : { phoneVerificationCode: code, phoneVerificationExpiry: expiry };
+
+      await storage.updateUser(userId, updateData);
+
+      // In a real implementation, send email/SMS here
+      console.log(`Verification code for ${user[type]}: ${code}`);
+
+      // For demo purposes, always succeed
+      res.json({ 
+        message: `Verification code sent to ${user[type]}`,
+        // In development, return code for testing
+        ...(process.env.NODE_ENV === 'development' && { code })
+      });
+    } catch (error) {
+      console.error("Error sending verification code:", error);
+      res.status(500).json({ error: "Failed to send verification code" });
+    }
+  });
+
+  app.post("/api/verification/verify-code", async (req, res) => {
+    try {
+      const { type, code, userId } = req.body;
+      
+      if (!type || !code || !userId || !['email', 'phone'].includes(type)) {
+        return res.status(400).json({ error: "Invalid verification data" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const storedCode = type === 'email' ? user.emailVerificationCode : user.phoneVerificationCode;
+      const expiry = type === 'email' ? user.emailVerificationExpiry : user.phoneVerificationExpiry;
+
+      if (!storedCode || !expiry) {
+        return res.status(400).json({ error: "No verification code found" });
+      }
+
+      if (new Date() > expiry) {
+        return res.status(400).json({ error: "Verification code expired" });
+      }
+
+      if (storedCode !== code) {
+        return res.status(400).json({ error: "Invalid verification code" });
+      }
+
+      // Mark as verified and clear verification data
+      const updateData = type === 'email' 
+        ? { 
+            emailVerified: true, 
+            emailVerificationCode: null, 
+            emailVerificationExpiry: null,
+            verificationScore: user.phoneVerified ? 50 : 25
+          }
+        : { 
+            phoneVerified: true, 
+            phoneVerificationCode: null, 
+            phoneVerificationExpiry: null,
+            verificationScore: user.emailVerified ? 50 : 25
+          };
+
+      // Update overall verification status
+      if ((type === 'email' && user.phoneVerified) || (type === 'phone' && user.emailVerified)) {
+        updateData.verificationScore = user.documentVerified ? 100 : 50;
+      }
+
+      if (updateData.verificationScore >= 50) {
+        updateData.isVerified = true;
+      }
+
+      const updatedUser = await storage.updateUser(userId, updateData);
+
+      res.json({ 
+        message: `${type} verification successful`,
+        verified: true,
+        verificationScore: updateData.verificationScore
+      });
+    } catch (error) {
+      console.error("Error verifying code:", error);
+      res.status(500).json({ error: "Failed to verify code" });
+    }
+  });
+
+  app.post("/api/verification/upload-document", async (req, res) => {
+    try {
+      // For this demo, we'll simulate document upload
+      const { documentType, userId } = req.body;
+      
+      if (!documentType || !userId || !['cin', 'passport'].includes(documentType)) {
+        return res.status(400).json({ error: "Invalid document type or user ID" });
+      }
+
+      const user = await storage.getUser(parseInt(userId));
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Simulate document upload URLs
+      const frontUrl = `/uploads/documents/${userId}_${documentType}_front_${Date.now()}.jpg`;
+      const backUrl = documentType === 'cin' ? `/uploads/documents/${userId}_${documentType}_back_${Date.now()}.jpg` : null;
+
+      // Update user with document info (simulating verification success)
+      const updateData = {
+        documentType,
+        documentFrontUrl: frontUrl,
+        documentBackUrl: backUrl,
+        documentVerified: true, // In real implementation, this would be manual verification
+        documentVerifiedAt: new Date(),
+        verificationScore: (user.emailVerified ? 25 : 0) + (user.phoneVerified ? 25 : 0) + 50,
+        isVerified: true // Full verification achieved
+      };
+
+      const updatedUser = await storage.updateUser(parseInt(userId), updateData);
+
+      res.json({ 
+        message: "Document uploaded successfully and verified",
+        documentType,
+        frontUrl,
+        backUrl,
+        verified: true,
+        verificationScore: updateData.verificationScore
+      });
+    } catch (error) {
+      console.error("Error uploading document:", error);
+      res.status(500).json({ error: "Failed to upload document" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -1,11 +1,17 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Header from "@/components/Header";
+import { UserBadges } from "@/components/BadgeSystem";
+import { VerificationModal } from "@/components/VerificationModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import { 
   User, 
   Mail, 
@@ -16,16 +22,94 @@ import {
   Star,
   CheckCircle,
   Upload,
-  Shield
+  Shield,
+  Camera,
+  Award,
+  TrendingUp,
+  Clock,
+  FileText,
+  AlertTriangle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 const UserProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
-  const [userProfile, setUserProfile] = useState<any>(null);
   const [editData, setEditData] = useState<any>({});
+  const [verificationModal, setVerificationModal] = useState<{
+    isOpen: boolean;
+    type: "email" | "phone" | "document" | null;
+  }>({ isOpen: false, type: null });
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Get current user ID
+  const currentUserId = Number(localStorage.getItem("userId"));
+
+  // Fetch user profile
+  const { data: userProfile, isLoading } = useQuery({
+    queryKey: ["/api/user/profile", currentUserId],
+    queryFn: async () => {
+      const response = await fetch(`/api/users/${currentUserId}`);
+      if (!response.ok) throw new Error("Failed to fetch profile");
+      return response.json();
+    },
+    enabled: !!currentUserId
+  });
+
+  // Update profile mutation
+  const updateProfileMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return await apiRequest(`/api/users/${currentUserId}`, {
+        method: "PUT",
+        body: JSON.stringify(data)
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/profile", currentUserId] });
+      toast({
+        title: "Profil mis à jour",
+        description: "Vos informations ont été sauvegardées"
+      });
+      setIsEditing(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de mettre à jour le profil",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Profile photo upload mutation
+  const uploadPhotoMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("photo", file);
+      formData.append("userId", currentUserId.toString());
+      
+      return await apiRequest("/api/upload/profile-photo", {
+        method: "POST",
+        body: formData
+      });
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/profile", currentUserId] });
+      toast({
+        title: "Photo mise à jour",
+        description: "Votre photo de profil a été mise à jour avec succès"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de télécharger la photo",
+        variant: "destructive"
+      });
+    }
+  });
 
   useEffect(() => {
     const isAuth = localStorage.getItem("isAuthenticated");
@@ -34,51 +118,72 @@ const UserProfile = () => {
       return;
     }
 
-    const profile = JSON.parse(localStorage.getItem("userProfile") || "{}");
-    setUserProfile(profile);
-    setEditData(profile);
-  }, [navigate]);
+    if (userProfile) {
+      setEditData(userProfile);
+    }
+  }, [navigate, userProfile]);
 
-  const getUserBadges = () => {
-    const badges = [];
-    if (userProfile?.email && userProfile?.phone && userProfile?.cinNumber) {
-      badges.push({ label: "Compte vérifié", icon: "✅", color: "success" });
-    }
-    if (userProfile?.userType === "owner") {
-      badges.push({ label: "Propriétaire actif", icon: "📷", color: "default" });
-    }
-    badges.push({ label: "Membre", icon: "🎖", color: "secondary" });
-    return badges;
+  const getVerificationScore = () => {
+    let score = 0;
+    if (userProfile?.emailVerified) score += 25;
+    if (userProfile?.phoneVerified) score += 25;
+    if (userProfile?.documentVerified) score += 50;
+    return score;
+  };
+
+  const openVerificationModal = (type: "email" | "phone" | "document") => {
+    setVerificationModal({ isOpen: true, type });
   };
 
   const handleSave = () => {
-    localStorage.setItem("userProfile", JSON.stringify(editData));
-    setUserProfile(editData);
-    setIsEditing(false);
-    
-    toast({
-      title: "Profil mis à jour",
-      description: "Vos informations ont été sauvegardées",
-    });
+    updateProfileMutation.mutate(editData);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setEditData({ ...editData, profilePicture: file });
-      toast({
-        title: "Photo mise à jour",
-        description: "Votre nouvelle photo de profil a été sélectionnée",
-      });
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "Fichier trop volumineux",
+          description: "La taille maximum autorisée est de 5MB",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Format non supporté",
+          description: "Seules les images sont autorisées",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      uploadPhotoMutation.mutate(file);
     }
   };
 
-  if (!userProfile) {
+  if (isLoading || !userProfile) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
         <div className="container mx-auto px-4 py-8">
-          <p>Chargement...</p>
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 bg-muted rounded w-1/3"></div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 space-y-6">
+                <div className="h-64 bg-muted rounded"></div>
+                <div className="h-64 bg-muted rounded"></div>
+              </div>
+              <div className="space-y-6">
+                <div className="h-48 bg-muted rounded"></div>
+                <div className="h-32 bg-muted rounded"></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -107,15 +212,49 @@ const UserProfile = () => {
           <Button 
             onClick={() => isEditing ? handleSave() : setIsEditing(true)}
             variant={isEditing ? "default" : "outline"}
+            disabled={updateProfileMutation.isPending}
           >
             <Edit className="h-4 w-4 mr-2" />
-            {isEditing ? "Sauvegarder" : "Modifier"}
+            {updateProfileMutation.isPending ? "Sauvegarde..." : isEditing ? "Sauvegarder" : "Modifier"}
           </Button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Profile Info */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Verification Score Card */}
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <TrendingUp className="h-5 w-5" />
+                    <span>Score de vérification</span>
+                  </div>
+                  <Badge variant={getVerificationScore() === 100 ? "default" : "secondary"}>
+                    {getVerificationScore()}%
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Progress value={getVerificationScore()} className="mb-4" />
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <p>• Email vérifié: {userProfile.emailVerified ? "✅" : "❌"} (+25%)</p>
+                  <p>• Téléphone vérifié: {userProfile.phoneVerified ? "✅" : "❌"} (+25%)</p>
+                  <p>• Document d'identité: {userProfile.documentVerified ? "✅" : "❌"} (+50%)</p>
+                </div>
+                {getVerificationScore() === 100 && (
+                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <Award className="h-5 w-5 text-green-600" />
+                      <span className="text-sm font-medium text-green-800">
+                        Profil 100% vérifié ! Vos annonces seront mieux classées.
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             <Card className="glass-card">
               <CardHeader>
                 <CardTitle>Informations personnelles</CardTitle>
@@ -148,52 +287,69 @@ const UserProfile = () => {
 
                 <div>
                   <Label>Email</Label>
-                  {isEditing ? (
-                    <Input
-                      value={editData.email || ""}
-                      onChange={(e) => setEditData({ ...editData, email: e.target.value })}
-                      type="email"
-                    />
-                  ) : (
-                    <p className="p-2 bg-muted rounded flex items-center space-x-2">
-                      <Mail className="h-4 w-4" />
-                      <span>{userProfile.email}</span>
-                    </p>
-                  )}
+                  <div className="flex items-center space-x-2">
+                    {isEditing ? (
+                      <Input
+                        value={editData.email || ""}
+                        onChange={(e) => setEditData({ ...editData, email: e.target.value })}
+                        type="email"
+                        className="flex-1"
+                      />
+                    ) : (
+                      <div className="flex-1 p-2 bg-muted rounded flex items-center space-x-2">
+                        <Mail className="h-4 w-4" />
+                        <span>{userProfile.email}</span>
+                        {userProfile.emailVerified && <CheckCircle className="h-4 w-4 text-green-500" />}
+                      </div>
+                    )}
+                    {!userProfile.emailVerified && userProfile.email && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => openVerificationModal("email")}
+                      >
+                        Vérifier
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 <div>
                   <Label>Téléphone</Label>
-                  {isEditing ? (
-                    <Input
-                      value={editData.phone || ""}
-                      onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
-                    />
-                  ) : (
-                    <p className="p-2 bg-muted rounded flex items-center space-x-2">
-                      <Phone className="h-4 w-4" />
-                      <span>{userProfile.phone}</span>
-                    </p>
-                  )}
-                </div>
-
-                {userProfile.userType === "student" && userProfile.studentInfo && (
-                  <div className="space-y-2">
-                    <Label>Informations étudiant</Label>
-                    <div className="p-3 glass-card rounded-lg space-y-2">
-                      <p><strong>Université:</strong> {userProfile.studentInfo.university}</p>
-                      <p><strong>Numéro étudiant:</strong> {userProfile.studentInfo.studentId}</p>
-                    </div>
+                  <div className="flex items-center space-x-2">
+                    {isEditing ? (
+                      <Input
+                        value={editData.phone || ""}
+                        onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
+                        className="flex-1"
+                      />
+                    ) : (
+                      <div className="flex-1 p-2 bg-muted rounded flex items-center space-x-2">
+                        <Phone className="h-4 w-4" />
+                        <span>{userProfile.phone}</span>
+                        {userProfile.phoneVerified && <CheckCircle className="h-4 w-4 text-green-500" />}
+                      </div>
+                    )}
+                    {!userProfile.phoneVerified && userProfile.phone && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => openVerificationModal("phone")}
+                      >
+                        Vérifier
+                      </Button>
+                    )}
                   </div>
-                )}
+                </div>
 
                 {isEditing && (
                   <div>
-                    <Label>Photo de profil</Label>
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileUpload}
+                    <Label>Biographie (optionnel)</Label>
+                    <Textarea
+                      value={editData.bio || ""}
+                      onChange={(e) => setEditData({ ...editData, bio: e.target.value })}
+                      placeholder="Parlez-vous de vous..."
+                      rows={3}
                     />
                   </div>
                 )}
@@ -211,41 +367,89 @@ const UserProfile = () => {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="text-center">
-                    <div className={`p-4 rounded-lg ${userProfile.email ? 'bg-success/10' : 'bg-muted'}`}>
-                      <Mail className={`h-6 w-6 mx-auto mb-2 ${userProfile.email ? 'text-success' : 'text-muted-foreground'}`} />
-                      <p className="text-sm">Email</p>
-                      {userProfile.email ? (
-                        <CheckCircle className="h-4 w-4 text-success mx-auto mt-1" />
+                    <div className={`p-4 rounded-lg border-2 transition-colors ${userProfile.emailVerified ? 'bg-green-50 border-green-200' : 'bg-muted border-border'}`}>
+                      <Mail className={`h-6 w-6 mx-auto mb-2 ${userProfile.emailVerified ? 'text-green-600' : 'text-muted-foreground'}`} />
+                      <p className="text-sm font-medium">Email</p>
+                      {userProfile.emailVerified ? (
+                        <div className="mt-2">
+                          <CheckCircle className="h-4 w-4 text-green-600 mx-auto" />
+                          <p className="text-xs text-green-600 mt-1">Vérifié</p>
+                        </div>
                       ) : (
-                        <Button size="sm" variant="outline" className="mt-1">Vérifier</Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="mt-2"
+                          onClick={() => openVerificationModal("email")}
+                          disabled={!userProfile.email}
+                        >
+                          Vérifier
+                        </Button>
                       )}
                     </div>
                   </div>
 
                   <div className="text-center">
-                    <div className={`p-4 rounded-lg ${userProfile.phone ? 'bg-success/10' : 'bg-muted'}`}>
-                      <Phone className={`h-6 w-6 mx-auto mb-2 ${userProfile.phone ? 'text-success' : 'text-muted-foreground'}`} />
-                      <p className="text-sm">Téléphone</p>
-                      {userProfile.phone ? (
-                        <CheckCircle className="h-4 w-4 text-success mx-auto mt-1" />
+                    <div className={`p-4 rounded-lg border-2 transition-colors ${userProfile.phoneVerified ? 'bg-green-50 border-green-200' : 'bg-muted border-border'}`}>
+                      <Phone className={`h-6 w-6 mx-auto mb-2 ${userProfile.phoneVerified ? 'text-green-600' : 'text-muted-foreground'}`} />
+                      <p className="text-sm font-medium">Téléphone</p>
+                      {userProfile.phoneVerified ? (
+                        <div className="mt-2">
+                          <CheckCircle className="h-4 w-4 text-green-600 mx-auto" />
+                          <p className="text-xs text-green-600 mt-1">Vérifié</p>
+                        </div>
                       ) : (
-                        <Button size="sm" variant="outline" className="mt-1">Vérifier</Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="mt-2"
+                          onClick={() => openVerificationModal("phone")}
+                          disabled={!userProfile.phone}
+                        >
+                          Vérifier
+                        </Button>
                       )}
                     </div>
                   </div>
 
                   <div className="text-center">
-                    <div className={`p-4 rounded-lg ${userProfile.cinNumber ? 'bg-success/10' : 'bg-muted'}`}>
-                      <User className={`h-6 w-6 mx-auto mb-2 ${userProfile.cinNumber ? 'text-success' : 'text-muted-foreground'}`} />
-                      <p className="text-sm">CIN/Passeport</p>
-                      {userProfile.cinNumber ? (
-                        <CheckCircle className="h-4 w-4 text-success mx-auto mt-1" />
+                    <div className={`p-4 rounded-lg border-2 transition-colors ${userProfile.documentVerified ? 'bg-green-50 border-green-200' : 'bg-muted border-border'}`}>
+                      <FileText className={`h-6 w-6 mx-auto mb-2 ${userProfile.documentVerified ? 'text-green-600' : 'text-muted-foreground'}`} />
+                      <p className="text-sm font-medium">CIN/Passeport</p>
+                      {userProfile.documentVerified ? (
+                        <div className="mt-2">
+                          <CheckCircle className="h-4 w-4 text-green-600 mx-auto" />
+                          <p className="text-xs text-green-600 mt-1">Vérifié</p>
+                        </div>
                       ) : (
-                        <Button size="sm" variant="outline" className="mt-1">Vérifier</Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="mt-2"
+                          onClick={() => openVerificationModal("document")}
+                        >
+                          Scanner
+                        </Button>
                       )}
                     </div>
                   </div>
                 </div>
+
+                {userProfile.documentVerified && userProfile.documentType && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <Shield className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm text-blue-800">
+                        Document vérifié: {userProfile.documentType === "cin" ? "Carte d'identité" : "Passeport"}
+                        {userProfile.documentVerifiedAt && (
+                          <span className="ml-2 text-xs">
+                            (vérifié le {new Date(userProfile.documentVerifiedAt).toLocaleDateString()})
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -255,32 +459,66 @@ const UserProfile = () => {
             {/* Profile Picture */}
             <Card className="glass-card">
               <CardContent className="p-6 text-center">
-                <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <User className="h-12 w-12 text-primary" />
+                <div className="relative group">
+                  <Avatar className="w-24 h-24 mx-auto mb-4">
+                    <AvatarImage src={userProfile.profilePicture} />
+                    <AvatarFallback className="text-2xl">
+                      {userProfile.firstName?.[0]}{userProfile.lastName?.[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  
+                  {isEditing && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button 
+                        size="sm" 
+                        variant="secondary"
+                        onClick={() => document.getElementById('photo-upload')?.click()}
+                        disabled={uploadPhotoMutation.isPending}
+                      >
+                        <Camera className="h-4 w-4" />
+                      </Button>
+                      <input
+                        id="photo-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileUpload}
+                        style={{ display: 'none' }}
+                      />
+                    </div>
+                  )}
                 </div>
+                
                 <h3 className="font-semibold">{userProfile.firstName} {userProfile.lastName}</h3>
                 <p className="text-muted-foreground capitalize">{userProfile.userType}</p>
                 <Badge variant="outline" className="mt-2">
-                  Membre depuis {new Date().getFullYear()}
+                  Membre depuis {new Date(userProfile.createdAt).getFullYear()}
                 </Badge>
+                
+                {userProfile.bio && (
+                  <p className="text-sm text-muted-foreground mt-3 italic">
+                    "{userProfile.bio}"
+                  </p>
+                )}
               </CardContent>
             </Card>
 
-            {/* Badges */}
+            {/* Enhanced Badges */}
             <Card className="glass-card">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Star className="h-5 w-5" />
-                  <span>Badges</span>
+                  <span>Badges & Vérifications</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {getUserBadges().map((badge, index) => (
-                  <div key={index} className="flex items-center space-x-2 p-2 glass-card rounded">
-                    <span>{badge.icon}</span>
-                    <span className="text-sm">{badge.label}</span>
-                  </div>
-                ))}
+                <UserBadges
+                  userType={userProfile.userType}
+                  isVerified={userProfile.isVerified}
+                  contractsCount={userProfile.contractsCount}
+                  rating={parseFloat(userProfile.rating || "0")}
+                  responseTime={userProfile.responseTime}
+                  memberSince={userProfile.createdAt}
+                />
               </CardContent>
             </Card>
 
@@ -291,20 +529,48 @@ const UserProfile = () => {
                   <CardTitle>Statistiques</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="text-center">
-                    <p className="text-2xl font-bold">0</p>
-                    <p className="text-sm text-muted-foreground">Biens publiés</p>
+                  <div className="flex items-center justify-between">
+                    <div className="text-center flex-1">
+                      <p className="text-2xl font-bold">{userProfile.contractsCount || 0}</p>
+                      <p className="text-sm text-muted-foreground">Contrats signés</p>
+                    </div>
+                    <div className="text-center flex-1">
+                      <p className="text-2xl font-bold">{userProfile.rating || "0"}</p>
+                      <p className="text-sm text-muted-foreground">Note moyenne</p>
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold">0</p>
-                    <p className="text-sm text-muted-foreground">Contrats signés</p>
-                  </div>
+                  
+                  {userProfile.responseTime && (
+                    <div className="text-center">
+                      <div className="flex items-center justify-center space-x-1">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">
+                          Temps de réponse: 
+                          <span className={`ml-1 font-medium ${
+                            userProfile.responseTime === "fast" ? "text-green-600" :
+                            userProfile.responseTime === "normal" ? "text-yellow-600" : "text-red-600"
+                          }`}>
+                            {userProfile.responseTime === "fast" ? "Rapide" :
+                             userProfile.responseTime === "normal" ? "Normal" : "Lent"}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
           </div>
         </div>
       </div>
+
+      {/* Verification Modal */}
+      <VerificationModal
+        isOpen={verificationModal.isOpen}
+        onClose={() => setVerificationModal({ isOpen: false, type: null })}
+        verificationType={verificationModal.type}
+        userProfile={userProfile}
+      />
     </div>
   );
 };

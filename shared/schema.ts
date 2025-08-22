@@ -13,7 +13,38 @@ export const users = pgTable("users", {
   lastName: text("last_name"),
   phone: text("phone"),
   userType: text("user_type").notNull().default("tenant"), // tenant, owner
+  
+  // Profile and verification fields
+  profilePicture: text("profile_picture"), // URL to uploaded profile photo
+  bio: text("bio"), // User biography
+  isVerified: boolean("is_verified").default(false), // Overall verification status
+  verificationScore: integer("verification_score").default(0), // Verification score for ranking
+  
+  // Email verification
+  emailVerified: boolean("email_verified").default(false),
+  emailVerificationCode: text("email_verification_code"),
+  emailVerificationExpiry: timestamp("email_verification_expiry"),
+  
+  // Phone verification
+  phoneVerified: boolean("phone_verified").default(false),
+  phoneVerificationCode: text("phone_verification_code"),
+  phoneVerificationExpiry: timestamp("phone_verification_expiry"),
+  
+  // Document verification (CIN/Passport)
+  documentVerified: boolean("document_verified").default(false),
+  documentType: text("document_type"), // "cin" or "passport"
+  documentNumber: text("document_number"),
+  documentFrontUrl: text("document_front_url"), // Scanned document front
+  documentBackUrl: text("document_back_url"), // Scanned document back
+  documentVerifiedAt: timestamp("document_verified_at"),
+  
+  // User statistics for badges
+  responseTime: text("response_time"), // "fast", "normal", "slow"
+  rating: decimal("rating", { precision: 3, scale: 2 }).default("0"), // User rating
+  contractsCount: integer("contracts_count").default(0),
+  
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Properties table
