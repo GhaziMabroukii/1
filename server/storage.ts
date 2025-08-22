@@ -427,14 +427,31 @@ export class DatabaseStorage implements IStorage {
     return result.rowCount ? result.rowCount > 0 : false;
   }
 
-  async getOrCreateConversation(propertyId: number, tenantId: number, ownerId: number): Promise<any> {
-    const [existing] = await db.select()
+  async getOrCreateConversation(propertyId: number | null, tenantId: number, ownerId: number): Promise<any> {
+    // Search for existing conversation between these users
+    let query = db.select()
       .from(conversations)
       .where(and(
+        eq(conversations.tenantId, tenantId),
+        eq(conversations.ownerId, ownerId)
+      ));
+    
+    // If propertyId is provided, filter by it, otherwise look for any conversation between users
+    if (propertyId) {
+      query = query.where(and(
         eq(conversations.propertyId, propertyId),
         eq(conversations.tenantId, tenantId),
         eq(conversations.ownerId, ownerId)
       ));
+    } else {
+      // For general conversations without property context, allow any existing conversation
+      query = query.where(and(
+        eq(conversations.tenantId, tenantId),
+        eq(conversations.ownerId, ownerId)
+      ));
+    }
+    
+    const [existing] = await query;
     
     if (existing) {
       return existing;
@@ -528,7 +545,14 @@ export class DatabaseStorage implements IStorage {
     const searchResults = await db.select()
       .from(users)
       .where(and(
-        sql`(first_name ILIKE ${`%${query}%`} OR last_name ILIKE ${`%${query}%`} OR username ILIKE ${`%${query}%`})`,
+        or(
+          sql`first_name ILIKE ${`%${query}%`}`,
+          sql`last_name ILIKE ${`%${query}%`}`,
+          sql`username ILIKE ${`%${query}%`}`,
+          sql`email ILIKE ${`%${query}%`}`,
+          sql`phone ILIKE ${`%${query}%`}`,
+          sql`CONCAT(first_name, ' ', last_name) ILIKE ${`%${query}%`}`
+        ),
         sql`id != ${currentUserId}`
       ))
       .limit(20);

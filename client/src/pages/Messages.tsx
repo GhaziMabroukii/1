@@ -17,7 +17,7 @@ import {
   Paperclip, Smile, X, Mic, MicOff, Play, Pause, 
   Heart, ThumbsUp, Laugh, AlertCircle, Camera, Clock,
   Gift, Zap, MapPin, Plus, Settings, Bell, Phone, Video,
-  Download, Volume2, VolumeX, FileVideo, FileImage
+  Download, Volume2, VolumeX, FileVideo, FileImage, Eye
 } from "lucide-react";
 import Header from "@/components/Header";
 
@@ -43,6 +43,10 @@ function useVoiceRecorder() {
         const blob = new Blob(chunks, { type: 'audio/wav' });
         setAudioBlob(blob);
         stream.getTracks().forEach(track => track.stop());
+        // Clear interval when recording stops
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+        }
       };
 
       mediaRecorderRef.current = mediaRecorder;
@@ -50,8 +54,13 @@ function useVoiceRecorder() {
       setIsRecording(true);
       setDuration(0);
 
+      // Start the timer
       intervalRef.current = setInterval(() => {
-        setDuration(prev => prev + 1);
+        setDuration(prev => {
+          const newDuration = prev + 1;
+          console.log('Voice recording duration:', newDuration);
+          return newDuration;
+        });
       }, 1000);
     } catch (error) {
       console.error('Error accessing microphone:', error);
@@ -59,17 +68,25 @@ function useVoiceRecorder() {
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current) {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+    }
+    setIsRecording(false);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
   };
 
   const cancelRecording = () => {
-    stopRecording();
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
     setAudioBlob(null);
     setDuration(0);
   };
@@ -111,6 +128,24 @@ function useTypingIndicator(conversationId: number | null, userId: number) {
   return { isTyping, typingUsers, startTyping, stopTyping };
 }
 
+// Request notification permission
+function requestNotificationPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+// Show browser notification
+function showNotification(title: string, body: string, icon?: string) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification(title, {
+      body,
+      icon: icon || '/favicon.ico',
+      tag: 'message-notification'
+    });
+  }
+}
+
 // WebSocket hook for real-time messaging
 function useWebSocket(userId: number) {
   const [socket, setSocket] = useState<WebSocket | null>(null);
@@ -118,6 +153,9 @@ function useWebSocket(userId: number) {
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    // Request notification permission on component mount
+    requestNotificationPermission();
+
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/ws`;
     const ws = new WebSocket(wsUrl);
@@ -131,6 +169,15 @@ function useWebSocket(userId: number) {
       try {
         const data = JSON.parse(event.data);
         if (data.type === 'new_message') {
+          // Show browser notification for new messages
+          if (data.message && data.message.senderId !== userId) {
+            showNotification(
+              'Nouveau message', 
+              data.message.content || 'Vous avez reçu un nouveau message',
+              '/favicon.ico'
+            );
+          }
+          
           // Invalidate conversations and messages queries
           queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
           queryClient.invalidateQueries({ queryKey: ["/api/conversations", data.conversationId, "messages"] });
@@ -913,7 +960,24 @@ export default function Messages() {
                                         ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
                                         : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-100 dark:border-gray-600'
                                     }`}
-                                    onDoubleClick={() => setReactionPickerMessageId(message.id)}
+                                    onContextMenu={(e) => {
+                                      e.preventDefault();
+                                      setReactionPickerMessageId(message.id);
+                                    }}
+                                    onTouchStart={(e) => {
+                                      const touchTimer = setTimeout(() => {
+                                        setReactionPickerMessageId(message.id);
+                                      }, 500);
+                                      
+                                      const endTouch = () => {
+                                        clearTimeout(touchTimer);
+                                        e.currentTarget.removeEventListener('touchend', endTouch);
+                                        e.currentTarget.removeEventListener('touchcancel', endTouch);
+                                      };
+                                      
+                                      e.currentTarget.addEventListener('touchend', endTouch);
+                                      e.currentTarget.addEventListener('touchcancel', endTouch);
+                                    }}
                                   >
                                     {message.messageType === 'image' && message.fileUrl ? (
                                       <div className="space-y-2">
@@ -976,28 +1040,51 @@ export default function Messages() {
                                         </Button>
                                       </div>
                                     ) : message.messageType === 'file' && message.fileUrl ? (
-                                      <div className="flex items-center justify-between space-x-3">
-                                        <div className="flex items-center space-x-3 flex-1">
-                                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                                            isOwn ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-600'
-                                          }`}>
-                                            <FileText className={`h-5 w-5 ${isOwn ? 'text-white' : 'text-gray-600'}`} />
-                                          </div>
-                                          <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium truncate">{message.content}</p>
-                                            <p className={`text-xs ${isOwn ? 'text-white/70' : 'text-muted-foreground'}`}>
-                                              Cliquez pour télécharger
-                                            </p>
+                                      <div className="space-y-3">
+                                        <div className="flex items-center justify-between space-x-3">
+                                          <div className="flex items-center space-x-3 flex-1">
+                                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                                              isOwn ? 'bg-white/20' : 'bg-blue-50 dark:bg-blue-900/50'
+                                            }`}>
+                                              {message.fileUrl?.toLowerCase().includes('.pdf') ? (
+                                                <FileText className={`h-6 w-6 ${isOwn ? 'text-white' : 'text-red-500'}`} />
+                                              ) : (
+                                                <FileText className={`h-6 w-6 ${isOwn ? 'text-white' : 'text-blue-600'}`} />
+                                              )}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                              <p className="text-sm font-medium truncate">{message.content}</p>
+                                              <p className={`text-xs ${isOwn ? 'text-white/70' : 'text-muted-foreground'}`}>
+                                                {message.fileUrl?.toLowerCase().includes('.pdf') ? 'Document PDF' : 'Fichier partagé'}
+                                              </p>
+                                            </div>
                                           </div>
                                         </div>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => window.open(message.fileUrl, '_blank')}
-                                          className={`rounded-full p-2 ${isOwn ? 'hover:bg-white/20 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-600'}`}
-                                        >
-                                          <Download className="h-4 w-4" />
-                                        </Button>
+                                        <div className="flex space-x-2">
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => window.open(message.fileUrl, '_blank')}
+                                            className={`flex-1 rounded-xl py-2 text-xs ${isOwn ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600'}`}
+                                          >
+                                            <Eye className="h-3 w-3 mr-1" />
+                                            Ouvrir
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => {
+                                              const link = document.createElement('a');
+                                              link.href = message.fileUrl;
+                                              link.download = message.content.split(' ')[1] || 'fichier';
+                                              link.click();
+                                            }}
+                                            className={`flex-1 rounded-xl py-2 text-xs ${isOwn ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600'}`}
+                                          >
+                                            <Download className="h-3 w-3 mr-1" />
+                                            Télécharger
+                                          </Button>
+                                        </div>
                                       </div>
                                     ) : (
                                       <p className="text-sm leading-relaxed">{message.content}</p>

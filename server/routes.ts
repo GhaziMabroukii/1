@@ -1587,10 +1587,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const searchResults = await storage.searchUsers(query, userId);
-      res.json(searchResults);
+      
+      // Add additional info for display
+      const enhancedResults = searchResults.map(user => ({
+        ...user,
+        name: `${user.firstName} ${user.lastName}`,
+        displayInfo: `${user.firstName} ${user.lastName} (${user.userType})`,
+        email: user.email,
+        phone: user.phone
+      }));
+      
+      res.json(enhancedResults);
     } catch (error) {
       console.error("Error searching users:", error);
       res.status(500).json({ error: "Failed to search users" });
+    }
+  });
+
+  // Block user endpoint
+  app.post("/api/users/:id/block", async (req, res) => {
+    try {
+      const blockedId = parseInt(req.params.id);
+      const { blockerId } = req.body;
+      
+      if (!blockerId || !blockedId) {
+        return res.status(400).json({ error: "Blocker ID and blocked user ID are required" });
+      }
+      
+      const block = await storage.blockUser(blockerId, blockedId);
+      res.json({ success: true, block });
+    } catch (error) {
+      console.error("Error blocking user:", error);
+      res.status(500).json({ error: "Failed to block user" });
+    }
+  });
+
+  // Unblock user endpoint
+  app.delete("/api/users/:id/block", async (req, res) => {
+    try {
+      const blockedId = parseInt(req.params.id);
+      const { blockerId } = req.body;
+      
+      if (!blockerId || !blockedId) {
+        return res.status(400).json({ error: "Blocker ID and blocked user ID are required" });
+      }
+      
+      const success = await storage.unblockUser(blockerId, blockedId);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error unblocking user:", error);
+      res.status(500).json({ error: "Failed to unblock user" });
     }
   });
 
