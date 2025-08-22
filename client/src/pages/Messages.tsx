@@ -211,7 +211,6 @@ export default function Messages() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [reactionPickerMessageId, setReactionPickerMessageId] = useState<number | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [playingVoiceId, setPlayingVoiceId] = useState<number | null>(null);
@@ -609,15 +608,6 @@ export default function Messages() {
     setIsUploading(false);
   };
 
-  // Handle emoji reactions
-  const addReaction = (messageId: number, emoji: string) => {
-    // In a real app, this would send to the server
-    toast({
-      title: "Réaction ajoutée",
-      description: `Réaction ${emoji} ajoutée au message`,
-    });
-    setReactionPickerMessageId(null);
-  };
 
   // Add emoji to message
   const addEmojiToMessage = (emoji: string) => {
@@ -963,24 +953,6 @@ export default function Messages() {
                                         ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
                                         : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-100 dark:border-gray-600'
                                     }`}
-                                    onContextMenu={(e) => {
-                                      e.preventDefault();
-                                      setReactionPickerMessageId(message.id);
-                                    }}
-                                    onTouchStart={(e) => {
-                                      const touchTimer = setTimeout(() => {
-                                        setReactionPickerMessageId(message.id);
-                                      }, 500);
-                                      
-                                      const endTouch = () => {
-                                        clearTimeout(touchTimer);
-                                        e.currentTarget.removeEventListener('touchend', endTouch);
-                                        e.currentTarget.removeEventListener('touchcancel', endTouch);
-                                      };
-                                      
-                                      e.currentTarget.addEventListener('touchend', endTouch);
-                                      e.currentTarget.addEventListener('touchcancel', endTouch);
-                                    }}
                                   >
                                     {message.messageType === 'image' && message.fileUrl ? (
                                       <div className="space-y-2">
