@@ -214,6 +214,9 @@ export default function Messages() {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [playingVoiceId, setPlayingVoiceId] = useState<number | null>(null);
+  const [audioProgress, setAudioProgress] = useState<{[key: number]: number}>({});
+  const [audioDurations, setAudioDurations] = useState<{[key: number]: number}>({});
+  const audioRefs = useRef<{[key: number]: HTMLAudioElement}>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -615,32 +618,73 @@ export default function Messages() {
     setShowEmojiPicker(false);
   };
 
-  // Play voice message
+  // Play/pause voice message with proper controls
   const playVoiceMessage = (messageId: number, audioUrl: string) => {
+    // If this voice is currently playing, pause it
     if (playingVoiceId === messageId) {
-      // Stop current playback
-      setPlayingVoiceId(null);
-      return;
+      const audio = audioRefs.current[messageId];
+      if (audio) {
+        audio.pause();
+        setPlayingVoiceId(null);
+        return;
+      }
+    }
+    
+    // Stop any other playing audio
+    if (playingVoiceId !== null && audioRefs.current[playingVoiceId]) {
+      audioRefs.current[playingVoiceId].pause();
+    }
+    
+    // Get or create audio element for this message
+    let audio = audioRefs.current[messageId];
+    if (!audio) {
+      audio = new Audio();
+      audioRefs.current[messageId] = audio;
+      
+      // Set up audio event listeners
+      audio.onloadedmetadata = () => {
+        setAudioDurations(prev => ({
+          ...prev,
+          [messageId]: audio.duration
+        }));
+      };
+      
+      audio.ontimeupdate = () => {
+        setAudioProgress(prev => ({
+          ...prev,
+          [messageId]: audio.currentTime
+        }));
+      };
+      
+      audio.onended = () => {
+        setPlayingVoiceId(null);
+        setAudioProgress(prev => ({
+          ...prev,
+          [messageId]: 0
+        }));
+        // Reset to start
+        audio.currentTime = 0;
+      };
+      
+      audio.onerror = (e) => {
+        console.error('Audio playback error:', e, 'URL:', audioUrl);
+        setPlayingVoiceId(null);
+        toast({
+          title: "Erreur de lecture",
+          description: "Impossible de lire le message vocal",
+          variant: "destructive"
+        });
+      };
+      
+      audio.src = audioUrl;
+    }
+    
+    // Always start from the beginning if not already started
+    if (audio.currentTime === 0 || audio.ended) {
+      audio.currentTime = 0;
     }
     
     setPlayingVoiceId(messageId);
-    
-    // Create audio element and play
-    const audio = new Audio();
-    audio.onended = () => setPlayingVoiceId(null);
-    audio.onerror = (e) => {
-      console.error('Audio playback error:', e, 'URL:', audioUrl);
-      setPlayingVoiceId(null);
-      toast({
-        title: "Erreur de lecture",
-        description: "Impossible de lire le message vocal",
-        variant: "destructive"
-      });
-    };
-    
-    // Set the source and load the audio
-    audio.src = audioUrl;
-    audio.load();
     
     audio.play().catch((error) => {
       console.error('Audio play error:', error, 'URL:', audioUrl);
@@ -1006,12 +1050,24 @@ export default function Messages() {
                                             <div className={`h-2 flex-1 rounded-full overflow-hidden ${
                                               isOwn ? 'bg-white/30' : 'bg-gray-200 dark:bg-gray-600'
                                             }`}>
-                                              <div className={`h-full rounded-full transition-all duration-300 ${
-                                                playingVoiceId === message.id ? 'w-full' : 'w-1/3'
-                                              } ${
-                                                isOwn ? 'bg-white' : 'bg-blue-500'
-                                              }`}></div>
+                                              <div 
+                                                className={`h-full rounded-full transition-all duration-200 ${
+                                                  isOwn ? 'bg-white' : 'bg-blue-500'
+                                                }`}
+                                                style={{
+                                                  width: `${
+                                                    audioDurations[message.id] 
+                                                      ? (audioProgress[message.id] || 0) / audioDurations[message.id] * 100 
+                                                      : 0
+                                                  }%`
+                                                }}
+                                              ></div>
                                             </div>
+                                            <span className={`text-xs font-mono ${
+                                              isOwn ? 'text-white/80' : 'text-gray-500 dark:text-gray-400'
+                                            }`}>
+                                              {formatDuration(audioProgress[message.id] || 0)} / {formatDuration(audioDurations[message.id] || 0)}
+                                            </span>
                                           </div>
                                           <p className={`text-sm mt-1 font-medium ${isOwn ? 'text-white' : 'text-gray-900 dark:text-gray-100'}`}>
                                             {message.content}
