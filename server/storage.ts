@@ -1176,12 +1176,17 @@ export class MemStorage implements IStorage {
     return newConversation;
   }
   
-  async getOrCreateConversation(propertyId: number, tenantId: number, ownerId: number): Promise<any> {
-    let conversation = this.conversations.find(conv => 
-      conv.propertyId === propertyId && 
-      conv.tenantId === tenantId && 
-      conv.ownerId === ownerId
-    );
+  async getOrCreateConversation(propertyId: number | null, tenantId: number, ownerId: number): Promise<any> {
+    // Find existing conversation with proper null handling
+    let conversation = this.conversations.find(conv => {
+      // Handle null propertyId cases properly
+      const propertyMatches = (propertyId === null && conv.propertyId === null) || 
+                             (propertyId !== null && conv.propertyId === propertyId);
+      
+      return propertyMatches && 
+             conv.tenantId === tenantId && 
+             conv.ownerId === ownerId;
+    });
     
     if (!conversation) {
       conversation = await this.createConversation({
@@ -1192,6 +1197,23 @@ export class MemStorage implements IStorage {
     }
     
     return conversation;
+  }
+
+  // Add methods for cleanup
+  async getAllConversations(): Promise<any[]> {
+    return [...this.conversations];
+  }
+
+  async deleteConversation(conversationId: number): Promise<boolean> {
+    const index = this.conversations.findIndex(conv => conv.id === conversationId);
+    if (index === -1) return false;
+    
+    // Delete all messages in the conversation first
+    this.messages = this.messages.filter(msg => msg.conversationId !== conversationId);
+    
+    // Delete the conversation
+    this.conversations.splice(index, 1);
+    return true;
   }
   
   async getConversationMessages(conversationId: number): Promise<any[]> {
