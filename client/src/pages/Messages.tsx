@@ -11,6 +11,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   ArrowLeft, Send, MessageCircle, Upload, Image as ImageIcon, 
   FileText, MoreHorizontal, Search, User, UserMinus,
@@ -18,7 +20,7 @@ import {
   Heart, ThumbsUp, Laugh, AlertCircle, Camera, Clock,
   Gift, Zap, MapPin, Plus, Settings, Bell, Phone, Video,
   Download, Volume2, VolumeX, FileVideo, FileImage, Eye
-} from "lucide-react";
+, UserPlus } from "lucide-react";
 import Header from "@/components/Header";
 
 // Voice recording hook
@@ -219,6 +221,7 @@ export default function Messages() {
   const audioRefs = useRef<{[key: number]: HTMLAudioElement}>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageRefs = useRef<{[key: number]: HTMLDivElement}>({});
   
   // Additional state for new features
   const [showUserSearch, setShowUserSearch] = useState(false);
@@ -227,6 +230,9 @@ export default function Messages() {
   const [showChatMenu, setShowChatMenu] = useState(false);
   const [conversationSearchQuery, setConversationSearchQuery] = useState("");
   const [showConversationSearch, setShowConversationSearch] = useState(false);
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [userToBlock, setUserToBlock] = useState<any>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<number | null>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -276,6 +282,30 @@ export default function Messages() {
     enabled: !!userSearchQuery.trim(),
   });
 
+  // Check if current conversation participant is blocked
+  const currentConversation = conversations.find((conv: any) => conv.id === selectedConversationId);
+  const { data: isBlocked = false } = useQuery({
+    queryKey: ["/api/users/blocked", currentUser.id, currentConversation?.participant?.id],
+    queryFn: async () => {
+      if (!currentConversation?.participant?.id) return false;
+      const res = await fetch(`/api/users/blocked?blockerId=${currentUser.id}&blockedId=${currentConversation.participant.id}`);
+      const data = await res.json();
+      return data.isBlocked || false;
+    },
+    enabled: !!currentConversation?.participant?.id,
+  });
+
+  const { data: isBlockedByOther = false } = useQuery({
+    queryKey: ["/api/users/blocked", currentConversation?.participant?.id, currentUser.id],
+    queryFn: async () => {
+      if (!currentConversation?.participant?.id) return false;
+      const res = await fetch(`/api/users/blocked?blockerId=${currentConversation.participant.id}&blockedId=${currentUser.id}`);
+      const data = await res.json();
+      return data.isBlocked || false;
+    },
+    enabled: !!currentConversation?.participant?.id,
+  });
+
   // Block user mutation
   const blockUser = useMutation({
     mutationFn: async (userId: number) => {
@@ -290,11 +320,43 @@ export default function Messages() {
         description: "L'utilisateur a été bloqué avec succès",
       });
       setShowProfileMenu(false);
+      setShowChatMenu(false);
+      setShowBlockConfirm(false);
+      setUserToBlock(null);
+      // Refresh the blocked status
+      queryClient.invalidateQueries({ queryKey: ["/api/users/blocked"] });
     },
     onError: () => {
       toast({
         title: "Erreur",
         description: "Impossible de bloquer l'utilisateur",
+        variant: "destructive",
+      });
+      setShowBlockConfirm(false);
+      setUserToBlock(null);
+    }
+  });
+
+  // Unblock user mutation
+  const unblockUser = useMutation({
+    mutationFn: async (userId: number) => {
+      return await apiRequest(`/api/users/${userId}/block`, {
+        method: "DELETE",
+        body: JSON.stringify({ blockerId: currentUser.id }),
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Utilisateur débloqué",
+        description: "L'utilisateur a été débloqué avec succès",
+      });
+      // Refresh the blocked status
+      queryClient.invalidateQueries({ queryKey: ["/api/users/blocked"] });
+    },
+    onError: () => {
+      toast({
+        title: "Erreur",
+        description: "Impossible de débloquer l'utilisateur",
         variant: "destructive",
       });
     }
@@ -1042,24 +1104,46 @@ export default function Messages() {
                                 </div>
                               </Button>
 
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="w-full justify-start text-left h-auto p-3 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl text-red-600"
-                                onClick={() => {
-                                  if (selectedConversation?.participant?.id) {
-                                    blockUser.mutate(selectedConversation.participant.id);
-                                    setShowChatMenu(false);
-                                  }
-                                }}
-                                disabled={blockUser.isPending}
-                              >
-                                <UserMinus className="h-4 w-4 mr-3" />
-                                <div>
-                                  <p className="font-medium">Bloquer l'utilisateur</p>
-                                  <p className="text-xs text-muted-foreground">Empêcher les futurs messages</p>
-                                </div>
-                              </Button>
+                              {isBlocked ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="w-full justify-start text-left h-auto p-3 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-xl text-green-600"
+                                  onClick={() => {
+                                    if (currentConversation?.participant?.id) {
+                                      unblockUser.mutate(currentConversation.participant.id);
+                                      setShowChatMenu(false);
+                                    }
+                                  }}
+                                  disabled={unblockUser.isPending}
+                                >
+                                  <UserPlus className="h-4 w-4 mr-3" />
+                                  <div>
+                                    <p className="font-medium">Débloquer l'utilisateur</p>
+                                    <p className="text-xs text-muted-foreground">Autoriser les messages</p>
+                                  </div>
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="w-full justify-start text-left h-auto p-3 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl text-red-600"
+                                  onClick={() => {
+                                    if (currentConversation?.participant?.id) {
+                                      setUserToBlock(currentConversation.participant);
+                                      setShowBlockConfirm(true);
+                                      setShowChatMenu(false);
+                                    }
+                                  }}
+                                  disabled={blockUser.isPending}
+                                >
+                                  <UserMinus className="h-4 w-4 mr-3" />
+                                  <div>
+                                    <p className="font-medium">Bloquer l'utilisateur</p>
+                                    <p className="text-xs text-muted-foreground">Empêcher les futurs messages</p>
+                                  </div>
+                                </Button>
+                              )}
                             </div>
                           </div>
                         )}
@@ -1095,12 +1179,117 @@ export default function Messages() {
                       </Button>
                     </div>
                     {conversationSearchQuery && (
-                      <div className="mt-2 text-sm text-muted-foreground">
-                        {messages.filter((msg: any) => 
-                          msg.content?.toLowerCase().includes(conversationSearchQuery.toLowerCase())
-                        ).length} résultat(s) trouvé(s)
+                      <div className="mt-3">
+                        {(() => {
+                          const searchResults = messages.filter((msg: any) => 
+                            msg.content?.toLowerCase().includes(conversationSearchQuery.toLowerCase())
+                          );
+                          return (
+                            <>
+                              <div className="text-sm text-muted-foreground mb-3">
+                                {searchResults.length} résultat(s) trouvé(s)
+                              </div>
+                              {searchResults.length > 0 && (
+                                <div className="max-h-48 overflow-y-auto space-y-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
+                                  {searchResults.map((msg: any) => (
+                                    <div 
+                                      key={msg.id}
+                                      className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-gray-600 last:border-b-0"
+                                      onClick={() => {
+                                        const messageElement = messageRefs.current[msg.id];
+                                        if (messageElement) {
+                                          messageElement.scrollIntoView({ 
+                                            behavior: 'smooth', 
+                                            block: 'center' 
+                                          });
+                                          setHighlightedMessageId(msg.id);
+                                          setTimeout(() => setHighlightedMessageId(null), 3000);
+                                        }
+                                      }}
+                                    >
+                                      <div className="flex items-start space-x-3">
+                                        <Avatar className="h-6 w-6">
+                                          <AvatarImage src={msg.sender?.profilePicture} />
+                                          <AvatarFallback className="bg-gradient-to-br from-blue-400 to-purple-500 text-white text-xs">
+                                            {msg.sender?.firstName?.[0]}{msg.sender?.lastName?.[0]}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center space-x-2 mb-1">
+                                            <span className="text-xs font-medium text-gray-900 dark:text-gray-100">
+                                              {msg.senderId === currentUser.id ? 'Vous' : msg.sender?.firstName}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground">
+                                              {formatMessageTime(msg.createdAt)}
+                                            </span>
+                                          </div>
+                                          <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2">
+                                            {(() => {
+                                              const content = msg.content || '';
+                                              const lowerContent = content.toLowerCase();
+                                              const lowerQuery = conversationSearchQuery.toLowerCase();
+                                              const index = lowerContent.indexOf(lowerQuery);
+                                              
+                                              if (index === -1) return content;
+                                              
+                                              const before = content.substring(0, index);
+                                              const match = content.substring(index, index + conversationSearchQuery.length);
+                                              const after = content.substring(index + conversationSearchQuery.length);
+                                              
+                                              return (
+                                                <>
+                                                  {before}
+                                                  <span className="bg-yellow-200 dark:bg-yellow-600 px-1 rounded">
+                                                    {match}
+                                                  </span>
+                                                  {after}
+                                                </>
+                                              );
+                                            })()}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Blocked Status Alert */}
+                {(isBlocked || isBlockedByOther) && (
+                  <div className="border-b border-gray-100 dark:border-gray-800 bg-red-50 dark:bg-red-900/20 p-4">
+                    <Alert className="border-red-200 dark:border-red-800">
+                      <AlertCircle className="h-4 w-4 text-red-600" />
+                      <AlertDescription className="text-red-700 dark:text-red-300">
+                        {isBlocked ? (
+                          <div className="flex items-center justify-between">
+                            <span>Vous avez bloqué cet utilisateur. Aucun message ne peut être échangé.</span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="ml-3 text-green-600 border-green-300 hover:bg-green-50"
+                              onClick={() => {
+                                if (currentConversation?.participant?.id) {
+                                  unblockUser.mutate(currentConversation.participant.id);
+                                }
+                              }}
+                              disabled={unblockUser.isPending}
+                            >
+                              <UserPlus className="h-3 w-3 mr-1" />
+                              Débloquer
+                            </Button>
+                          </div>
+                        ) : (
+                          <span>Cet utilisateur vous a bloqué. Vous ne pouvez pas envoyer de messages.</span>
+                        )}
+                      </AlertDescription>
+                    </Alert>
                   </div>
                 )}
 
@@ -1137,7 +1326,12 @@ export default function Messages() {
                           return (
                             <div
                               key={message.id}
-                                className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group`}
+                              ref={(el) => {
+                                if (el) messageRefs.current[message.id] = el;
+                              }}
+                              className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group transition-all duration-300 ${
+                                highlightedMessageId === message.id ? 'bg-yellow-100 dark:bg-yellow-900/30 rounded-lg p-2 -m-2' : ''
+                              }`}
                               data-testid={`message-${message.id}`}
                             >
                               {!isOwn && showAvatar && (
@@ -1511,7 +1705,7 @@ export default function Messages() {
                       variant="ghost"
                       size="sm"
                       onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploading || isRecording}
+                      disabled={isUploading || isRecording || isBlocked || isBlockedByOther}
                       className="rounded-full w-10 h-10 p-0 hover:bg-blue-50 dark:hover:bg-gray-800"
                       data-testid="upload-button"
                     >
@@ -1532,15 +1726,15 @@ export default function Messages() {
                           startTyping();
                         }}
                         onKeyPress={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
+                          if (e.key === 'Enter' && !e.shiftKey && !(isBlocked || isBlockedByOther)) {
                             e.preventDefault();
                             handleSendMessage();
                           }
                         }}
-                        placeholder="Écrivez un message..."
+                        placeholder={isBlocked || isBlockedByOther ? "Messages bloqués" : "Écrivez un message..."}
                         className="min-h-[44px] max-h-32 resize-none border-0 bg-transparent focus:ring-0 px-4 py-3 pr-20 rounded-3xl"
                         rows={1}
-                        disabled={isRecording}
+                        disabled={isRecording || isBlocked || isBlockedByOther}
                         data-testid="message-input"
                       />
                       
@@ -1621,7 +1815,7 @@ export default function Messages() {
                     {newMessage.trim() ? (
                       <Button 
                         onClick={handleSendMessage}
-                        disabled={sendMessage.isPending}
+                        disabled={sendMessage.isPending || isBlocked || isBlockedByOther}
                         className="rounded-full w-12 h-12 p-0 bg-blue-500 hover:bg-blue-600 shadow-lg"
                         data-testid="send-button"
                       >
@@ -1763,6 +1957,53 @@ export default function Messages() {
           </Card>
         </div>
       )}
+
+      {/* Block Confirmation Dialog */}
+      <Dialog open={showBlockConfirm} onOpenChange={setShowBlockConfirm}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+              Bloquer cet utilisateur
+            </DialogTitle>
+            <DialogDescription>
+              Êtes-vous sûr de vouloir bloquer <strong>{userToBlock?.name || `${userToBlock?.firstName} ${userToBlock?.lastName}`}</strong> ?
+              <br /><br />
+              Cette action empêchera:
+              <ul className="mt-2 list-disc list-inside text-sm space-y-1">
+                <li>L'envoi et la réception de nouveaux messages</li>
+                <li>Les appels vocaux et vidéo</li>
+                <li>Toute autre forme de communication</li>
+              </ul>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:justify-start">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowBlockConfirm(false);
+                setUserToBlock(null);
+              }}
+              disabled={blockUser.isPending}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (userToBlock?.id) {
+                  blockUser.mutate(userToBlock.id);
+                  setShowBlockConfirm(false);
+                  setUserToBlock(null);
+                }
+              }}
+              disabled={blockUser.isPending}
+            >
+              {blockUser.isPending ? 'Blocage...' : 'Bloquer'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

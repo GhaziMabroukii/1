@@ -2333,6 +2333,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Check if user is blocked
+  app.get("/api/users/blocked", async (req, res) => {
+    try {
+      const blockerId = parseInt(req.query.blockerId as string);
+      const blockedId = parseInt(req.query.blockedId as string);
+      
+      if (!blockerId || !blockedId) {
+        return res.status(400).json({ error: "Blocker and blocked user IDs are required" });
+      }
+      
+      const isBlocked = await storage.isUserBlocked(blockerId, blockedId);
+      res.json({ isBlocked });
+    } catch (error) {
+      console.error("Failed to check block status:", error);
+      res.status(500).json({ error: "Failed to check block status" });
+    }
+  });
+
   // Get user online status
   app.get("/api/users/:userId/status", async (req, res) => {
     try {
