@@ -12,6 +12,7 @@ import { fr } from "date-fns/locale";
 import { FileText, Plus, Eye, Edit, Clock, AlertTriangle, History, Download } from "lucide-react";
 import jsPDF from 'jspdf';
 import Swal from 'sweetalert2';
+import Header from "@/components/Header";
 
 interface Contract {
   id: number;
@@ -442,7 +443,9 @@ export default function ContractsDashboard() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className="min-h-screen bg-background">
+      <Header />
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold mb-2">
@@ -793,6 +796,7 @@ export default function ContractsDashboard() {
           )}
         </TabsContent>
       </Tabs>
+      </div>
     </div>
   );
 }
