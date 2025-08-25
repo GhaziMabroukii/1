@@ -84,7 +84,7 @@ const HeroSection = () => {
                 <div className="flex-1">
                   <input
                     type="text"
-                    placeholder="Où cherchez-vous ?"
+                    placeholder="🔍 Rechercher par nom, ville, adresse..."
                     className="glass-input w-full text-sm sm:text-base"
                     value={searchLocation}
                     onChange={(e) => setSearchLocation(e.target.value)}
@@ -92,6 +92,40 @@ const HeroSection = () => {
                 </div>
                 
                 {/* Price Range */}
+                <div className="w-full lg:w-48">
+                  <select 
+                    className="glass-input w-full text-sm sm:text-base"
+                    value={searchLocation}
+                    onChange={(e) => setSearchLocation(e.target.value)}
+                  >
+                    <option value="">🏙️ Choisir une ville</option>
+                    <option value="tunis">🏛️ Tunis</option>
+                    <option value="ariana">🌿 Ariana</option>
+                    <option value="ben_arous">🏭 Ben Arous</option>
+                    <option value="manouba">🏞️ Manouba</option>
+                    <option value="nabeul">🏺 Nabeul</option>
+                    <option value="zaghouan">⛰️ Zaghouan</option>
+                    <option value="bizerte">⛵ Bizerte</option>
+                    <option value="beja">🌾 Béja</option>
+                    <option value="jendouba">🌲 Jendouba</option>
+                    <option value="kef">🏔️ Le Kef</option>
+                    <option value="siliana">🌿 Siliana</option>
+                    <option value="kairouan">🕌 Kairouan</option>
+                    <option value="kasserine">⛰️ Kasserine</option>
+                    <option value="sidi_bouzid">🌾 Sidi Bouzid</option>
+                    <option value="sousse">🏖️ Sousse</option>
+                    <option value="monastir">🏛️ Monastir</option>
+                    <option value="mahdia">⚓ Mahdia</option>
+                    <option value="sfax">🏢 Sfax</option>
+                    <option value="gafsa">🏜️ Gafsa</option>
+                    <option value="tozeur">🌴 Tozeur</option>
+                    <option value="kebili">🐪 Kébili</option>
+                    <option value="gabes">🏖️ Gabès</option>
+                    <option value="medenine">🏺 Médenine</option>
+                    <option value="tataouine">🏜️ Tataouine</option>
+                  </select>
+                </div>
+
                 <div className="w-full lg:w-48">
                   <select 
                     className="glass-input w-full text-sm sm:text-base"

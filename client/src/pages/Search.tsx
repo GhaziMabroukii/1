@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import Header from "@/components/Header";
 import { LoadingSpinner, PropertySkeleton } from "@/components/LoadingSpinner";
+import LazyImage from "@/components/LazyImage";
 import { NetworkError } from "@/components/ErrorBoundary";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +36,8 @@ import {
   Waves,
   Wind,
   Utensils,
-  Eye
+  Eye,
+  MessageCircle
 } from "lucide-react";
 
 // FavoriteButton component
@@ -381,13 +383,16 @@ const Search = () => {
   const handleSearch = () => {
     let filtered = properties;
 
-    // Text search
+    // Text search with proper null/undefined checks
     if (searchQuery) {
+      const query = searchQuery.toLowerCase();
       filtered = filtered.filter(p => 
-        p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.address?.toLowerCase().includes(searchQuery.toLowerCase())
+        (p.title && p.title.toLowerCase().includes(query)) ||
+        (p.location && p.location.toLowerCase().includes(query)) ||
+        (p.description && p.description.toLowerCase().includes(query)) ||
+        (p.address && p.address.toLowerCase().includes(query)) ||
+        (p.city && p.city.toLowerCase().includes(query)) ||
+        (p.gouvernorat && p.gouvernorat.toLowerCase().includes(query))
       );
     }
 
@@ -435,6 +440,17 @@ const Search = () => {
           amenity.toLowerCase().includes('parking') || 
           amenity.toLowerCase().includes('garage')
         )
+      );
+    }
+
+    // Location filter with enhanced matching
+    if (location && location !== "all") {
+      const locationQuery = location.toLowerCase().replace('_', ' ');
+      filtered = filtered.filter(p => 
+        (p.location && p.location.toLowerCase().includes(locationQuery)) ||
+        (p.address && p.address.toLowerCase().includes(locationQuery)) ||
+        (p.city && p.city.toLowerCase().includes(locationQuery)) ||
+        (p.gouvernorat && p.gouvernorat.toLowerCase().includes(locationQuery))
       );
     }
 
@@ -591,7 +607,7 @@ const Search = () => {
         {showFilters && (
           <Card className="mb-6 sm:mb-8 shadow-lg border-0">
             <CardContent className="p-4 sm:p-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
                 <div>
                   <label className="text-sm font-semibold mb-3 block text-gray-700">Type de bien</label>
                   <Select value={propertyType} onValueChange={setPropertyType}>
@@ -637,6 +653,42 @@ const Search = () => {
                     step={50}
                     className="mt-2"
                   />
+                </div>
+
+                <div>
+                  <label className="text-sm font-semibold mb-3 block text-gray-700">Ville/Région</label>
+                  <Select value={location} onValueChange={setLocation}>
+                    <SelectTrigger className="h-11">
+                      <SelectValue placeholder="🏙️ Ville/Région" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60 overflow-y-auto">
+                      <SelectItem value="all">🌍 Toute la Tunisie</SelectItem>
+                      <SelectItem value="tunis">🏛️ Tunis</SelectItem>
+                      <SelectItem value="ariana">🌿 Ariana</SelectItem>
+                      <SelectItem value="ben_arous">🏭 Ben Arous</SelectItem>
+                      <SelectItem value="manouba">🏞️ Manouba</SelectItem>
+                      <SelectItem value="nabeul">🏺 Nabeul</SelectItem>
+                      <SelectItem value="zaghouan">⛰️ Zaghouan</SelectItem>
+                      <SelectItem value="bizerte">⛵ Bizerte</SelectItem>
+                      <SelectItem value="beja">🌾 Béja</SelectItem>
+                      <SelectItem value="jendouba">🌲 Jendouba</SelectItem>
+                      <SelectItem value="kef">🏔️ Le Kef</SelectItem>
+                      <SelectItem value="siliana">🌿 Siliana</SelectItem>
+                      <SelectItem value="kairouan">🕌 Kairouan</SelectItem>
+                      <SelectItem value="kasserine">⛰️ Kasserine</SelectItem>
+                      <SelectItem value="sidi_bouzid">🌾 Sidi Bouzid</SelectItem>
+                      <SelectItem value="sousse">🏖️ Sousse</SelectItem>
+                      <SelectItem value="monastir">🏛️ Monastir</SelectItem>
+                      <SelectItem value="mahdia">⚓ Mahdia</SelectItem>
+                      <SelectItem value="sfax">🏢 Sfax</SelectItem>
+                      <SelectItem value="gafsa">🏜️ Gafsa</SelectItem>
+                      <SelectItem value="tozeur">🌴 Tozeur</SelectItem>
+                      <SelectItem value="kebili">🐪 Kébili</SelectItem>
+                      <SelectItem value="gabes">🏖️ Gabès</SelectItem>
+                      <SelectItem value="medenine">🏺 Médenine</SelectItem>
+                      <SelectItem value="tataouine">🏜️ Tataouine</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div>
@@ -765,11 +817,10 @@ const Search = () => {
                   <div className="relative h-48 sm:h-52 overflow-hidden">
                     {property.images && property.images.length > 0 ? (
                       <>
-                        <img
+                        <LazyImage
                           src={property.images[0]}
                           alt={property.title}
                           className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
-                          data-testid={`img-property-${property.id}`}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
                         {property.images.length > 1 && (
@@ -968,6 +1019,21 @@ const Search = () => {
                         <CheckCircle className="h-3 w-3" />
                         <span>{property.ownerVerified ? 'Propriétaire vérifié' : 'Non vérifié'}</span>
                       </div>
+                    </div>
+
+                    {/* Contact Owner Button */}
+                    <div className="mt-3 pt-3 border-t border-white/50">
+                      <Button 
+                        className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/messages?propertyId=${property.id}&ownerId=${property.ownerId}`);
+                        }}
+                        data-testid={`button-contact-${property.id}`}
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                        Contacter le propriétaire
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
