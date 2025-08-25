@@ -188,6 +188,20 @@ const Search = () => {
     }
     return null;
   };
+
+  // Function to track property views
+  const trackPropertyView = async (propertyId: number) => {
+    try {
+      await fetch(`/api/properties/${propertyId}/view`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      console.error('Failed to track property view:', error);
+    }
+  };
   
   const currentUserId = getCurrentUserId();
 
@@ -276,12 +290,16 @@ const Search = () => {
             location: property.address,
             rating: reviewData.averageRating || 0,
             reviews: reviewData.totalReviews,
-            owner: ownerName,
+            owner: property.owner || ownerName,
+            ownerVerified: property.ownerVerified || false,
+            ownerRating: property.ownerRating || '0',
             available: property.status === "Disponible",
             isStudentFriendly: property.categories?.includes('Étudiant') || property.type === "studio",
             isFamilyFriendly: property.categories?.includes('Famille') || property.type === "villa" || property.rooms >= 2,
-            // Add view count (simulated based on property age and rating)
-            views: Math.floor(Math.random() * 500) + 50,
+            // Use real views count from backend
+            views: property.views || 0,
+            // Check if property is new (created within last 7 days)
+            isNew: new Date().getTime() - new Date(property.createdAt).getTime() < 7 * 24 * 60 * 60 * 1000,
             // Add category-specific theming data
             themeData: getPropertyTheme(property)
           };
@@ -502,9 +520,11 @@ const Search = () => {
   };
   
   const getTrustScore = (property: any) => {
-    let score = 3; // Base score
+    let score = 2; // Base score
     if (property.images && property.images.length > 0) score += 1;
     if (property.reviews > 0) score += 1;
+    if (property.ownerVerified) score += 1; // Owner verification adds trust
+    if (property.ownerVerificationScore && property.ownerVerificationScore > 70) score += 0.5; // High verification score bonus
     if (property.furnished) score += 0.5;
     if (property.amenities && property.amenities.length > 3) score += 0.5;
     return Math.min(5, score);
@@ -734,7 +754,10 @@ const Search = () => {
               <Card 
                 key={property.id} 
                 className={`cursor-pointer hover:scale-[1.02] hover:shadow-xl transition-all duration-300 border-0 shadow-lg ${theme.bgColor} overflow-hidden`}
-                onClick={() => navigate(`/property/${property.id}`)}
+                onClick={() => {
+                  trackPropertyView(property.id);
+                  navigate(`/property/${property.id}`);
+                }}
                 data-testid={`card-property-${property.id}`}
               >
                 <CardContent className="p-0">
@@ -875,10 +898,15 @@ const Search = () => {
                               ({property.reviews} avis)
                             </span>
                           </div>
+                        ) : property.isNew ? (
+                          <div className="flex items-center gap-1 bg-green-50 px-2 py-1 rounded-full">
+                            <Star className="h-4 w-4 text-green-600" />
+                            <span className="text-xs text-green-600 font-medium">Nouveau</span>
+                          </div>
                         ) : (
                           <div className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded-full">
                             <Star className="h-4 w-4 text-gray-400" />
-                            <span className="text-xs text-gray-500">Nouveau</span>
+                            <span className="text-xs text-gray-500">Pas d'avis</span>
                           </div>
                         )}
                         
@@ -900,7 +928,9 @@ const Search = () => {
                             </div>
                           ))}
                         </div>
-                        <span className="text-xs text-green-600 font-medium">Vérifié</span>
+                        <span className={`text-xs font-medium ${property.ownerVerified ? 'text-green-600' : 'text-gray-500'}`}>
+                          {property.ownerVerified ? 'Vérifié' : 'Non vérifié'}
+                        </span>
                       </div>
                     </div>
 
@@ -934,9 +964,9 @@ const Search = () => {
                         </div>
                         <span className="text-sm text-gray-600" data-testid={`text-owner-${property.id}`}>{property.owner}</span>
                       </div>
-                      <div className="flex items-center gap-1 text-xs text-green-600">
+                      <div className={`flex items-center gap-1 text-xs ${property.ownerVerified ? 'text-green-600' : 'text-gray-500'}`}>
                         <CheckCircle className="h-3 w-3" />
-                        <span>Propriétaire vérifié</span>
+                        <span>{property.ownerVerified ? 'Propriétaire vérifié' : 'Non vérifié'}</span>
                       </div>
                     </div>
                   </div>

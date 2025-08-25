@@ -84,7 +84,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/properties", async (req, res) => {
     try {
       const ownerId = req.query.ownerId ? parseInt(req.query.ownerId as string) : undefined;
-      const properties = await storage.getProperties(ownerId);
+      const properties = await storage.getPropertiesWithOwners(ownerId);
       res.json(properties);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch properties" });
@@ -94,13 +94,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/properties/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const property = await storage.getProperty(id);
+      const property = await storage.getPropertyWithOwner(id);
       if (!property) {
         return res.status(404).json({ error: "Property not found" });
       }
       res.json(property);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch property" });
+    }
+  });
+
+  // Property view tracking endpoint
+  app.post("/api/properties/:id/view", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.incrementPropertyViews(id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to track property view" });
     }
   });
 

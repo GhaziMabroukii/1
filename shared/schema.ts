@@ -78,6 +78,8 @@ export const properties = pgTable("properties", {
   furniture: jsonb("furniture"), // Array of {item: string, condition: string}
   // Availability fields
   availability: jsonb("availability"), // {available: boolean, availableFrom: string, minimumStay: string, maximumStay: string}
+  // View tracking
+  views: integer("views").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

@@ -19,10 +19,13 @@ export interface IStorage {
   
   // Property operations
   getProperties(ownerId?: number): Promise<Property[]>;
+  getPropertiesWithOwners(ownerId?: number): Promise<any[]>;
   getProperty(id: number): Promise<Property | undefined>;
+  getPropertyWithOwner(id: number): Promise<any | undefined>;
   createProperty(property: InsertProperty): Promise<Property>;
   updateProperty(id: number, updates: Partial<InsertProperty>): Promise<Property | undefined>;
   deleteProperty(id: number): Promise<boolean>;
+  incrementPropertyViews(id: number): Promise<void>;
   
   // Offer operations
   getOffers(userId?: number, type?: 'sent' | 'received'): Promise<Offer[]>;
@@ -156,6 +159,108 @@ export class DatabaseStorage implements IStorage {
   async deleteProperty(id: number): Promise<boolean> {
     const result = await db.delete(properties).where(eq(properties.id, id));
     return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async getPropertiesWithOwners(ownerId?: number): Promise<any[]> {
+    const query = db.select({
+      id: properties.id,
+      ownerId: properties.ownerId,
+      title: properties.title,
+      description: properties.description,
+      type: properties.type,
+      price: properties.price,
+      priceType: properties.priceType,
+      surface: properties.surface,
+      rooms: properties.rooms,
+      bathrooms: properties.bathrooms,
+      address: properties.address,
+      latitude: properties.latitude,
+      longitude: properties.longitude,
+      amenities: properties.amenities,
+      rules: properties.rules,
+      images: properties.images,
+      status: properties.status,
+      deposit: properties.deposit,
+      fees: properties.fees,
+      utilities: properties.utilities,
+      utilitiesIncluded: properties.utilitiesIncluded,
+      categories: properties.categories,
+      geographicHighlight: properties.geographicHighlight,
+      furnished: properties.furnished,
+      furniture: properties.furniture,
+      availability: properties.availability,
+      views: properties.views,
+      createdAt: properties.createdAt,
+      updatedAt: properties.updatedAt,
+      owner: sql`${users.firstName} || ' ' || ${users.lastName}`.as('owner'),
+      ownerVerified: users.isVerified,
+      ownerRating: users.rating,
+      ownerVerificationScore: users.verificationScore,
+      ownerEmail: users.email,
+      ownerPhone: users.phone
+    })
+    .from(properties)
+    .leftJoin(users, eq(properties.ownerId, users.id));
+
+    if (ownerId) {
+      return await query.where(eq(properties.ownerId, ownerId)).orderBy(desc(properties.createdAt));
+    }
+    return await query.orderBy(desc(properties.createdAt));
+  }
+
+  async getPropertyWithOwner(id: number): Promise<any | undefined> {
+    const [result] = await db.select({
+      id: properties.id,
+      ownerId: properties.ownerId,
+      title: properties.title,
+      description: properties.description,
+      type: properties.type,
+      price: properties.price,
+      priceType: properties.priceType,
+      surface: properties.surface,
+      rooms: properties.rooms,
+      bathrooms: properties.bathrooms,
+      address: properties.address,
+      latitude: properties.latitude,
+      longitude: properties.longitude,
+      amenities: properties.amenities,
+      rules: properties.rules,
+      images: properties.images,
+      status: properties.status,
+      deposit: properties.deposit,
+      fees: properties.fees,
+      utilities: properties.utilities,
+      utilitiesIncluded: properties.utilitiesIncluded,
+      categories: properties.categories,
+      geographicHighlight: properties.geographicHighlight,
+      furnished: properties.furnished,
+      furniture: properties.furniture,
+      availability: properties.availability,
+      views: properties.views,
+      createdAt: properties.createdAt,
+      updatedAt: properties.updatedAt,
+      owner: sql`${users.firstName} || ' ' || ${users.lastName}`.as('owner'),
+      ownerVerified: users.isVerified,
+      ownerRating: users.rating,
+      ownerVerificationScore: users.verificationScore,
+      ownerEmail: users.email,
+      ownerPhone: users.phone
+    })
+    .from(properties)
+    .leftJoin(users, eq(properties.ownerId, users.id))
+    .where(eq(properties.id, id));
+    
+    return result || undefined;
+  }
+
+  async incrementPropertyViews(id: number): Promise<void> {
+    await db
+      .update(properties)
+      .set({ 
+        views: sql`${properties.views} + 1`,
+        updatedAt: new Date() 
+      })
+      .where(eq(properties.id, id));
   }
 
   // Offer operations
@@ -792,6 +897,7 @@ export class MemStorage implements IStorage {
         images: [],
         availability: "Disponible",
         ownerId: 2,
+        views: 23,
         createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
         updatedAt: new Date()
       },
@@ -812,6 +918,7 @@ export class MemStorage implements IStorage {
         images: [],
         availability: "Disponible",
         ownerId: 2,
+        views: 41,
         createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
         updatedAt: new Date()
       }
@@ -1033,6 +1140,51 @@ export class MemStorage implements IStorage {
     if (index === -1) return false;
     this.properties.splice(index, 1);
     return true;
+  }
+
+  async getPropertiesWithOwners(ownerId?: number): Promise<any[]> {
+    let filteredProperties = ownerId ? 
+      this.properties.filter(p => p.ownerId === ownerId) : 
+      [...this.properties];
+    
+    return filteredProperties
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .map(property => {
+        const owner = this.users.find(u => u.id === property.ownerId);
+        return {
+          ...property,
+          owner: owner ? `${owner.firstName} ${owner.lastName}` : 'Propriétaire inconnu',
+          ownerVerified: owner?.isVerified || false,
+          ownerRating: owner?.rating || '0',
+          ownerVerificationScore: owner?.verificationScore || 0,
+          ownerEmail: owner?.email || '',
+          ownerPhone: owner?.phone || ''
+        };
+      });
+  }
+
+  async getPropertyWithOwner(id: number): Promise<any | undefined> {
+    const property = this.properties.find(p => p.id === id);
+    if (!property) return undefined;
+    
+    const owner = this.users.find(u => u.id === property.ownerId);
+    return {
+      ...property,
+      owner: owner ? `${owner.firstName} ${owner.lastName}` : 'Propriétaire inconnu',
+      ownerVerified: owner?.isVerified || false,
+      ownerRating: owner?.rating || '0',
+      ownerVerificationScore: owner?.verificationScore || 0,
+      ownerEmail: owner?.email || '',
+      ownerPhone: owner?.phone || ''
+    };
+  }
+
+  async incrementPropertyViews(id: number): Promise<void> {
+    const property = this.properties.find(p => p.id === id);
+    if (property) {
+      property.views = (property.views || 0) + 1;
+      property.updatedAt = new Date();
+    }
   }
 
   // Offer operations
