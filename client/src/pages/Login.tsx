@@ -47,7 +47,7 @@ const Login = () => {
         description: response.message || "Vous êtes maintenant connecté à Ekrili.",
       });
       
-      navigate("/dashboard");
+      navigate("/search");
     } catch (error) {
       console.error("Login error:", error);
       toast({

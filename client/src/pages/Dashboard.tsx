@@ -49,7 +49,7 @@ const Dashboard = () => {
 
   const userId = getUserId();
 
-  // Fetch real dashboard stats
+  // Fetch real dashboard stats with improved caching
   const { data: dashboardStats, isLoading: statsLoading } = useQuery({
     queryKey: ["/api/dashboard/stats", userId, userType],
     queryFn: async () => {
@@ -59,10 +59,11 @@ const Dashboard = () => {
       return response.json();
     },
     enabled: !!userId && !!userType,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 10, // 10 minutes - longer cache
+    refetchOnWindowFocus: false, // Don't refetch on window focus
   });
 
-  // Fetch analytics data
+  // Fetch analytics data with improved caching (lazy load)
   const { data: analyticsData, isLoading: analyticsLoading } = useQuery({
     queryKey: ["/api/dashboard/analytics", userId, userType],
     queryFn: async () => {
@@ -71,8 +72,9 @@ const Dashboard = () => {
       if (!response.ok) throw new Error('Failed to fetch analytics');
       return response.json();
     },
-    enabled: !!userId && !!userType,
-    staleTime: 1000 * 60 * 5,
+    enabled: !!userId && !!userType && !!dashboardStats, // Only fetch after stats loaded
+    staleTime: 1000 * 60 * 15, // 15 minutes - longer cache for analytics
+    refetchOnWindowFocus: false,
   });
 
   // Fetch user properties for owners
@@ -112,8 +114,7 @@ const Dashboard = () => {
           return;
         }
 
-        // Simulate network delay for loading state demonstration
-        await new Promise(resolve => setTimeout(resolve, 800));
+        // Removed artificial delay for better performance
         
         const type = localStorage.getItem("userType") || "";
         const profile = JSON.parse(localStorage.getItem("userProfile") || "{}");

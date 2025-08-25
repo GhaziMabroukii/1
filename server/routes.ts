@@ -578,6 +578,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Contract renewal endpoint
+  app.post("/api/contracts/:id/renew", async (req, res) => {
+    try {
+      const contractId = parseInt(req.params.id);
+      const { requestedBy, userType } = req.body;
+      
+      // Get the original contract
+      const originalContract = await storage.getContract(contractId);
+      if (!originalContract) {
+        return res.status(404).json({ error: "Contract not found" });
+      }
+      
+      // Check if contract is expired or near expiry
+      const contractEndDate = new Date(originalContract.contractEndDate);
+      const today = new Date();
+      const daysUntilExpiry = Math.ceil((contractEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysUntilExpiry > 30) {
+        return res.status(400).json({ 
+          error: "Contract renewal can only be requested within 30 days of expiry" 
+        });
+      }
+      
+      // Check if renewal request already exists
+      const existingRequest = await storage.checkRenewalRequestExists(contractId);
+      if (existingRequest) {
+        return res.status(400).json({ 
+          error: "A renewal request already exists for this contract" 
+        });
+      }
+      
+      // Create renewal request with default terms (can be modified later)
+      const contractData = originalContract.contractData ? JSON.parse(originalContract.contractData) : {};
+      const currentRent = parseFloat(contractData.rentAmount) || 0;
+      
+      const renewalRequest = {
+        originalContractId: contractId,
+        requestedBy: requestedBy,
+        proposedChanges: {
+          description: "Renouvellement du contrat avec les mêmes conditions",
+          rentIncrease: 0,
+          termChanges: []
+        },
+        newStartDate: contractEndDate,
+        newEndDate: new Date(contractEndDate.getTime() + (365 * 24 * 60 * 60 * 1000)), // +1 year
+        newRentAmount: currentRent,
+        status: "pending"
+      };
+      
+      const createdRequest = await storage.createRenewalRequest(renewalRequest);
+      
+      // Notify the other party
+      const otherPartyId = userType === 'owner' ? originalContract.tenantId : originalContract.ownerId;
+      const notification = {
+        userId: otherPartyId,
+        type: 'contract_renewal_request',
+        title: 'Demande de renouvellement de contrat',
+        message: `Une demande de renouvellement a été envoyée pour le contrat ${contractId}`,
+        data: { contractId, renewalRequestId: createdRequest.id }
+      };
+      
+      await storage.createNotification(notification);
+      broadcastToUser(otherPartyId, 'contract_renewal_request', { contractId, renewalRequestId: createdRequest.id });
+      
+      res.json({ 
+        success: true, 
+        renewalRequestId: createdRequest.id,
+        message: "Demande de renouvellement créée avec succès" 
+      });
+      
+    } catch (error) {
+      console.error("Error creating renewal request:", error);
+      res.status(500).json({ error: "Failed to create renewal request" });
+    }
+  });
+
   app.post("/api/contracts", async (req, res) => {
     try {
       console.log("Received contract data:", req.body);

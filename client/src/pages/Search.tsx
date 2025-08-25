@@ -173,8 +173,15 @@ const Search = () => {
   const [equipmentFilters, setEquipmentFilters] = useState({
     furnished: false,
     unfurnished: false,
-    parking: false
+    parking: false,
+    air_conditioning: false,
+    wifi: false,
+    washing_machine: false,
+    balcony: false,
+    garden: false
   });
+  const [surfaceRange, setSurfaceRange] = useState([0, 300]);
+  const [roomsFilter, setRoomsFilter] = useState("");
   const [, navigate] = useLocation();
   
   // Get current user ID from localStorage
@@ -409,11 +416,11 @@ const Search = () => {
         } else if (categoryFilter === "family") {
           return p.categories?.includes('Famille') || p.isFamilyFriendly;
         } else if (categoryFilter === "summer") {
-          return p.categories?.includes('Maison d\'été') || p.type === 'maison_ete';
-        } else if (categoryFilter === "vue_mer") {
-          return p.categories?.includes('Vue sur mer') || p.amenities?.includes('vue_mer');
-        } else if (categoryFilter === "proche_plage") {
-          return p.categories?.includes('Proche de la plage');
+          return p.categories?.includes('Maison d\'été') || p.type === 'vacation';
+        } else if (categoryFilter === "mountain") {
+          return p.categories?.includes('Montagne') || p.categoryDetails?.mountainInfo;
+        } else if (categoryFilter === "camping") {
+          return p.categories?.includes('Camping') || p.categoryDetails?.campingInfo;
         }
         return p.categories?.includes(categoryFilter);
       });
@@ -441,6 +448,70 @@ const Search = () => {
           amenity.toLowerCase().includes('garage')
         )
       );
+    }
+    
+    // Additional equipment filters
+    if (equipmentFilters.air_conditioning) {
+      filtered = filtered.filter(p => 
+        p.amenities?.some((amenity: string) => 
+          amenity.toLowerCase().includes('climatisation') || 
+          amenity.toLowerCase().includes('air_conditioning')
+        )
+      );
+    }
+    
+    if (equipmentFilters.wifi) {
+      filtered = filtered.filter(p => 
+        p.amenities?.some((amenity: string) => 
+          amenity.toLowerCase().includes('wifi') || 
+          amenity.toLowerCase().includes('internet')
+        )
+      );
+    }
+    
+    if (equipmentFilters.washing_machine) {
+      filtered = filtered.filter(p => 
+        p.amenities?.some((amenity: string) => 
+          amenity.toLowerCase().includes('lave-linge') || 
+          amenity.toLowerCase().includes('washing_machine')
+        )
+      );
+    }
+    
+    if (equipmentFilters.balcony) {
+      filtered = filtered.filter(p => 
+        p.amenities?.some((amenity: string) => 
+          amenity.toLowerCase().includes('balcon') || 
+          amenity.toLowerCase().includes('balcony')
+        )
+      );
+    }
+    
+    if (equipmentFilters.garden) {
+      filtered = filtered.filter(p => 
+        p.amenities?.some((amenity: string) => 
+          amenity.toLowerCase().includes('jardin') || 
+          amenity.toLowerCase().includes('garden')
+        )
+      );
+    }
+    
+    // Surface filter
+    if (surfaceRange && Array.isArray(surfaceRange)) {
+      filtered = filtered.filter(p => {
+        const surface = parseInt(p.surface) || 0;
+        return surface >= surfaceRange[0] && surface <= surfaceRange[1];
+      });
+    }
+    
+    // Rooms filter
+    if (roomsFilter && roomsFilter !== "all") {
+      filtered = filtered.filter(p => {
+        const rooms = parseInt(p.rooms) || 0;
+        if (roomsFilter === "studio") return p.type === 'studio' || rooms === 0;
+        if (roomsFilter === "4") return rooms >= 4;
+        return rooms === parseInt(roomsFilter);
+      });
     }
 
     // Location filter with enhanced matching
@@ -548,7 +619,7 @@ const Search = () => {
 
   useEffect(() => {
     handleSearch();
-  }, [searchQuery, propertyType, categoryFilter, priceRange, equipmentFilters]);
+  }, [searchQuery, propertyType, categoryFilter, priceRange, equipmentFilters, surfaceRange, roomsFilter]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
@@ -617,10 +688,13 @@ const Search = () => {
                     <SelectContent>
                       <SelectItem value="all">Tous types</SelectItem>
                       <SelectItem value="studio">🏠 Studio</SelectItem>
-                      <SelectItem value="appartement">🏢 Appartement</SelectItem>
+                      <SelectItem value="apartment">🏢 Appartement</SelectItem>
                       <SelectItem value="villa">🏡 Villa</SelectItem>
-                      <SelectItem value="maison">🏘️ Maison</SelectItem>
-                      <SelectItem value="maison_ete">☀️ Maison d'été</SelectItem>
+                      <SelectItem value="house">🏘️ Maison</SelectItem>
+                      <SelectItem value="vacation">☀️ Maison d'été</SelectItem>
+                      <SelectItem value="room">🚪 Chambre</SelectItem>
+                      <SelectItem value="office">🏢 Bureau</SelectItem>
+                      <SelectItem value="other">📦 Autre</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -636,8 +710,8 @@ const Search = () => {
                       <SelectItem value="student">🎓 Pour étudiants</SelectItem>
                       <SelectItem value="family">👨‍👩‍👧‍👦 Pour familles</SelectItem>
                       <SelectItem value="summer">🏖️ Maison d'été</SelectItem>
-                      <SelectItem value="vue_mer">🌊 Vue sur mer</SelectItem>
-                      <SelectItem value="proche_plage">🏝️ Proche plage</SelectItem>
+                      <SelectItem value="mountain">⛰️ Montagne</SelectItem>
+                      <SelectItem value="camping">🏕️ Camping</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -724,7 +798,87 @@ const Search = () => {
                       />
                       <label htmlFor="parking" className="text-sm">🚗 Parking</label>
                     </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="air_conditioning" 
+                        checked={equipmentFilters.air_conditioning}
+                        onCheckedChange={(checked) => 
+                          setEquipmentFilters(prev => ({ ...prev, air_conditioning: checked === true }))
+                        }
+                      />
+                      <label htmlFor="air_conditioning" className="text-sm">❄️ Climatisation</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="wifi" 
+                        checked={equipmentFilters.wifi}
+                        onCheckedChange={(checked) => 
+                          setEquipmentFilters(prev => ({ ...prev, wifi: checked === true }))
+                        }
+                      />
+                      <label htmlFor="wifi" className="text-sm">📶 Wi-Fi</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="washing_machine" 
+                        checked={equipmentFilters.washing_machine}
+                        onCheckedChange={(checked) => 
+                          setEquipmentFilters(prev => ({ ...prev, washing_machine: checked === true }))
+                        }
+                      />
+                      <label htmlFor="washing_machine" className="text-sm">🧺 Lave-linge</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="balcony" 
+                        checked={equipmentFilters.balcony}
+                        onCheckedChange={(checked) => 
+                          setEquipmentFilters(prev => ({ ...prev, balcony: checked === true }))
+                        }
+                      />
+                      <label htmlFor="balcony" className="text-sm">🏛️ Balcon</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="garden" 
+                        checked={equipmentFilters.garden}
+                        onCheckedChange={(checked) => 
+                          setEquipmentFilters(prev => ({ ...prev, garden: checked === true }))
+                        }
+                      />
+                      <label htmlFor="garden" className="text-sm">🌿 Jardin</label>
+                    </div>
                   </div>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-semibold mb-3 block text-gray-700">
+                    Surface: {surfaceRange[0]} - {surfaceRange[1]} m²
+                  </label>
+                  <Slider
+                    value={surfaceRange}
+                    onValueChange={setSurfaceRange}
+                    max={300}
+                    step={10}
+                    className="mt-2"
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-sm font-semibold mb-3 block text-gray-700">Nombre de chambres</label>
+                  <Select value={roomsFilter} onValueChange={setRoomsFilter}>
+                    <SelectTrigger className="h-11">
+                      <SelectValue placeholder="Toutes" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Toutes</SelectItem>
+                      <SelectItem value="studio">Studio</SelectItem>
+                      <SelectItem value="1">1 chambre</SelectItem>
+                      <SelectItem value="2">2 chambres</SelectItem>
+                      <SelectItem value="3">3 chambres</SelectItem>
+                      <SelectItem value="4">4+ chambres</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </CardContent>
@@ -799,10 +953,21 @@ const Search = () => {
                 <Button 
                   onClick={() => {
                     setSearchQuery("");
-                    setSelectedPropertyType("");
-                    setSelectedCategory("");
+                    setPropertyType("");
+                    setCategoryFilter("");
                     setPriceRange([0, 2000]);
-                    setSelectedAmenities([]);
+                    setEquipmentFilters({
+                      furnished: false,
+                      unfurnished: false,
+                      parking: false,
+                      air_conditioning: false,
+                      wifi: false,
+                      washing_machine: false,
+                      balcony: false,
+                      garden: false
+                    });
+                    setSurfaceRange([0, 300]);
+                    setRoomsFilter("");
                   }}
                   variant="outline"
                   className="mx-auto"

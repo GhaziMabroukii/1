@@ -286,6 +286,44 @@ export const contractTerminationRequests = pgTable("contract_termination_request
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Contract renewal requests table
+export const contractRenewalRequests = pgTable("contract_renewal_requests", {
+  id: serial("id").primaryKey(),
+  originalContractId: integer("original_contract_id").notNull().references(() => contracts.id),
+  requestedBy: integer("requested_by").notNull().references(() => users.id), // Owner or tenant requesting renewal
+  
+  // New contract terms
+  proposedChanges: jsonb("proposed_changes").notNull(), // Changes to price, terms, duration, etc.
+  newStartDate: timestamp("new_start_date").notNull(),
+  newEndDate: timestamp("new_end_date").notNull(),
+  newRentAmount: decimal("new_rent_amount", { precision: 10, scale: 2 }),
+  
+  // Negotiation process
+  status: text("status").notNull().default("pending"), // pending, negotiating, accepted, rejected, signed, completed
+  tenantResponse: text("tenant_response"),
+  ownerResponse: text("owner_response"),
+  respondedAt: timestamp("responded_at"),
+  
+  // Password confirmations (both parties must confirm with password)
+  ownerPasswordConfirmed: boolean("owner_password_confirmed").default(false),
+  tenantPasswordConfirmed: boolean("tenant_password_confirmed").default(false),
+  ownerConfirmedAt: timestamp("owner_confirmed_at"),
+  tenantConfirmedAt: timestamp("tenant_confirmed_at"),
+  
+  // Digital signatures for new contract
+  ownerSignature: text("owner_signature"),
+  tenantSignature: text("tenant_signature"),
+  ownerSignedAt: timestamp("owner_signed_at"),
+  tenantSignedAt: timestamp("tenant_signed_at"),
+  
+  // New contract generation
+  newContractId: integer("new_contract_id").references(() => contracts.id), // Reference to the new generated contract
+  finalTerms: jsonb("final_terms"), // Final agreed terms after negotiation
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   properties: many(properties),

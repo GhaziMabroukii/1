@@ -378,12 +378,6 @@ export function EnhancedBilateralContractTermination({ contract, currentUserId, 
           <div className="space-y-4">
             {/* Status and Basic Info */}
             <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-medium">Demande d'Arrêt #{terminationRequest.id}</h3>
-                <p className="text-sm text-gray-600">
-                  Créée {formatDistanceToNow(new Date(terminationRequest.createdAt), { addSuffix: true, locale: fr })}
-                </p>
-              </div>
               {getStatusBadge(terminationRequest.status)}
             </div>
 
