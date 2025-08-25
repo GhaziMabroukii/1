@@ -1,12 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import UserBadge from "@/components/UserBadge";
 import { 
   Clock, 
   MapPin, 
   Star, 
   Heart,
-  Eye
+  Eye,
+  User,
+  Shield
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -24,7 +27,13 @@ const RecentProperties = () => {
       reviews: 24,
       daysAgo: 2,
       image: "/placeholder.svg",
-      badge: "🆕"
+      badge: "🆕",
+      ownerId: 2,
+      ownerName: "Marie Dubois",
+      ownerVerified: true,
+      ownerTrustScore: 95,
+      ownerRating: "4.8",
+      ownerResponseTime: 2
     },
     {
       id: 2,
@@ -35,7 +44,13 @@ const RecentProperties = () => {
       reviews: 18,
       daysAgo: 4,
       image: "/placeholder.svg",
-      badge: "🆕"
+      badge: "🆕",
+      ownerId: 2,
+      ownerName: "Marie Dubois",
+      ownerVerified: true,
+      ownerTrustScore: 95,
+      ownerRating: "4.8",
+      ownerResponseTime: 2
     },
     {
       id: 3,
@@ -46,7 +61,13 @@ const RecentProperties = () => {
       reviews: 31,
       daysAgo: 6,
       image: "/placeholder.svg",
-      badge: "🆕"
+      badge: "🆕",
+      ownerId: 2,
+      ownerName: "Marie Dubois",
+      ownerVerified: true,
+      ownerTrustScore: 95,
+      ownerRating: "4.8",
+      ownerResponseTime: 2
     }
   ];
 

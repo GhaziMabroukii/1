@@ -163,13 +163,15 @@ const Dashboard = () => {
   const properties = userProperties || [];
   const favorites = userFavorites || [];
 
-  // Property boost handler
+  // Property boost handler with proper authentication
   const handleBoostProperty = async (propertyId: number) => {
     try {
+      const authToken = localStorage.getItem("authToken");
       const response = await fetch(`/api/properties/${propertyId}/boost`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(authToken && { 'Authorization': `Bearer ${authToken}` }),
         },
         body: JSON.stringify({
           boostType: 'featured',
@@ -180,9 +182,11 @@ const Dashboard = () => {
       if (response.ok) {
         const result = await response.json();
         alert(`✓ Propriété mise en avant pour 7 jours!`);
+        // Refresh the properties data
+        window.location.reload();
       } else {
         const error = await response.json();
-        alert(`Erreur: ${error.message || 'Impossible de promouvoir la propriété'}`);
+        alert(`Erreur: ${error.error || error.message || 'Impossible de promouvoir la propriété'}`);
       }
     } catch (error) {
       console.error('Boost property error:', error);

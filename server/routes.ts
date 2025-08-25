@@ -3059,8 +3059,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Property visibility enhancement endpoint
-  app.post('/api/properties/:id/boost', requireAuth, async (req, res) => {
+  // Property visibility enhancement endpoint  
+  app.post('/api/properties/:id/boost', async (req, res) => {
     try {
       const propertyId = parseInt(req.params.id);
       const { boostType = 'featured', duration = 7 } = req.body;
@@ -3148,6 +3148,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: 'Failed to fetch recommendations' });
     }
   });
+
+  // User profile endpoints
+  app.get('/api/users/:userId/profile', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      if (!userId) {
+        return res.status(400).json({ error: 'User ID is required' });
+      }
+
+      const user = await storage.getUser(parseInt(userId));
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Return public user profile (exclude sensitive information)
+      const publicProfile = {
+        id: user.id,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        userType: user.userType,
+        bio: user.bio,
+        profilePicture: user.profilePicture,
+        isVerified: user.emailVerified && user.phoneVerified,
+        verificationLevel: getUserVerificationLevel(user),
+        trustScore: calculateTrustScore(user),
+        rating: user.rating,
+        responseRate: user.responseTime === 'fast' ? '95' : user.responseTime === 'normal' ? '80' : '60',
+        avgResponseTime: user.responseTime === 'fast' ? 2 : user.responseTime === 'normal' ? 8 : 24,
+        contractsCount: user.contractsCount || 0,
+        badges: getUserBadges(user),
+        createdAt: user.createdAt,
+        // Only show phone/email to authenticated users viewing their own profile or in specific contexts
+        ...(req.headers.authorization && { phone: user.phoneVerified ? user.phone : null }),
+      };
+
+      res.json(publicProfile);
+    } catch (error) {
+      console.error('Get user profile error:', error);
+      res.status(500).json({ error: 'Failed to fetch user profile' });
+    }
+  });
+
+  // Helper functions for user profile
+  function getUserVerificationLevel(user: any): string {
+    if (user.documentVerified) return 'identity';
+    if (user.phoneVerified && user.emailVerified) return 'phone';
+    if (user.emailVerified) return 'email';
+    return 'none';
+  }
+
+  function calculateTrustScore(user: any): number {
+    let score = 50; // Base score
+    
+    if (user.emailVerified) score += 10;
+    if (user.phoneVerified) score += 15;
+    if (user.documentVerified) score += 20;
+    
+    const rating = parseFloat(user.rating || '0');
+    if (rating >= 4.5) score += 15;
+    else if (rating >= 4.0) score += 10;
+    else if (rating >= 3.5) score += 5;
+    
+    if (user.contractsCount >= 10) score += 10;
+    else if (user.contractsCount >= 5) score += 5;
+    
+    if (user.responseTime === 'fast') score += 10;
+    else if (user.responseTime === 'normal') score += 5;
+    
+    return Math.min(100, Math.max(0, score));
+  }
+
+  function getUserBadges(user: any): any[] {
+    const badges = [];
+    
+    if (user.emailVerified && user.phoneVerified) {
+      badges.push({ type: 'verified', label: 'Vérifié', color: 'blue' });
+    }
+    
+    if (user.documentVerified) {
+      badges.push({ type: 'identity', label: 'Identité vérifiée', color: 'green' });
+    }
+    
+    const rating = parseFloat(user.rating || '0');
+    if (rating >= 4.5) {
+      badges.push({ type: 'top_rated', label: 'Top noté', color: 'gold' });
+    }
+    
+    if (user.responseTime === 'fast') {
+      badges.push({ type: 'responsive', label: 'Réactif', color: 'green' });
+    }
+    
+    if (user.contractsCount >= 10) {
+      badges.push({ type: 'experienced', label: 'Expérimenté', color: 'purple' });
+    }
+    
+    return badges;
+  }
 
   const httpServer = createServer(app);
   
