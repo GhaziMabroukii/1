@@ -17,11 +17,13 @@ import {
 } from "@/components/ui/sheet";
 import { TenantRequestsDropdown } from "./TenantRequestsDropdown";
 import { OwnerRequestsDropdown } from "./OwnerRequestsDropdown";
+import { NotificationCenter } from "./NotificationCenter";
 
 const Header = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [userType, setUserType] = useState("");
+  const [userId, setUserId] = useState<number | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [, navigate] = useLocation();
 
@@ -39,6 +41,7 @@ const Header = () => {
           setIsAuthenticated(true);
           setUserEmail(user.email || user.username || "");
           setUserType(userType);
+          setUserId(user.id);
           console.log("Header: Set user type to:", userType, "with user ID:", user.id);
         } catch (error) {
           console.error("Error parsing user data:", error);
@@ -50,6 +53,7 @@ const Header = () => {
         setIsAuthenticated(false);
         setUserEmail("");
         setUserType("");
+        setUserId(null);
       }
     };
 
@@ -386,7 +390,6 @@ const Header = () => {
                           >
                             <div className="relative">
                               <Bell className="h-5 w-5 text-accent" />
-                              <span className="absolute -top-1 -right-1 h-3 w-3 bg-primary rounded-full text-xs"></span>
                             </div>
                             <span className="font-medium">Notifications</span>
                           </button>
