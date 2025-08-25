@@ -34,7 +34,7 @@ export function TenantRequestsDropdown({ userId, userType }: TenantRequestsDropd
     return null;
   }
 
-  // Fetch termination requests SENT by this tenant
+  // Fetch termination requests SENT by this tenant - real-time updates via WebSocket
   const { data: sentRequests = [], isLoading: sentLoading, error: sentError } = useQuery<Request[]>({
     queryKey: [`/api/tenant-requests/${userId}`],
     queryFn: async () => {
@@ -52,12 +52,11 @@ export function TenantRequestsDropdown({ userId, userType }: TenantRequestsDropd
       return response.json();
     },
     enabled: userType === 'tenant' && !!userId,
-    refetchInterval: 5000,
     retry: 3,
-    staleTime: 0
+    staleTime: 1000 * 60 * 5 // 5 minutes
   });
 
-  // Fetch termination requests RECEIVED by this tenant (sent by owners)
+  // Fetch termination requests RECEIVED by this tenant (sent by owners) - real-time updates via WebSocket
   const { data: receivedRequests = [], isLoading: receivedLoading, error: receivedError } = useQuery<Request[]>({
     queryKey: [`/api/owner-requests/${userId}`],
     queryFn: async () => {
@@ -75,9 +74,8 @@ export function TenantRequestsDropdown({ userId, userType }: TenantRequestsDropd
       return response.json();
     },
     enabled: userType === 'tenant' && !!userId,
-    refetchInterval: 5000,
     retry: 3,
-    staleTime: 0
+    staleTime: 1000 * 60 * 5 // 5 minutes
   });
 
   if (sentLoading || receivedLoading || sentError || receivedError) {

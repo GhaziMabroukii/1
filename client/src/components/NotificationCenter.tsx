@@ -28,7 +28,7 @@ interface NotificationCenterProps {
 export function NotificationCenter({ userId }: NotificationCenterProps) {
   const [, navigate] = useLocation();
 
-  // Fetch notifications with polling for real-time updates
+  // Fetch notifications - real-time updates via WebSocket
   const { data: notifications = [], refetch } = useQuery({
     queryKey: ['/api/notifications', userId],
     queryFn: async () => {
@@ -39,9 +39,7 @@ export function NotificationCenter({ userId }: NotificationCenterProps) {
       if (!response.ok) throw new Error('Failed to fetch notifications');
       return response.json() as Notification[];
     },
-    refetchInterval: 5000, // Poll every 5 seconds for real-time updates
-    staleTime: 0,
-    gcTime: 0,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   const markReadMutation = useMutation({

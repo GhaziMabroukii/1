@@ -63,6 +63,22 @@ const requireAuth = async (req: any, res: any, next: any) => {
   }
 };
 
+// WebSocket connection management
+const wsConnections = new Map<number, WebSocket>(); // userId -> WebSocket
+const wsAuthenticated = new Map<WebSocket, number>(); // WebSocket -> userId
+
+// Real-time event broadcasting
+function broadcastToUser(userId: number, event: string, data: any) {
+  const ws = wsConnections.get(userId);
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ event, data }));
+  }
+}
+
+function broadcastToUsers(userIds: number[], event: string, data: any) {
+  userIds.forEach(userId => broadcastToUser(userId, event, data));
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Properties routes
   app.get("/api/properties", async (req, res) => {
@@ -94,6 +110,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertPropertySchema.parse(req.body);
       console.log("Validated property data:", JSON.stringify(validatedData, null, 2));
       const property = await storage.createProperty(validatedData);
+      
+      // Real-time notification to owner
+      broadcastToUser(property.ownerId, 'property_created', property);
+      
       res.status(201).json(property);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -113,6 +133,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!property) {
         return res.status(404).json({ error: "Property not found" });
       }
+      
+      // Real-time notification to owner
+      broadcastToUser(property.ownerId, 'property_updated', property);
+      
       res.json(property);
     } catch (error) {
       res.status(500).json({ error: "Failed to update property" });
@@ -208,7 +232,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const property = await storage.getProperty(validatedData.propertyId);
       
       // Notify owner about new offer
-      await storage.createNotification({
+      const ownerNotification = await storage.createNotification({
         userId: validatedData.ownerId,
         title: "Nouvelle offre reçue",
         message: `Un locataire a envoyé une offre pour votre propriété ${property?.title || ''}.`,
@@ -217,13 +241,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Notify tenant about their sent offer
-      await storage.createNotification({
+      const tenantNotification = await storage.createNotification({
         userId: validatedData.tenantId,
         title: "Nouvelle offre envoyée",
         message: `Vous avez envoyé une offre au propriétaire pour ${property?.title || 'la propriété'}.`,
         type: "offer",
         relatedId: offer.id,
       });
+      
+      // Real-time broadcasting
+      broadcastToUser(validatedData.ownerId, 'new_offer', offer);
+      broadcastToUser(validatedData.ownerId, 'new_notification', ownerNotification);
+      broadcastToUser(validatedData.tenantId, 'offer_sent', offer);
+      broadcastToUser(validatedData.tenantId, 'new_notification', tenantNotification);
       
       res.status(201).json(offer);
     } catch (error) {
@@ -249,7 +279,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create notifications for both parties
       if (status === 'accepted') {
         // Notify tenant about acceptance
-        await storage.createNotification({
+        const tenantNotification = await storage.createNotification({
           userId: offer.tenantId,
           title: "Offre acceptée",
           message: "Votre offre a été acceptée! Vous pouvez maintenant demander un contrat.",
@@ -258,16 +288,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         // Notify owner about acceptance confirmation
-        await storage.createNotification({
+        const ownerNotification = await storage.createNotification({
           userId: offer.ownerId,
           title: "Offre acceptée",
           message: "Vous avez accepté l'offre. Le locataire peut maintenant demander un contrat.",
           type: "offer",
           relatedId: offer.id,
         });
+        
+        // Real-time broadcasting
+        broadcastToUser(offer.tenantId, 'offer_accepted', offer);
+        broadcastToUser(offer.tenantId, 'new_notification', tenantNotification);
+        broadcastToUser(offer.ownerId, 'offer_update', offer);
+        broadcastToUser(offer.ownerId, 'new_notification', ownerNotification);
       } else if (status === 'rejected') {
         // Notify tenant about rejection
-        await storage.createNotification({
+        const tenantNotification = await storage.createNotification({
           userId: offer.tenantId,
           title: "Offre refusée",
           message: "Votre offre a été refusée. Vous pouvez faire une nouvelle offre.",
@@ -276,13 +312,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         // Notify owner about rejection confirmation
-        await storage.createNotification({
+        const ownerNotification = await storage.createNotification({
           userId: offer.ownerId,
           title: "Offre refusée",
           message: "Vous avez refusé l'offre.",
           type: "offer",
           relatedId: offer.id,
         });
+        
+        // Real-time broadcasting
+        broadcastToUser(offer.tenantId, 'offer_rejected', offer);
+        broadcastToUser(offer.tenantId, 'new_notification', tenantNotification);
+        broadcastToUser(offer.ownerId, 'offer_update', offer);
+        broadcastToUser(offer.ownerId, 'new_notification', ownerNotification);
       }
 
       res.json(offer);
@@ -400,13 +442,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const contract = await storage.createContract(validatedData);
       
       // Create notification for tenant
-      await storage.createNotification({
+      const tenantNotification = await storage.createNotification({
         userId: contract.tenantId,
         title: "Contrat créé",
         message: "Un contrat a été créé pour votre offre. Attendez la signature du propriétaire.",
         type: "contract",
         relatedId: contract.id,
       });
+      
+      // Real-time broadcasting
+      broadcastToUser(contract.tenantId, 'contract_created', contract);
+      broadcastToUser(contract.tenantId, 'new_notification', tenantNotification);
+      broadcastToUser(contract.ownerId, 'contract_created', contract);
 
       res.status(201).json(contract);
     } catch (error) {
@@ -443,6 +490,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       const contract = await storage.updateContract(id, { ...updates, ...resetSignature });
+      
+      // Real-time broadcasting
+      broadcastToUser(contract.tenantId, 'contract_updated', contract);
+      broadcastToUser(contract.ownerId, 'contract_updated', contract);
+      
       res.json(contract);
     } catch (error) {
       res.status(500).json({ error: "Failed to update contract" });
@@ -524,19 +576,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(notifications);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch notifications" });
-    }
-  });
-
-  app.put("/api/notifications/:id/read", async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const success = await storage.markNotificationRead(id);
-      if (!success) {
-        return res.status(404).json({ error: "Notification not found" });
-      }
-      res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to mark notification as read" });
     }
   });
 
@@ -2675,9 +2714,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
   
-  // WebSocket server for real-time messaging
+  // WebSocket server setup with authentication and real-time events
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
-  const clients = new Map<number, WebSocket>();
   
   wss.on('connection', (ws: WebSocket, req) => {
     console.log('WebSocket client connected');
@@ -2686,13 +2724,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const data = JSON.parse(message);
         
-        if (data.type === 'auth') {
-          // Store client with user ID for targeted messaging
-          const userId = data.userId;
-          clients.set(userId, ws);
-          console.log(`User ${userId} connected to WebSocket`);
-          
-          ws.send(JSON.stringify({ type: 'auth_success', userId }));
+        if (data.type === 'auth' && data.token) {
+          // Authenticate the WebSocket connection
+          const tokenParts = data.token.split('_');
+          if (tokenParts.length >= 4 && tokenParts[0] === 'session') {
+            const userId = parseInt(tokenParts[1]);
+            const userType = tokenParts[2];
+            
+            // Store authenticated connection
+            wsConnections.set(userId, ws);
+            wsAuthenticated.set(ws, userId);
+            
+            console.log(`User ${userId} (${userType}) authenticated on WebSocket`);
+            ws.send(JSON.stringify({ event: 'auth_success', data: { userId, userType } }));
+            
+            // Send initial data
+            ws.send(JSON.stringify({ event: 'connection_established', data: { userId, timestamp: new Date().toISOString() } }));
+          } else {
+            ws.send(JSON.stringify({ event: 'auth_error', data: { message: 'Invalid token' } }));
+            ws.close();
+          }
         }
       } catch (error) {
         console.error('WebSocket message error:', error);
@@ -2700,29 +2751,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
     
     ws.on('close', () => {
-      // Remove client from map when disconnected
-      for (const [userId, client] of clients.entries()) {
-        if (client === ws) {
-          clients.delete(userId);
-          console.log(`User ${userId} disconnected from WebSocket`);
-          break;
-        }
+      const userId = wsAuthenticated.get(ws);
+      if (userId) {
+        wsConnections.delete(userId);
+        wsAuthenticated.delete(ws);
+        console.log(`User ${userId} disconnected from WebSocket`);
+      }
+    });
+    
+    ws.on('error', (error) => {
+      console.error('WebSocket error:', error);
+      const userId = wsAuthenticated.get(ws);
+      if (userId) {
+        wsConnections.delete(userId);
+        wsAuthenticated.delete(ws);
       }
     });
   });
-  
-  // Function to broadcast message to specific users
-  const broadcastToUsers = (userIds: number[], message: any) => {
-    userIds.forEach(userId => {
-      const client = clients.get(userId);
-      if (client && client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify(message));
-      }
-    });
-  };
-  
-  // Store broadcast function for use in routes
-  (httpServer as any).broadcastToUsers = broadcastToUsers;
   
   return httpServer;
 }
