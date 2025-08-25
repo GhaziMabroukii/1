@@ -229,14 +229,17 @@ const MapView = () => {
 
   const createPropertyIcon = (property: any) => {
     const type = property.type?.toLowerCase() || 'apartment';
-    const typeIcons = {
+    const typeIcons: { [key: string]: string } = {
       'studio': '🏠',
       'apartment': '🏢', 
       'appartement': '🏢',
       'villa': '🏡',
       'maison': '🏘️',
       'maison_ete': '🏖️',
-      'chambre': '🛏️'
+      'chambre': '🛏️',
+      'bureau': '🏢',
+      'magasin': '🏪',
+      'shop': '🏪'
     };
     
     const icon = typeIcons[type] || '🏢';
@@ -312,10 +315,19 @@ const MapView = () => {
 
   // Update markers when filtered properties change
   useEffect(() => {
-    if (mapInstance.current) {
+    if (mapInstance.current && filteredProperties.length > 0) {
+      console.log("Updating markers due to filteredProperties change:", filteredProperties.length);
       updateMapMarkers();
     }
   }, [filteredProperties]);
+
+  // Ensure markers are updated after properties are loaded
+  useEffect(() => {
+    if (mapInstance.current && properties.length > 0 && !loading) {
+      console.log("Properties loaded, updating markers:", properties.length);
+      setTimeout(() => updateMapMarkers(), 500);
+    }
+  }, [properties, loading]);
 
   return (
     <div className="min-h-screen bg-background">

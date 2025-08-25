@@ -55,7 +55,7 @@ const AddProperty = () => {
     propertyTags: [] as string[], // New enhanced tagging system
     rules: [] as string[],
     images: [] as File[],
-    category: "" as "student" | "family" | "summer" | "mountain" | "camping",
+    category: "" as "student" | "family" | "summer" | "mountain" | "camping" | "work",
     categoryDetails: {
       faculty: "",
       distanceToFaculty: "",
@@ -141,7 +141,8 @@ const AddProperty = () => {
     { id: "family", label: "Famille", icon: <Users className="h-5 w-5" />, description: "Logement familial" },
     { id: "summer", label: "Maison d'été", icon: <Waves className="h-5 w-5" />, description: "Résidence de vacances" },
     { id: "mountain", label: "Montagne", icon: <Mountain className="h-5 w-5" />, description: "Logement en montagne" },
-    { id: "camping", label: "Camping", icon: <Tent className="h-5 w-5" />, description: "Emplacement camping" }
+    { id: "camping", label: "Camping", icon: <Tent className="h-5 w-5" />, description: "Emplacement camping" },
+    { id: "work", label: "Travail", icon: <Star className="h-5 w-5" />, description: "Biens commerciaux et bureaux" }
   ];
 
   const furnitureItems = [

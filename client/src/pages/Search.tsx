@@ -712,6 +712,7 @@ const Search = () => {
                       <SelectItem value="summer">🏖️ Maison d'été</SelectItem>
                       <SelectItem value="mountain">⛰️ Montagne</SelectItem>
                       <SelectItem value="camping">🏕️ Camping</SelectItem>
+              <SelectItem value="work">💼 Travail</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
