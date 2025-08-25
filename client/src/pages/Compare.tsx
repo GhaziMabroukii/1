@@ -76,17 +76,23 @@ const Compare = () => {
   });
 
   const getAmenityIcon = (amenity: string) => {
+    if (!amenity || typeof amenity !== 'string') return <CheckCircle className="h-4 w-4" />;
+    
     switch (amenity.toLowerCase()) {
       case "wifi": return <Wifi className="h-4 w-4" />;
       case "parking": return <Car className="h-4 w-4" />;
+      case "climatisation": return <Shield className="h-4 w-4" />;
       case "security": return <Shield className="h-4 w-4" />;
       default: return <CheckCircle className="h-4 w-4" />;
     }
   };
 
   const getPropertyTypeIcon = (type: string) => {
+    if (!type || typeof type !== 'string') return "🏠";
+    
     switch (type.toLowerCase()) {
       case "studio": return "🏠";
+      case "appartement": return "🏢";
       case "apartment": return "🏢";
       case "villa": return "🏡";
       default: return "🏠";
@@ -174,7 +180,7 @@ const Compare = () => {
                   
                   {/* Property Type Badge */}
                   <Badge className="absolute top-3 left-3 bg-white/90 text-gray-800">
-                    {getPropertyTypeIcon(property.type)} {property.type}
+                    {getPropertyTypeIcon(property.type || 'inconnu')} {property.type || 'Type inconnu'}
                   </Badge>
                 </div>
 
@@ -187,7 +193,7 @@ const Compare = () => {
                 {/* Price */}
                 <div className="mb-4">
                   <div className="text-2xl font-bold bg-gradient-to-r from-primary to-orange-500 bg-clip-text text-transparent">
-                    {formatPrice(property.price)} TND/{property.priceType}
+                    {formatPrice(property.price)} TND/{property.priceType || 'mois'}
                   </div>
                 </div>
 
@@ -256,7 +262,7 @@ const Compare = () => {
                       {property.amenities.slice(0, 6).map((amenity: string, idx: number) => (
                         <div key={idx} className="flex items-center gap-1 bg-white/70 px-2 py-1 rounded-full border text-xs">
                           {getAmenityIcon(amenity)}
-                          <span>{amenity}</span>
+                          <span>{amenity || 'Équipement'}</span>
                         </div>
                       ))}
                       {property.amenities.length > 6 && (
@@ -299,9 +305,9 @@ const Compare = () => {
                     </div>
                     <span className="text-sm text-gray-600">{property.owner || 'Propriétaire'}</span>
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-green-600">
+                  <div className={`flex items-center gap-1 text-xs ${property.ownerVerified ? 'text-green-600' : 'text-gray-500'}`}>
                     <CheckCircle className="h-3 w-3" />
-                    <span>Vérifié</span>
+                    <span>{property.ownerVerified ? 'Vérifié' : 'Non vérifié'}</span>
                   </div>
                 </div>
 
