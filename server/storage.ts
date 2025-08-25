@@ -1,10 +1,10 @@
 import { 
-  users, properties, offers, contracts, notifications, conversations, messages, userBlocks, userSessions, userFavorites,
+  users, properties, offers, contracts, notifications, conversations, messages, userBlocks, userSessions, userFavorites, reviews,
   type User, type InsertUser, type Property, type InsertProperty,
   type Offer, type InsertOffer, type Contract, type InsertContract,
   type Notification, type InsertNotification, type Message, type InsertMessage,
   type UserBlock, type InsertUserBlock, type UserSession, type InsertUserSession,
-  type UserFavorite, type InsertUserFavorite
+  type UserFavorite, type InsertUserFavorite, type Review
 } from "@shared/schema";
 // Database is only available in production
 let db: any = null;
@@ -95,6 +95,13 @@ export interface IStorage {
   removeFromFavorites(userId: number, propertyId: number): Promise<boolean>;
   getUserFavorites(userId: number): Promise<Property[]>;
   isPropertyFavorited(userId: number, propertyId: number): Promise<boolean>;
+
+  // Review operations
+  getPropertyReviews(propertyId: number): Promise<Review[]>;
+  createReview(review: any): Promise<Review>;
+  getReview(id: number): Promise<Review | undefined>;
+  updateReview(id: number, updates: Partial<Review>): Promise<Review | undefined>;
+  deleteReview(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -768,6 +775,41 @@ export class DatabaseStorage implements IStorage {
     
     return searchResults.filter(user => !blockedUsers.includes(user.id));
   }
+
+  // Review operations
+  async getPropertyReviews(propertyId: number): Promise<Review[]> {
+    return await db.select()
+      .from(reviews)
+      .where(eq(reviews.propertyId, propertyId))
+      .orderBy(desc(reviews.createdAt));
+  }
+
+  async createReview(review: any): Promise<Review> {
+    const [newReview] = await db
+      .insert(reviews)
+      .values(review)
+      .returning();
+    return newReview;
+  }
+
+  async getReview(id: number): Promise<Review | undefined> {
+    const [review] = await db.select().from(reviews).where(eq(reviews.id, id));
+    return review || undefined;
+  }
+
+  async updateReview(id: number, updates: Partial<Review>): Promise<Review | undefined> {
+    const [updated] = await db
+      .update(reviews)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(reviews.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteReview(id: number): Promise<boolean> {
+    const result = await db.delete(reviews).where(eq(reviews.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
 }
 
 // In-memory storage implementation for development
@@ -783,6 +825,7 @@ export class MemStorage implements IStorage {
   private userBlocks: any[] = [];
   private userSessions: any[] = [];
   private userFavorites: UserFavorite[] = [];
+  private reviews: Review[] = [];
   private nextId = 1;
 
   constructor() {
@@ -1062,6 +1105,195 @@ export class MemStorage implements IStorage {
         createdAt: new Date(Date.now() - 5 * 60 * 1000)
       }
     ];
+
+    // Initialize sample reviews for properties
+    this.reviews = [
+      {
+        id: 1,
+        propertyId: 1,
+        userId: 3,
+        rating: 5,
+        comment: "Appartement magnifique avec une vue imprenable ! Le propriétaire est très accueillant et l'emplacement est parfait pour mes études. Je recommande vivement ! 🏠✨",
+        createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+        updatedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000)
+      },
+      {
+        id: 2,
+        propertyId: 1,
+        userId: 4,
+        rating: 4,
+        comment: "Très bon logement, bien situé près des transports. Quelques petits détails à améliorer mais dans l'ensemble très satisfait de mon séjour.",
+        createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
+        updatedAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000)
+      },
+      {
+        id: 3,
+        propertyId: 2,
+        userId: 5,
+        rating: 5,
+        comment: "Studio parfait pour un étudiant ! Tout est inclus, très propre et le propriétaire répond rapidement. L'université est à 5 minutes à pied. Top ! 🎓",
+        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+        updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000)
+      },
+      {
+        id: 4,
+        propertyId: 2,
+        userId: 6,
+        rating: 4,
+        comment: "Bon studio dans l'ensemble. La cuisine est un peu petite mais tout le nécessaire y est. Parking facile et quartier calme.",
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+        updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
+      }
+    ];
+
+    // Add some additional users for the reviews
+    const additionalUsers = [
+      {
+        id: 3,
+        username: "ahmed.ben@example.com",
+        password: hashedPassword,
+        email: "ahmed.ben@example.com",
+        firstName: "Ahmed",
+        lastName: "Ben Ali",
+        phone: "+216 22 123 456",
+        userType: "tenant",
+        profilePicture: null,
+        documentNumber: "12345679",
+        bio: "Étudiant en médecine",
+        isVerified: true,
+        verificationScore: 85,
+        emailVerified: true,
+        emailVerificationCode: null,
+        phoneVerified: true,
+        phoneVerificationCode: null,
+        documentVerified: true,
+        identityScore: 90,
+        backgroundCheckScore: 85,
+        referencesScore: 80,
+        criminalRecordCheck: true,
+        incomeVerified: false,
+        studentStatus: true,
+        employmentStatus: null,
+        monthlyIncome: null,
+        guarantorInfo: null,
+        emergencyContact: null,
+        preferences: null,
+        tags: null,
+        lastLoginAt: null,
+        createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+        updatedAt: new Date()
+      },
+      {
+        id: 4,
+        username: "fatma.k@example.com",
+        password: hashedPassword,
+        email: "fatma.k@example.com",
+        firstName: "Fatma",
+        lastName: "Khelifi",
+        phone: "+216 25 987 654",
+        userType: "tenant",
+        profilePicture: null,
+        documentNumber: "12345680",
+        bio: "Jeune professionnelle",
+        isVerified: true,
+        verificationScore: 92,
+        emailVerified: true,
+        emailVerificationCode: null,
+        phoneVerified: true,
+        phoneVerificationCode: null,
+        documentVerified: true,
+        identityScore: 95,
+        backgroundCheckScore: 90,
+        referencesScore: 90,
+        criminalRecordCheck: true,
+        incomeVerified: true,
+        studentStatus: false,
+        employmentStatus: "employed",
+        monthlyIncome: 1500,
+        guarantorInfo: null,
+        emergencyContact: null,
+        preferences: null,
+        tags: null,
+        lastLoginAt: null,
+        createdAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
+        updatedAt: new Date()
+      },
+      {
+        id: 5,
+        username: "youssef.m@example.com",
+        password: hashedPassword,
+        email: "youssef.m@example.com",
+        firstName: "Youssef",
+        lastName: "Mejri",
+        phone: "+216 28 456 789",
+        userType: "tenant",
+        profilePicture: null,
+        documentNumber: "12345681",
+        bio: "Étudiant en informatique",
+        isVerified: true,
+        verificationScore: 78,
+        emailVerified: true,
+        emailVerificationCode: null,
+        phoneVerified: true,
+        phoneVerificationCode: null,
+        documentVerified: true,
+        identityScore: 80,
+        backgroundCheckScore: 75,
+        referencesScore: 80,
+        criminalRecordCheck: true,
+        incomeVerified: false,
+        studentStatus: true,
+        employmentStatus: null,
+        monthlyIncome: null,
+        guarantorInfo: null,
+        emergencyContact: null,
+        preferences: null,
+        tags: null,
+        lastLoginAt: null,
+        createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+        updatedAt: new Date()
+      },
+      {
+        id: 6,
+        username: "leila.s@example.com",
+        password: hashedPassword,
+        email: "leila.s@example.com",
+        firstName: "Leila",
+        lastName: "Sassi",
+        phone: "+216 24 789 123",
+        userType: "tenant",
+        profilePicture: null,
+        documentNumber: "12345682",
+        bio: "Étudiante en architecture",
+        isVerified: true,
+        verificationScore: 88,
+        emailVerified: true,
+        emailVerificationCode: null,
+        phoneVerified: true,
+        phoneVerificationCode: null,
+        documentVerified: true,
+        identityScore: 85,
+        backgroundCheckScore: 90,
+        referencesScore: 90,
+        criminalRecordCheck: true,
+        incomeVerified: false,
+        studentStatus: true,
+        employmentStatus: null,
+        monthlyIncome: null,
+        guarantorInfo: null,
+        emergencyContact: null,
+        preferences: null,
+        tags: null,
+        lastLoginAt: null,
+        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+        updatedAt: new Date()
+      }
+    ];
+
+    this.users.push(...additionalUsers);
+    
+    // Update nextId to avoid conflicts
+    this.nextId = 100;
   }
 
   private getNextId() {
@@ -1853,6 +2085,53 @@ export class MemStorage implements IStorage {
 
   async isPropertyFavorited(userId: number, propertyId: number): Promise<boolean> {
     return this.userFavorites.some(f => f.userId === userId && f.propertyId === propertyId);
+  }
+
+  // Review operations
+  async getPropertyReviews(propertyId: number): Promise<Review[]> {
+    return this.reviews
+      .filter(r => r.propertyId === propertyId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async createReview(reviewData: any): Promise<Review> {
+    const review: Review = {
+      id: this.getNextId(),
+      propertyId: reviewData.propertyId,
+      userId: reviewData.userId,
+      rating: reviewData.rating,
+      comment: reviewData.comment,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    this.reviews.push(review);
+    return review;
+  }
+
+  async getReview(id: number): Promise<Review | undefined> {
+    return this.reviews.find(r => r.id === id);
+  }
+
+  async updateReview(id: number, updates: Partial<Review>): Promise<Review | undefined> {
+    const index = this.reviews.findIndex(r => r.id === id);
+    if (index === -1) return undefined;
+    
+    this.reviews[index] = {
+      ...this.reviews[index],
+      ...updates,
+      updatedAt: new Date()
+    };
+    
+    return this.reviews[index];
+  }
+
+  async deleteReview(id: number): Promise<boolean> {
+    const index = this.reviews.findIndex(r => r.id === id);
+    if (index === -1) return false;
+    
+    this.reviews.splice(index, 1);
+    return true;
   }
 }
 

@@ -1763,10 +1763,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/properties/:id/reviews", async (req, res) => {
     try {
       const propertyId = parseInt(req.params.id);
-      const reviewsList = await db.select()
-        .from(reviews)
-        .where(eq(reviews.propertyId, propertyId))
-        .orderBy(desc(reviews.createdAt));
+      const reviewsList = await storage.getPropertyReviews(propertyId);
       res.json(reviewsList);
     } catch (error) {
       console.error("Reviews fetch error:", error);
@@ -1777,7 +1774,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/reviews", async (req, res) => {
     try {
       const validatedData = insertReviewSchema.parse(req.body);
-      const [review] = await db.insert(reviews).values(validatedData).returning();
+      const review = await storage.createReview(validatedData);
       res.status(201).json(review);
     } catch (error) {
       if (error instanceof z.ZodError) {
