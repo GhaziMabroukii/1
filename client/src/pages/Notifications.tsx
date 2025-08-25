@@ -56,19 +56,58 @@ const Notifications = () => {
     }
   });
 
+  // Mark all notifications as read mutation
+  const markAllAsReadMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('/api/notifications/mark-all-read', {
+        method: 'PUT',
+        body: JSON.stringify({ userId: currentUserId }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+      toast({
+        title: "Notifications marquées comme lues",
+        description: "Toutes vos notifications ont été marquées comme lues.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erreur",
+        description: "Impossible de marquer toutes les notifications comme lues.",
+        variant: "destructive",
+      });
+    }
+  });
+
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'contract':
       case 'contract_signature_required':
       case 'contract_expired':
       case 'contract_modified':
+      case 'contract_active':
+      case 'contract_terminated':
         return <FileText className="h-4 w-4" />;
       case 'message':
+      case 'new_message':
         return <MessageSquare className="h-4 w-4" />;
       case 'property':
+      case 'property_updated':
+      case 'property_favorite':
         return <Home className="h-4 w-4" />;
-      case 'payment':
+      case 'offer':
+      case 'offer_accepted':
+      case 'offer_rejected':
         return <DollarSign className="h-4 w-4" />;
+      case 'payment':
+      case 'payment_received':
+      case 'payment_due':
+        return <DollarSign className="h-4 w-4" />;
+      case 'verification':
+      case 'user_verified':
+        return <Bell className="h-4 w-4" />;
       default:
         return <Bell className="h-4 w-4" />;
     }
@@ -78,13 +117,33 @@ const Notifications = () => {
     switch (type) {
       case 'contract':
       case 'contract_signature_required':
+      case 'contract_active':
         return 'text-blue-600';
       case 'contract_expired':
+      case 'contract_terminated':
         return 'text-red-600';
       case 'contract_modified':
         return 'text-yellow-600';
       case 'message':
+      case 'new_message':
         return 'text-green-600';
+      case 'property':
+      case 'property_updated':
+      case 'property_favorite':
+        return 'text-purple-600';
+      case 'offer':
+      case 'offer_accepted':
+        return 'text-blue-600';
+      case 'offer_rejected':
+        return 'text-red-600';
+      case 'payment':
+      case 'payment_received':
+        return 'text-green-600';
+      case 'payment_due':
+        return 'text-orange-600';
+      case 'verification':
+      case 'user_verified':
+        return 'text-indigo-600';
       default:
         return 'text-gray-600';
     }
@@ -96,25 +155,74 @@ const Notifications = () => {
       markAsReadMutation.mutate(notification.id);
     }
 
-    // Navigate based on type
-    switch (notification.type) {
-      case 'contract':
-      case 'contract_signature_required':
-      case 'contract_modified':
-        if (notification.relatedId) {
-          navigate(`/contract/${notification.relatedId}`);
-        } else {
-          navigate('/contracts');
-        }
-        break;
-      case 'message':
-        navigate('/messages');
-        break;
-      case 'property':
-        navigate('/manage-properties');
-        break;
-      default:
-        break;
+    // Smart navigation based on type and context
+    try {
+      switch (notification.type) {
+        case 'contract':
+        case 'contract_signature_required':
+        case 'contract_modified':
+        case 'contract_active':
+        case 'contract_expired':
+          if (notification.relatedId) {
+            navigate(`/contract/${notification.relatedId}`);
+          } else {
+            navigate('/contracts');
+          }
+          break;
+          
+        case 'message':
+        case 'new_message':
+          if (notification.relatedId) {
+            // Navigate to specific conversation
+            navigate(`/conversation/${notification.relatedId}`);
+          } else {
+            navigate('/messages');
+          }
+          break;
+          
+        case 'property':
+        case 'property_updated':
+        case 'property_favorite':
+          if (notification.relatedId) {
+            navigate(`/property/${notification.relatedId}`);
+          } else {
+            navigate('/search');
+          }
+          break;
+          
+        case 'offer':
+        case 'offer_accepted':
+        case 'offer_rejected':
+          if (notification.relatedId) {
+            navigate(`/offer/${notification.relatedId}`);
+          } else {
+            navigate('/dashboard');
+          }
+          break;
+          
+        case 'verification':
+        case 'user_verified':
+          navigate('/profile');
+          break;
+          
+        case 'payment':
+        case 'payment_received':
+        case 'payment_due':
+          navigate('/payments');
+          break;
+          
+        default:
+          // Fallback to dashboard for unknown types
+          navigate('/dashboard');
+          break;
+      }
+    } catch (error) {
+      console.error('Navigation error:', error);
+      toast({
+        title: "Erreur de navigation",
+        description: "Impossible de naviguer vers le contenu. Essayez de nouveau.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -172,6 +280,15 @@ const Notifications = () => {
               Restez informé de toutes vos activités de location
             </p>
           </div>
+          {unreadCount > 0 && (
+            <Button
+              onClick={() => markAllAsReadMutation.mutate()}
+              disabled={markAllAsReadMutation.isPending}
+              variant="outline"
+            >
+              {markAllAsReadMutation.isPending ? 'Marquage...' : 'Tout marquer comme lu'}
+            </Button>
+          )}
         </div>
 
         {/* Notifications List */}

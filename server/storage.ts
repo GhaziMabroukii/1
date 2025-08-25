@@ -1381,6 +1381,21 @@ export class MemStorage implements IStorage {
     return true;
   }
 
+  async markAllNotificationsRead(userId: number): Promise<boolean> {
+    this.notifications
+      .filter(notification => notification.userId === userId && !notification.read)
+      .forEach(notification => {
+        const index = this.notifications.findIndex(n => n.id === notification.id);
+        if (index !== -1) {
+          this.notifications[index] = {
+            ...this.notifications[index],
+            read: true
+          };
+        }
+      });
+    return true;
+  }
+
   // Conversation operations
   async getConversations(userId: number): Promise<any[]> {
     const userConversations = this.conversations.filter(conv => 

@@ -579,13 +579,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Notifications routes
+  // Enhanced Notifications routes
   app.get("/api/notifications", async (req, res) => {
     try {
       const userId = parseInt(req.query.userId as string);
+      if (!userId || isNaN(userId)) {
+        return res.status(400).json({ error: "Valid user ID is required" });
+      }
+      
       const notifications = await storage.getNotifications(userId);
-      res.json(notifications);
+      
+      // Filter out contract request notifications (they stay in "mes demandes")
+      const filteredNotifications = notifications.filter((notification: any) => 
+        !['contract_termination_request', 'contract_renewal_request'].includes(notification.type)
+      );
+      
+      res.json(filteredNotifications);
     } catch (error) {
+      console.error("Error fetching notifications:", error);
       res.status(500).json({ error: "Failed to fetch notifications" });
     }
   });
@@ -593,13 +604,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/notifications/:id/read", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      if (!id || isNaN(id)) {
+        return res.status(400).json({ error: "Valid notification ID is required" });
+      }
+      
       const success = await storage.markNotificationRead(id);
       if (!success) {
         return res.status(404).json({ error: "Notification not found" });
       }
       res.json({ success: true });
     } catch (error) {
+      console.error("Error marking notification as read:", error);
       res.status(500).json({ error: "Failed to mark notification as read" });
+    }
+  });
+
+  // Mark all notifications as read
+  app.put("/api/notifications/mark-all-read", async (req, res) => {
+    try {
+      const userId = parseInt(req.body.userId);
+      if (!userId || isNaN(userId)) {
+        return res.status(400).json({ error: "Valid user ID is required" });
+      }
+      
+      const success = await storage.markAllNotificationsRead(userId);
+      res.json({ success, message: "All notifications marked as read" });
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      res.status(500).json({ error: "Failed to mark all notifications as read" });
     }
   });
 
@@ -1595,6 +1627,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const conversation = await storage.getConversation(conversationId);
       if (conversation) {
         const participants = [conversation.tenantId, conversation.ownerId];
+        
+        // Get sender information for notification
+        const sender = await storage.getUser(senderId);
+        const senderName = sender ? `${sender.firstName} ${sender.lastName}` : 'Un utilisateur';
+        
+        // Create notification for recipient (exclude sender)
+        const recipientId = conversation.tenantId === senderId ? conversation.ownerId : conversation.tenantId;
+        
+        await storage.createNotification({
+          userId: recipientId,
+          title: "Nouveau message",
+          message: `${senderName} vous a envoyé un message: "${content.substring(0, 100)}${content.length > 100 ? '...' : ''}"`,
+          type: "new_message",
+          relatedId: conversationId,
+        });
         
         // Broadcast real-time message to participants
         const server = req.app.get('server') || (req as any).server;
@@ -2762,6 +2809,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const favorite = await storage.addToFavorites(parseInt(userId), propertyId);
+      
+      // Create notification for property owner that their property was favorited
+      if (property.ownerId && property.ownerId !== parseInt(userId)) {
+        await storage.createNotification({
+          userId: property.ownerId,
+          title: "Propriété mise en favoris",
+          message: `Votre propriété "${property.title}" a été ajoutée aux favoris par un utilisateur.`,
+          type: "property_favorite",
+          relatedId: propertyId,
+        });
+      }
       
       // Broadcast real-time update via WebSocket
       const ws = wsConnections.get(parseInt(userId));
