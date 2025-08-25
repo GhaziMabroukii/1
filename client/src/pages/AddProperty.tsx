@@ -48,9 +48,11 @@ const AddProperty = () => {
     rooms: "",
     bathrooms: "",
     address: "",
+    city: "", // New field for city selection
     location: { lat: 0, lng: 0 },
     locationMethod: "" as "current" | "map" | "text",
     amenities: [] as string[],
+    propertyTags: [] as string[], // New enhanced tagging system
     rules: [] as string[],
     images: [] as File[],
     category: "" as "student" | "family" | "summer" | "mountain" | "camping",
@@ -61,6 +63,26 @@ const AddProperty = () => {
       beach: "",
       mountainInfo: "",
       campingInfo: ""
+    },
+    // Type-specific fields
+    typeSpecific: {
+      // For offices
+      officeType: "" as "bureau" | "open_space" | "coworking" | "cabinet",
+      floorNumber: "",
+      accessHours: "",
+      meetingRooms: "",
+      // For commercial spaces
+      shopType: "" as "magasin" | "restaurant" | "cafe" | "salon" | "autre",
+      frontage: "",
+      storageSpace: "",
+      // For storage/garage
+      storageType: "" as "garage" | "cave" | "grenier" | "depot" | "entrepot",
+      vehicleCapacity: "",
+      accessType: "" as "pedestrian" | "vehicle" | "both",
+      // For guest houses
+      accommodationCapacity: "",
+      roomsCount: "",
+      serviceType: "" as "bed_breakfast" | "half_pension" | "full_pension" | "self_service"
     },
     furnished: false,
     furniture: [] as Array<{item: string, condition: "excellent" | "bon" | "acceptable"}>,
@@ -91,10 +113,10 @@ const AddProperty = () => {
       return;
     }
     
-    if (userType !== "owner") {
+    if (userType !== "owner" && userType !== "agency") {
       toast({
         title: "Accès refusé",
-        description: "Seuls les propriétaires peuvent ajouter des biens",
+        description: "Seuls les propriétaires et agences peuvent ajouter des biens",
         variant: "destructive",
       });
       navigate("/dashboard");
@@ -135,14 +157,32 @@ const AddProperty = () => {
   ];
 
   const propertyTypes = [
-    { value: "studio", label: "Studio" },
-    { value: "apartment", label: "Appartement" },
-    { value: "villa", label: "Villa" },
-    { value: "house", label: "Maison" },
-    { value: "vacation", label: "Maison de vacances" },
-    { value: "room", label: "Chambre" },
-    { value: "office", label: "Bureau" },
-    { value: "shop", label: "Local commercial" }
+    // Logements résidentiels
+    { value: "studio", label: "Studio", category: "residential" },
+    { value: "apartment", label: "Appartement", category: "residential" },
+    { value: "villa", label: "Villa", category: "residential" },
+    { value: "house", label: "Maison", category: "residential" },
+    { value: "room", label: "Chambre", category: "residential" },
+    
+    // Hébergement touristique
+    { value: "maison_dhotes", label: "Maison d'hôtes", category: "hospitality" },
+    { value: "vacation", label: "Maison de vacances", category: "hospitality" },
+    
+    // Commercial et professionnel
+    { value: "bureau", label: "Bureau", category: "commercial" },
+    { value: "magasin", label: "Magasin", category: "commercial" },
+    { value: "shop", label: "Local commercial", category: "commercial" },
+    
+    // Stockage et garage
+    { value: "garage", label: "Garage", category: "storage" },
+    { value: "depot", label: "Dépôt", category: "storage" },
+    { value: "warehouse", label: "Entrepôt", category: "storage" }
+  ];
+  
+  const propertyTags = [
+    "Proche université", "Centre ville", "Vue mer", "Jardin", "Piscine", "Moderne", 
+    "Traditionnel", "Luxe", "Économique", "Meublé", "Climatisé", "Sécurisé",
+    "Parking privé", "Ascenseur", "Terrasse", "Cave", "Balcon", "Récent", "Rénové"
   ];
 
   const handleInputChange = (field: string, value: any) => {
@@ -167,6 +207,59 @@ const AddProperty = () => {
         ? prev.amenities.filter(a => a !== amenityId)
         : [...prev.amenities, amenityId]
     }));
+  };
+  
+  const togglePropertyTag = (tagId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      propertyTags: prev.propertyTags.includes(tagId)
+        ? prev.propertyTags.filter(t => t !== tagId)
+        : [...prev.propertyTags, tagId]
+    }));
+  };
+  
+  // Get type-specific fields based on selected property type
+  const getTypeSpecificFields = (type: string) => {
+    const propertyType = propertyTypes.find(pt => pt.value === type);
+    if (!propertyType) return null;
+    
+    return propertyType.category;
+  };
+  
+  // Get appropriate amenities for property type
+  const getTypeSpecificAmenities = (type: string) => {
+    const baseAmenities = [...availableAmenities];
+    
+    if (type === "bureau" || type === "shop" || type === "magasin") {
+      return [
+        ...baseAmenities,
+        { id: "reception", label: "Réception", icon: <span>🏢</span> },
+        { id: "conference_room", label: "Salle de conférence", icon: <span>📊</span> },
+        { id: "printer", label: "Imprimante", icon: <span>🖨️</span> },
+        { id: "phone_line", label: "Ligne téléphonique", icon: <span>📞</span> }
+      ];
+    }
+    
+    if (type === "garage" || type === "depot" || type === "warehouse") {
+      return [
+        { id: "vehicle_access", label: "Accès véhicule", icon: <span>🚗</span> },
+        { id: "loading_dock", label: "Quai de chargement", icon: <span>🚚</span> },
+        { id: "shelving", label: "Étagères", icon: <span>📦</span> },
+        { id: "security_system", label: "Système de sécurité", icon: <span>🔒</span> }
+      ];
+    }
+    
+    if (type === "maison_dhotes" || type === "vacation") {
+      return [
+        ...baseAmenities,
+        { id: "pool", label: "Piscine", icon: <span>🏊</span> },
+        { id: "restaurant", label: "Restaurant", icon: <span>🍽️</span> },
+        { id: "spa", label: "Spa", icon: <span>💆</span> },
+        { id: "concierge", label: "Conciergerie", icon: <span>🛎️</span> }
+      ];
+    }
+    
+    return baseAmenities;
   };
 
   const addRule = () => {
@@ -317,11 +410,39 @@ const AddProperty = () => {
     }
   };
 
-  // Tunisian cities for quick navigation
+  // Complete list of 24 Tunisian governorates
   const tunisianCities = [
+    // Nord
     { name: "Tunis", lat: 36.8065, lng: 10.1815, region: "Nord" },
-    { name: "Sfax", lat: 34.7406, lng: 10.7603, region: "Centre" },
+    { name: "Ariana", lat: 36.8625, lng: 10.1947, region: "Nord" },
+    { name: "Ben Arous", lat: 36.7548, lng: 10.2174, region: "Nord" },
+    { name: "Manouba", lat: 36.8098, lng: 10.0965, region: "Nord" },
+    { name: "Nabeul", lat: 36.4561, lng: 10.7376, region: "Nord" },
+    { name: "Zaghouan", lat: 36.4028, lng: 10.1439, region: "Nord" },
+    { name: "Bizerte", lat: 37.2742, lng: 9.8739, region: "Nord" },
+    { name: "Béja", lat: 36.7258, lng: 9.1881, region: "Nord" },
+    
+    // Centre
     { name: "Sousse", lat: 35.8256, lng: 10.6367, region: "Centre" },
+    { name: "Monastir", lat: 35.7768, lng: 10.8262, region: "Centre" },
+    { name: "Mahdia", lat: 35.5044, lng: 11.0622, region: "Centre" },
+    { name: "Sfax", lat: 34.7406, lng: 10.7603, region: "Centre" },
+    { name: "Kairouan", lat: 35.6706, lng: 10.0965, region: "Centre" },
+    { name: "Kasserine", lat: 35.1675, lng: 8.8369, region: "Centre" },
+    { name: "Sidi Bouzid", lat: 35.0378, lng: 9.4856, region: "Centre" },
+    
+    // Sud
+    { name: "Gabès", lat: 33.8815, lng: 10.0982, region: "Sud" },
+    { name: "Médenine", lat: 33.3544, lng: 10.5055, region: "Sud" },
+    { name: "Tataouine", lat: 32.9297, lng: 10.4514, region: "Sud" },
+    { name: "Gafsa", lat: 34.4250, lng: 8.7842, region: "Sud" },
+    { name: "Tozeur", lat: 33.9197, lng: 8.1338, region: "Sud" },
+    { name: "Kebili", lat: 33.7044, lng: 8.9689, region: "Sud" },
+    
+    // Ouest
+    { name: "Le Kef", lat: 36.1697, lng: 8.7047, region: "Ouest" },
+    { name: "Jendouba", lat: 36.5011, lng: 8.7803, region: "Ouest" },
+    { name: "Siliana", lat: 36.0844, lng: 9.3708, region: "Ouest" },
     { name: "Kairouan", lat: 35.6781, lng: 10.0963, region: "Centre" },
     { name: "Bizerte", lat: 37.2746, lng: 9.8739, region: "Nord" },
     { name: "Gabès", lat: 33.8815, lng: 10.0982, region: "Sud" },
@@ -767,6 +888,248 @@ const AddProperty = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* City Selection */}
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle>Ville et localisation</CardTitle>
+                <p className="text-sm text-muted-foreground">Sélectionnez la ville où se trouve votre bien</p>
+              </CardHeader>
+              <CardContent>
+                <div>
+                  <Label htmlFor="city">Gouvernorat/Ville *</Label>
+                  <Select value={formData.city} onValueChange={(value) => handleInputChange('city', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choisir une ville" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tunisianCities.map(city => (
+                        <SelectItem key={city.name} value={city.name}>
+                          {city.name} ({city.region})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Property Tags */}
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle>Tags et caractéristiques</CardTitle>
+                <p className="text-sm text-muted-foreground">Ajoutez des tags pour faciliter la recherche</p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {propertyTags.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => togglePropertyTag(tag)}
+                      className={`p-2 text-sm rounded-lg border transition-all ${
+                        formData.propertyTags.includes(tag)
+                          ? "border-primary bg-primary text-white"
+                          : "border-gray-200 hover:border-primary/50 hover:bg-primary/5"
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Type-Specific Fields */}
+            {formData.type && getTypeSpecificFields(formData.type) && (
+              <Card className="glass-card">
+                <CardHeader>
+                  <CardTitle>Informations spécifiques - {propertyTypes.find(pt => pt.value === formData.type)?.label}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Office/Bureau specific fields */}
+                  {(formData.type === "bureau" || formData.type === "office") && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="officeType">Type de bureau</Label>
+                          <Select value={formData.typeSpecific.officeType} onValueChange={(value) => handleInputChange('typeSpecific.officeType', value)}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Sélectionner" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="bureau">Bureau individuel</SelectItem>
+                              <SelectItem value="open_space">Open space</SelectItem>
+                              <SelectItem value="coworking">Espace coworking</SelectItem>
+                              <SelectItem value="cabinet">Cabinet professionnel</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="floorNumber">Étage</Label>
+                          <Input
+                            id="floorNumber"
+                            value={formData.typeSpecific.floorNumber}
+                            onChange={(e) => handleInputChange('typeSpecific.floorNumber', e.target.value)}
+                            placeholder="ex: 3ème"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="accessHours">Heures d'accès</Label>
+                          <Input
+                            id="accessHours"
+                            value={formData.typeSpecific.accessHours}
+                            onChange={(e) => handleInputChange('typeSpecific.accessHours', e.target.value)}
+                            placeholder="ex: 24h/24, 8h-18h"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="meetingRooms">Salles de réunion</Label>
+                          <Input
+                            id="meetingRooms"
+                            value={formData.typeSpecific.meetingRooms}
+                            onChange={(e) => handleInputChange('typeSpecific.meetingRooms', e.target.value)}
+                            placeholder="ex: 2 salles"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Commercial/Shop specific fields */}
+                  {(formData.type === "magasin" || formData.type === "shop") && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="shopType">Type de commerce</Label>
+                          <Select value={formData.typeSpecific.shopType} onValueChange={(value) => handleInputChange('typeSpecific.shopType', value)}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Sélectionner" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="magasin">Magasin général</SelectItem>
+                              <SelectItem value="restaurant">Restaurant</SelectItem>
+                              <SelectItem value="cafe">Café</SelectItem>
+                              <SelectItem value="salon">Salon de beauté</SelectItem>
+                              <SelectItem value="autre">Autre</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="frontage">Vitrine (mètres)</Label>
+                          <Input
+                            id="frontage"
+                            type="number"
+                            value={formData.typeSpecific.frontage}
+                            onChange={(e) => handleInputChange('typeSpecific.frontage', e.target.value)}
+                            placeholder="ex: 5"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="storageSpace">Espace stockage</Label>
+                        <Input
+                          id="storageSpace"
+                          value={formData.typeSpecific.storageSpace}
+                          onChange={(e) => handleInputChange('typeSpecific.storageSpace', e.target.value)}
+                          placeholder="ex: Cave 20m², arrière-boutique"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Storage/Garage specific fields */}
+                  {(formData.type === "garage" || formData.type === "depot" || formData.type === "warehouse") && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="storageType">Type de stockage</Label>
+                          <Select value={formData.typeSpecific.storageType} onValueChange={(value) => handleInputChange('typeSpecific.storageType', value)}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Sélectionner" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="garage">Garage</SelectItem>
+                              <SelectItem value="cave">Cave</SelectItem>
+                              <SelectItem value="grenier">Grenier</SelectItem>
+                              <SelectItem value="depot">Dépôt</SelectItem>
+                              <SelectItem value="entrepot">Entrepôt</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="vehicleCapacity">Capacité véhicules</Label>
+                          <Input
+                            id="vehicleCapacity"
+                            type="number"
+                            value={formData.typeSpecific.vehicleCapacity}
+                            onChange={(e) => handleInputChange('typeSpecific.vehicleCapacity', e.target.value)}
+                            placeholder="ex: 2"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="accessType">Type d'accès</Label>
+                        <Select value={formData.typeSpecific.accessType} onValueChange={(value) => handleInputChange('typeSpecific.accessType', value)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Sélectionner" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pedestrian">Piéton uniquement</SelectItem>
+                            <SelectItem value="vehicle">Véhicule</SelectItem>
+                            <SelectItem value="both">Piéton et véhicule</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Guest house specific fields */}
+                  {formData.type === "maison_dhotes" && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="accommodationCapacity">Capacité d'hébergement</Label>
+                          <Input
+                            id="accommodationCapacity"
+                            type="number"
+                            value={formData.typeSpecific.accommodationCapacity}
+                            onChange={(e) => handleInputChange('typeSpecific.accommodationCapacity', e.target.value)}
+                            placeholder="ex: 12"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="roomsCount">Nombre de chambres</Label>
+                          <Input
+                            id="roomsCount"
+                            type="number"
+                            value={formData.typeSpecific.roomsCount}
+                            onChange={(e) => handleInputChange('typeSpecific.roomsCount', e.target.value)}
+                            placeholder="ex: 6"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="serviceType">Type de service</Label>
+                        <Select value={formData.typeSpecific.serviceType} onValueChange={(value) => handleInputChange('typeSpecific.serviceType', value)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Sélectionner" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="bed_breakfast">Bed & Breakfast</SelectItem>
+                            <SelectItem value="half_pension">Demi-pension</SelectItem>
+                            <SelectItem value="full_pension">Pension complète</SelectItem>
+                            <SelectItem value="self_service">Self-service</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Category Selection */}
             <Card className="glass-card">

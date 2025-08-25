@@ -164,21 +164,37 @@ export default function CreateContract() {
     }
   });
 
-  // Handle offer selection
+  // Auto-populate owner data from current user when component mounts
+  useEffect(() => {
+    if (currentUser) {
+      const ownerName = currentUser.userType === 'agency' 
+        ? currentUser.agencyName || `${currentUser.firstName} ${currentUser.lastName}`
+        : `${currentUser.firstName} ${currentUser.lastName}`;
+      
+      setContractData(prev => ({
+        ...prev,
+        landlordName: ownerName,
+        landlordCin: currentUser.documentNumber || "", // Auto-populate CIN if verified
+      }));
+    }
+  }, [currentUser]);
+  
+  // Handle offer selection with enhanced auto-population
   const handleOfferSelection = (offerId: string) => {
     const selectedOffer = contractRequests.find((offer: ContractRequest) => offer.id === parseInt(offerId));
     if (selectedOffer) {
       setSelectedOfferId(selectedOffer.id);
-      setContractData({
-        ...contractData,
+      setContractData(prev => ({
+        ...prev,
         tenantName: `${selectedOffer.tenant.firstName} ${selectedOffer.tenant.lastName}`,
+        tenantCin: selectedOffer.tenant.documentNumber || "", // Auto-populate tenant CIN if verified
         propertyTitle: selectedOffer.property.title,
         propertyAddress: selectedOffer.property.address,
         startDate: selectedOffer.startDate.split('T')[0], // Convert to YYYY-MM-DD format
         endDate: selectedOffer.endDate.split('T')[0],
         monthlyRent: selectedOffer.monthlyRent,
         deposit: selectedOffer.deposit || selectedOffer.monthlyRent,
-      });
+      }));
     }
   };
 
@@ -231,10 +247,10 @@ export default function CreateContract() {
       return;
     }
 
-    if (currentUser.userType !== "owner") {
+    if (currentUser.userType !== "owner" && currentUser.userType !== "agency") {
       toast({
         title: "Accès refusé",
-        description: "Seuls les propriétaires peuvent créer des contrats",
+        description: "Seuls les propriétaires et agences peuvent créer des contrats",
         variant: "destructive",
       });
       navigate("/");
@@ -390,14 +406,40 @@ export default function CreateContract() {
                           />
                         </div>
                         <div>
-                          <Label htmlFor="landlordCin">CIN *</Label>
-                          <Input
-                            id="landlordCin"
-                            value={contractData.landlordCin}
-                            onChange={(e) => setContractData({ ...contractData, landlordCin: e.target.value })}
-                            placeholder="Numéro de CIN"
-                            required
-                          />
+                          <div className="flex items-center space-x-2 mb-1">
+                            <Label htmlFor="landlordCin">CIN *</Label>
+                            {currentUser?.documentVerified ? (
+                              <Badge variant="default" className="text-xs">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Vérifiée
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-xs">
+                                <AlertCircle className="h-3 w-3 mr-1" />
+                                Non vérifiée
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="relative">
+                            <Input
+                              id="landlordCin"
+                              value={contractData.landlordCin}
+                              onChange={(e) => setContractData({ ...contractData, landlordCin: e.target.value })}
+                              placeholder={currentUser?.documentVerified ? "Rempli automatiquement" : "Numéro de CIN"}
+                              className={currentUser?.documentVerified ? "bg-green-50 border-green-200" : ""}
+                              required
+                            />
+                            {currentUser?.documentVerified && (
+                              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                              </div>
+                            )}
+                          </div>
+                          {!currentUser?.documentVerified && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Vérifiez votre CIN dans votre profil pour un remplissage automatique
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -419,14 +461,56 @@ export default function CreateContract() {
                           />
                         </div>
                         <div>
-                          <Label htmlFor="tenantCin">CIN *</Label>
-                          <Input
-                            id="tenantCin"
-                            value={contractData.tenantCin}
-                            onChange={(e) => setContractData({ ...contractData, tenantCin: e.target.value })}
-                            placeholder="Numéro de CIN du locataire"
-                            required
-                          />
+                          <div className="flex items-center space-x-2 mb-1">
+                            <Label htmlFor="tenantCin">CIN *</Label>
+                            {(() => {
+                              const selectedOffer = contractRequests.find((offer: ContractRequest) => offer.id === selectedOfferId);
+                              const isVerified = selectedOffer?.tenant?.documentVerified;
+                              return isVerified ? (
+                                <Badge variant="default" className="text-xs">
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  Vérifiée
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="text-xs">
+                                  <AlertCircle className="h-3 w-3 mr-1" />
+                                  Non vérifiée
+                                </Badge>
+                              );
+                            })()}
+                          </div>
+                          <div className="relative">
+                            <Input
+                              id="tenantCin"
+                              value={contractData.tenantCin}
+                              onChange={(e) => setContractData({ ...contractData, tenantCin: e.target.value })}
+                              placeholder={(() => {
+                                const selectedOffer = contractRequests.find((offer: ContractRequest) => offer.id === selectedOfferId);
+                                return selectedOffer?.tenant?.documentVerified ? "Rempli automatiquement" : "Numéro de CIN du locataire";
+                              })()}
+                              className={(() => {
+                                const selectedOffer = contractRequests.find((offer: ContractRequest) => offer.id === selectedOfferId);
+                                return selectedOffer?.tenant?.documentVerified ? "bg-green-50 border-green-200" : "";
+                              })()}
+                              required
+                            />
+                            {(() => {
+                              const selectedOffer = contractRequests.find((offer: ContractRequest) => offer.id === selectedOfferId);
+                              return selectedOffer?.tenant?.documentVerified && (
+                                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                                  <CheckCircle className="h-4 w-4 text-green-600" />
+                                </div>
+                              );
+                            })()}
+                          </div>
+                          {(() => {
+                            const selectedOffer = contractRequests.find((offer: ContractRequest) => offer.id === selectedOfferId);
+                            return !selectedOffer?.tenant?.documentVerified && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Le locataire doit vérifier son CIN pour un remplissage automatique
+                              </p>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>

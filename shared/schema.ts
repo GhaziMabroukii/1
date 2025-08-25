@@ -12,7 +12,7 @@ export const users = pgTable("users", {
   firstName: text("first_name"),
   lastName: text("last_name"),
   phone: text("phone"),
-  userType: text("user_type").notNull().default("tenant"), // tenant, owner
+  userType: text("user_type").notNull().default("tenant"), // tenant, owner, agency
   
   // Profile and verification fields
   profilePicture: text("profile_picture"), // URL to uploaded profile photo
@@ -38,6 +38,12 @@ export const users = pgTable("users", {
   documentBackUrl: text("document_back_url"), // Scanned document back
   documentVerifiedAt: timestamp("document_verified_at"),
   
+  // Agency-specific fields
+  agencyName: text("agency_name"), // Business name for agencies
+  agencyLicense: text("agency_license"), // Professional license number
+  agencyAddress: text("agency_address"), // Business address
+  agencyWebsite: text("agency_website"), // Agency website
+  
   // User statistics for badges
   responseTime: text("response_time"), // "fast", "normal", "slow"
   rating: decimal("rating", { precision: 3, scale: 2 }).default("0"), // User rating
@@ -53,7 +59,8 @@ export const properties = pgTable("properties", {
   ownerId: integer("owner_id").notNull().references(() => users.id),
   title: text("title").notNull(),
   description: text("description"),
-  type: text("type").notNull(), // studio, apartment, villa, etc.
+  type: text("type").notNull(), // studio, apartment, villa, maison_dhotes, bureau, depot, garage, magasin, etc.
+  propertyTags: text("property_tags").array().default([]), // Enhanced tagging system
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   priceType: text("price_type").notNull().default("mois"), // mois, semaine, jour
   surface: integer("surface"),
@@ -78,6 +85,9 @@ export const properties = pgTable("properties", {
   furniture: jsonb("furniture"), // Array of {item: string, condition: string}
   // Availability fields
   availability: jsonb("availability"), // {available: boolean, availableFrom: string, minimumStay: string, maximumStay: string}
+  // Enhanced features
+  city: text("city").notNull(), // One of 24 Tunisian cities
+  
   // View tracking
   views: integer("views").default(0),
   createdAt: timestamp("created_at").defaultNow(),
@@ -201,6 +211,44 @@ export const reviews = pgTable("reviews", {
 
 
 
+// Property likes/dislikes for social interactions
+export const propertyLikes = pgTable("property_likes", {
+  id: serial("id").primaryKey(),
+  propertyId: integer("property_id").notNull().references(() => properties.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  isLike: boolean("is_like").notNull(), // true for like, false for dislike
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueUserProperty: unique().on(table.userId, table.propertyId),
+}));
+
+// Review likes/dislikes
+export const reviewLikes = pgTable("review_likes", {
+  id: serial("id").primaryKey(),
+  reviewId: integer("review_id").notNull().references(() => reviews.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  isLike: boolean("is_like").notNull(), // true for like, false for dislike
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueUserReview: unique().on(table.userId, table.reviewId),
+}));
+
+// Price negotiations - simple offer/counter-offer system
+export const priceNegotiations = pgTable("price_negotiations", {
+  id: serial("id").primaryKey(),
+  propertyId: integer("property_id").notNull().references(() => properties.id),
+  tenantId: integer("tenant_id").notNull().references(() => users.id),
+  ownerId: integer("owner_id").notNull().references(() => users.id),
+  originalPrice: decimal("original_price", { precision: 10, scale: 2 }).notNull(),
+  proposedPrice: decimal("proposed_price", { precision: 10, scale: 2 }).notNull(),
+  counterPrice: decimal("counter_price", { precision: 10, scale: 2 }),
+  status: text("status").notNull().default("pending"), // pending, accepted, rejected, counter_offered
+  message: text("message"),
+  responseMessage: text("response_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+  respondedAt: timestamp("responded_at"),
+});
+
 // Enhanced bilateral contract termination requests with password confirmation and digital signing
 export const contractTerminationRequests = pgTable("contract_termination_requests", {
   id: serial("id").primaryKey(),
@@ -254,6 +302,8 @@ export const propertiesRelations = relations(properties, ({ one, many }) => ({
   offers: many(offers),
   contracts: many(contracts),
   favorites: many(userFavorites),
+  likes: many(propertyLikes),
+  negotiations: many(priceNegotiations),
 }));
 
 export const userFavoritesRelations = relations(userFavorites, ({ one }) => ({
@@ -286,7 +336,40 @@ export const contractTerminationRequestsRelations = relations(contractTerminatio
   requestedBy: one(users, { fields: [contractTerminationRequests.requestedBy], references: [users.id] }),
 }));
 
-// Insert schemas
+export const propertyLikesRelations = relations(propertyLikes, ({ one }) => ({
+  property: one(properties, { fields: [propertyLikes.propertyId], references: [properties.id] }),
+  user: one(users, { fields: [propertyLikes.userId], references: [users.id] }),
+}));
+
+export const reviewLikesRelations = relations(reviewLikes, ({ one }) => ({
+  review: one(reviews, { fields: [reviewLikes.reviewId], references: [reviews.id] }),
+  user: one(users, { fields: [reviewLikes.userId], references: [users.id] }),
+}));
+
+export const priceNegotiationsRelations = relations(priceNegotiations, ({ one }) => ({
+  property: one(properties, { fields: [priceNegotiations.propertyId], references: [properties.id] }),
+  tenant: one(users, { fields: [priceNegotiations.tenantId], references: [users.id] }),
+  owner: one(users, { fields: [priceNegotiations.ownerId], references: [users.id] }),
+}));
+
+// Insert schemas for new tables
+export const insertPropertyLikeSchema = createInsertSchema(propertyLikes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertReviewLikeSchema = createInsertSchema(reviewLikes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPriceNegotiationSchema = createInsertSchema(priceNegotiations).omit({
+  id: true,
+  createdAt: true,
+  respondedAt: true,
+});
+
+// Updated user schema to include agency fields
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -295,6 +378,10 @@ export const insertUserSchema = createInsertSchema(users).pick({
   lastName: true,
   phone: true,
   userType: true,
+  agencyName: true,
+  agencyLicense: true,
+  agencyAddress: true,
+  agencyWebsite: true,
 });
 
 export const insertPropertySchema = createInsertSchema(properties).omit({
@@ -388,3 +475,11 @@ export type InsertUserFavorite = z.infer<typeof insertUserFavoriteSchema>;
 
 export type ContractTerminationRequest = typeof contractTerminationRequests.$inferSelect;
 export type InsertContractTerminationRequest = z.infer<typeof insertContractTerminationRequestSchema>;
+
+// New types
+export type PropertyLike = typeof propertyLikes.$inferSelect;
+export type InsertPropertyLike = z.infer<typeof insertPropertyLikeSchema>;
+export type ReviewLike = typeof reviewLikes.$inferSelect;
+export type InsertReviewLike = z.infer<typeof insertReviewLikeSchema>;
+export type PriceNegotiation = typeof priceNegotiations.$inferSelect;
+export type InsertPriceNegotiation = z.infer<typeof insertPriceNegotiationSchema>;

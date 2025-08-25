@@ -1,10 +1,13 @@
 import { 
   users, properties, offers, contracts, notifications, conversations, messages, userBlocks, userSessions, userFavorites, reviews,
+  propertyLikes, reviewLikes, priceNegotiations,
   type User, type InsertUser, type Property, type InsertProperty,
   type Offer, type InsertOffer, type Contract, type InsertContract,
   type Notification, type InsertNotification, type Message, type InsertMessage,
   type UserBlock, type InsertUserBlock, type UserSession, type InsertUserSession,
-  type UserFavorite, type InsertUserFavorite, type Review
+  type UserFavorite, type InsertUserFavorite, type Review, type InsertReview,
+  type PropertyLike, type InsertPropertyLike, type ReviewLike, type InsertReviewLike,
+  type PriceNegotiation, type InsertPriceNegotiation
 } from "@shared/schema";
 // Database is only available in production
 let db: any = null;
@@ -98,10 +101,30 @@ export interface IStorage {
 
   // Review operations
   getPropertyReviews(propertyId: number): Promise<any[]>;
-  createReview(review: any): Promise<Review>;
+  createReview(review: InsertReview): Promise<Review>;
   getReview(id: number): Promise<Review | undefined>;
   updateReview(id: number, updates: Partial<Review>): Promise<Review | undefined>;
   deleteReview(id: number): Promise<boolean>;
+  
+  // Property likes operations
+  likeProperty(userId: number, propertyId: number, isLike: boolean): Promise<PropertyLike>;
+  getPropertyLikes(propertyId: number): Promise<{ likes: number; dislikes: number }>;
+  getUserPropertyLike(userId: number, propertyId: number): Promise<PropertyLike | undefined>;
+  
+  // Review likes operations
+  likeReview(userId: number, reviewId: number, isLike: boolean): Promise<ReviewLike>;
+  getReviewLikes(reviewId: number): Promise<{ likes: number; dislikes: number }>;
+  getUserReviewLike(userId: number, reviewId: number): Promise<ReviewLike | undefined>;
+  
+  // Price negotiation operations
+  createPriceNegotiation(negotiation: InsertPriceNegotiation): Promise<PriceNegotiation>;
+  getPriceNegotiations(propertyId: number): Promise<PriceNegotiation[]>;
+  getUserNegotiations(userId: number, type: 'sent' | 'received'): Promise<PriceNegotiation[]>;
+  updateNegotiationStatus(id: number, status: string, counterPrice?: string, responseMessage?: string): Promise<PriceNegotiation | undefined>;
+  
+  // Enhanced search with cities
+  searchProperties(filters: any): Promise<any[]>;
+  getTunisianCities(): string[];
 }
 
 export class DatabaseStorage implements IStorage {
@@ -842,6 +865,42 @@ export class DatabaseStorage implements IStorage {
     const result = await db.delete(reviews).where(eq(reviews.id, id));
     return result.rowCount ? result.rowCount > 0 : false;
   }
+
+  // Price negotiation operations
+  async createPriceNegotiation(negotiation: InsertPriceNegotiation): Promise<PriceNegotiation> {
+    const [newNegotiation] = await db
+      .insert(priceNegotiations)
+      .values(negotiation)
+      .returning();
+    return newNegotiation;
+  }
+
+  async getPriceNegotiations(propertyId: number): Promise<PriceNegotiation[]> {
+    return await db.select().from(priceNegotiations)
+      .where(eq(priceNegotiations.propertyId, propertyId))
+      .orderBy(desc(priceNegotiations.createdAt));
+  }
+
+  async getUserNegotiations(userId: number, type: 'sent' | 'received'): Promise<PriceNegotiation[]> {
+    const field = type === 'sent' ? priceNegotiations.tenantId : priceNegotiations.ownerId;
+    return await db.select().from(priceNegotiations)
+      .where(eq(field, userId))
+      .orderBy(desc(priceNegotiations.createdAt));
+  }
+
+  async updateNegotiationStatus(id: number, status: string, counterPrice?: string, responseMessage?: string): Promise<PriceNegotiation | undefined> {
+    const [updated] = await db
+      .update(priceNegotiations)
+      .set({
+        status,
+        counterPrice: counterPrice || null,
+        responseMessage: responseMessage || null,
+        respondedAt: new Date()
+      })
+      .where(eq(priceNegotiations.id, id))
+      .returning();
+    return updated || undefined;
+  }
 }
 
 // In-memory storage implementation for development
@@ -858,6 +917,7 @@ export class MemStorage implements IStorage {
   private userSessions: any[] = [];
   private userFavorites: UserFavorite[] = [];
   private reviews: Review[] = [];
+  private priceNegotiations: PriceNegotiation[] = [];
   private nextId = 1;
 
   constructor() {
@@ -2179,6 +2239,55 @@ export class MemStorage implements IStorage {
     
     this.reviews.splice(index, 1);
     return true;
+  }
+
+  // Price negotiation operations
+  async createPriceNegotiation(negotiation: InsertPriceNegotiation): Promise<PriceNegotiation> {
+    const newNegotiation: PriceNegotiation = {
+      id: this.getNextId(),
+      propertyId: negotiation.propertyId,
+      tenantId: negotiation.tenantId,
+      ownerId: negotiation.ownerId,
+      originalPrice: negotiation.originalPrice,
+      proposedPrice: negotiation.proposedPrice,
+      counterPrice: negotiation.counterPrice || null,
+      status: negotiation.status || "pending",
+      message: negotiation.message || null,
+      responseMessage: negotiation.responseMessage || null,
+      createdAt: new Date(),
+      respondedAt: negotiation.respondedAt || null
+    };
+    
+    this.priceNegotiations.push(newNegotiation);
+    return newNegotiation;
+  }
+
+  async getPriceNegotiations(propertyId: number): Promise<PriceNegotiation[]> {
+    return this.priceNegotiations
+      .filter(n => n.propertyId === propertyId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async getUserNegotiations(userId: number, type: 'sent' | 'received'): Promise<PriceNegotiation[]> {
+    const field = type === 'sent' ? 'tenantId' : 'ownerId';
+    return this.priceNegotiations
+      .filter(n => n[field] === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async updateNegotiationStatus(id: number, status: string, counterPrice?: string, responseMessage?: string): Promise<PriceNegotiation | undefined> {
+    const index = this.priceNegotiations.findIndex(n => n.id === id);
+    if (index === -1) return undefined;
+
+    this.priceNegotiations[index] = {
+      ...this.priceNegotiations[index],
+      status,
+      counterPrice: counterPrice || this.priceNegotiations[index].counterPrice,
+      responseMessage: responseMessage || this.priceNegotiations[index].responseMessage,
+      respondedAt: new Date()
+    };
+
+    return this.priceNegotiations[index];
   }
 }
 

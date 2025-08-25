@@ -383,6 +383,164 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Price Negotiation routes
+  app.get("/api/negotiations", async (req, res) => {
+    try {
+      const userId = parseInt(req.query.userId as string);
+      const type = req.query.type as 'sent' | 'received';
+      const propertyId = req.query.propertyId ? parseInt(req.query.propertyId as string) : undefined;
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Valid userId required" });
+      }
+      
+      let negotiations;
+      if (propertyId) {
+        negotiations = await storage.getPriceNegotiations(propertyId);
+      } else {
+        negotiations = await storage.getUserNegotiations(userId, type);
+      }
+      
+      // Enrich negotiations with property and user data
+      const enrichedNegotiations = await Promise.all(
+        negotiations.map(async (negotiation) => {
+          const property = await storage.getProperty(negotiation.propertyId);
+          const tenant = await storage.getUser(negotiation.tenantId);
+          const owner = await storage.getUser(negotiation.ownerId);
+          
+          return {
+            ...negotiation,
+            property: property ? {
+              id: property.id,
+              title: property.title,
+              address: property.address,
+              price: property.price,
+            } : null,
+            tenant: tenant ? {
+              id: tenant.id,
+              firstName: tenant.firstName,
+              lastName: tenant.lastName,
+              email: tenant.email,
+            } : null,
+            owner: owner ? {
+              id: owner.id,
+              firstName: owner.firstName,
+              lastName: owner.lastName,
+              email: owner.email,
+            } : null
+          };
+        })
+      );
+      
+      res.json(enrichedNegotiations);
+    } catch (error) {
+      console.error("Failed to fetch negotiations:", error);
+      res.status(500).json({ error: "Failed to fetch negotiations" });
+    }
+  });
+
+  app.post("/api/negotiations", async (req, res) => {
+    try {
+      console.log("Received negotiation creation request:", req.body);
+      const negotiationData = req.body;
+      
+      const negotiation = await storage.createPriceNegotiation(negotiationData);
+      
+      // Get property details for notifications
+      const property = await storage.getProperty(negotiationData.propertyId);
+      
+      // Notify owner about new negotiation
+      const ownerNotification = await storage.createNotification({
+        userId: negotiationData.ownerId,
+        title: "Nouvelle négociation de prix",
+        message: `Un locataire propose ${negotiationData.proposedPrice} TND pour votre propriété ${property?.title || ''}.`,
+        type: "negotiation",
+        relatedId: negotiation.id,
+      });
+
+      // Notify tenant about their sent negotiation
+      const tenantNotification = await storage.createNotification({
+        userId: negotiationData.tenantId,
+        title: "Négociation de prix envoyée",
+        message: `Vous avez envoyé une proposition de ${negotiationData.proposedPrice} TND pour ${property?.title || 'la propriété'}.`,
+        type: "negotiation",
+        relatedId: negotiation.id,
+      });
+      
+      // Real-time broadcasting
+      broadcastToUser(negotiationData.ownerId, 'new_negotiation', negotiation);
+      broadcastToUser(negotiationData.ownerId, 'new_notification', ownerNotification);
+      broadcastToUser(negotiationData.tenantId, 'negotiation_sent', negotiation);
+      broadcastToUser(negotiationData.tenantId, 'new_notification', tenantNotification);
+      
+      res.status(201).json(negotiation);
+    } catch (error) {
+      console.error("Error creating negotiation:", error);
+      res.status(500).json({ error: "Failed to create negotiation" });
+    }
+  });
+
+  app.put("/api/negotiations/:id/status", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status, counterPrice, responseMessage } = req.body;
+      
+      const negotiation = await storage.updateNegotiationStatus(id, status, counterPrice, responseMessage);
+      
+      if (!negotiation) {
+        return res.status(404).json({ error: "Negotiation not found" });
+      }
+
+      const property = await storage.getProperty(negotiation.propertyId);
+
+      // Create notifications based on status
+      if (status === 'accepted') {
+        // Notify tenant about acceptance
+        const tenantNotification = await storage.createNotification({
+          userId: negotiation.tenantId,
+          title: "Négociation acceptée",
+          message: `Votre proposition de prix pour ${property?.title || 'la propriété'} a été acceptée!`,
+          type: "negotiation",
+          relatedId: negotiation.id,
+        });
+        
+        broadcastToUser(negotiation.tenantId, 'negotiation_accepted', negotiation);
+        broadcastToUser(negotiation.tenantId, 'new_notification', tenantNotification);
+        
+      } else if (status === 'rejected') {
+        // Notify tenant about rejection
+        const tenantNotification = await storage.createNotification({
+          userId: negotiation.tenantId,
+          title: "Négociation refusée",
+          message: `Votre proposition de prix pour ${property?.title || 'la propriété'} a été refusée.`,
+          type: "negotiation",
+          relatedId: negotiation.id,
+        });
+        
+        broadcastToUser(negotiation.tenantId, 'negotiation_rejected', negotiation);
+        broadcastToUser(negotiation.tenantId, 'new_notification', tenantNotification);
+        
+      } else if (status === 'counter_offered' && counterPrice) {
+        // Notify tenant about counter-offer
+        const tenantNotification = await storage.createNotification({
+          userId: negotiation.tenantId,
+          title: "Contre-proposition reçue",
+          message: `Le propriétaire propose ${counterPrice} TND pour ${property?.title || 'la propriété'}.`,
+          type: "negotiation",
+          relatedId: negotiation.id,
+        });
+        
+        broadcastToUser(negotiation.tenantId, 'negotiation_counter', negotiation);
+        broadcastToUser(negotiation.tenantId, 'new_notification', tenantNotification);
+      }
+
+      res.json(negotiation);
+    } catch (error) {
+      console.error("Error updating negotiation status:", error);
+      res.status(500).json({ error: "Failed to update negotiation status" });
+    }
+  });
+
   // Contracts routes
   app.get("/api/contracts", async (req, res) => {
     try {

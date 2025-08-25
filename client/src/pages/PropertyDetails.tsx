@@ -18,6 +18,7 @@ import { MapPin, Home, Bed, Bath, Phone, MessageCircle, Banknote, ArrowLeft, Sta
 import Header from "@/components/Header";
 import { PageLoadingSpinner } from "@/components/LoadingSpinner";
 import { NetworkError } from "@/components/ErrorBoundary";
+import PriceNegotiationModal from "@/components/PriceNegotiationModal";
 
 
 
@@ -1273,30 +1274,30 @@ export default function PropertyDetails() {
                       <MessageCircle className="mr-2 h-4 w-4" />
                       Message
                     </Button>
-                    <DialogContent className="max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Envoyer un message</DialogTitle>
-                        <DialogDescription>
-                          Contactez le propriétaire pour obtenir plus d'informations
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <Textarea
-                          placeholder="Tapez votre message ici..."
-                          value={messageContent}
-                          onChange={(e) => setMessageContent(e.target.value)}
-                          rows={4}
-                        />
-                        <Button 
-                          onClick={handleSendMessage}
-                          className="w-full"
-                          disabled={!messageContent.trim() || createMessageMutation.isPending}
-                        >
-                          {createMessageMutation.isPending ? "Envoi en cours..." : "Envoyer le message"}
-                        </Button>
-                      </div>
-                    </DialogContent>
                   </Dialog>
+
+                  {/* Price Negotiation Button */}
+                  {currentUser && currentUser.type === 'tenant' && (
+                    <PriceNegotiationModal
+                      property={{
+                        id: property.id,
+                        title: property.title,
+                        price: property.price,
+                        ownerId: property.ownerId
+                      }}
+                      currentUserId={currentUser.id}
+                      trigger={
+                        <Button 
+                          variant="outline" 
+                          className="w-full" 
+                          data-testid="button-negotiate-price"
+                        >
+                          <DollarSign className="mr-2 h-4 w-4" />
+                          Négocier le prix
+                        </Button>
+                      }
+                    />
+                  )}
                 </div>
 
                 {/* Owner Info */}
