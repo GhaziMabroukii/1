@@ -168,6 +168,16 @@ export const userBlocks = pgTable("user_blocks", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// User favorites table
+export const userFavorites = pgTable("user_favorites", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  propertyId: integer("property_id").notNull().references(() => properties.id),
+  addedAt: timestamp("added_at").defaultNow(),
+}, (table) => ({
+  uniqueUserProperty: unique().on(table.userId, table.propertyId),
+}));
+
 // User online status
 export const userSessions = pgTable("user_sessions", {
   id: serial("id").primaryKey(),
@@ -234,12 +244,19 @@ export const usersRelations = relations(users, ({ many }) => ({
   tenantContracts: many(contracts, { relationName: "tenant_contracts" }),
   ownerContracts: many(contracts, { relationName: "owner_contracts" }),
   notifications: many(notifications),
+  favorites: many(userFavorites),
 }));
 
 export const propertiesRelations = relations(properties, ({ one, many }) => ({
   owner: one(users, { fields: [properties.ownerId], references: [users.id] }),
   offers: many(offers),
   contracts: many(contracts),
+  favorites: many(userFavorites),
+}));
+
+export const userFavoritesRelations = relations(userFavorites, ({ one }) => ({
+  user: one(users, { fields: [userFavorites.userId], references: [users.id] }),
+  property: one(properties, { fields: [userFavorites.propertyId], references: [properties.id] }),
 }));
 
 export const offersRelations = relations(offers, ({ one }) => ({
@@ -330,6 +347,11 @@ export const insertReviewSchema = createInsertSchema(reviews).omit({
   createdAt: true,
 });
 
+export const insertUserFavoriteSchema = createInsertSchema(userFavorites).omit({
+  id: true,
+  addedAt: true,
+});
+
 
 
 export const insertContractTerminationRequestSchema = createInsertSchema(contractTerminationRequests).omit({
@@ -359,6 +381,8 @@ export type UserSession = typeof userSessions.$inferSelect;
 export type InsertUserSession = z.infer<typeof insertUserSessionSchema>;
 export type Review = typeof reviews.$inferSelect;
 export type InsertReview = z.infer<typeof insertReviewSchema>;
+export type UserFavorite = typeof userFavorites.$inferSelect;
+export type InsertUserFavorite = z.infer<typeof insertUserFavoriteSchema>;
 
 export type ContractTerminationRequest = typeof contractTerminationRequests.$inferSelect;
 export type InsertContractTerminationRequest = z.infer<typeof insertContractTerminationRequestSchema>;

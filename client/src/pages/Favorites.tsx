@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,70 +11,57 @@ import {
   MapPin, 
   Home, 
   Trash2,
-  Search
+  Search,
+  Scale,
+  Eye,
+  User,
+  CheckCircle,
+  Bed,
+  Bath
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 const Favorites = () => {
-  const [favorites, setFavorites] = useState<any[]>([]);
   const [, navigate] = useLocation();
   const { toast } = useToast();
-
-  // Mock favorites data
-  const mockFavorites = [
-    {
-      id: 1,
-      title: "Studio moderne près INSAT",
-      price: 450,
-      priceType: "mois",
-      location: "Ariana, Raoued",
-      distance: "200m de l'INSAT",
-      rating: 4.8,
-      reviews: 24,
-      type: "studio",
-      amenities: ["wifi", "furnished", "parking"],
-      images: ["/placeholder.svg"],
-      isStudentFriendly: true,
-      owner: "Ahmed Karim",
-      available: true,
-      addedToFavorites: "2024-01-15"
-    },
-    {
-      id: 2,
-      title: "Appartement 2 pièces famille",
-      price: 680,
-      priceType: "mois",
-      location: "Tunis, Bardo",
-      distance: "5 min de l'école primaire",
-      rating: 4.6,
-      reviews: 18,
-      type: "apartment",
-      amenities: ["wifi", "garden", "security"],
-      images: ["/placeholder.svg"],
-      isFamilyFriendly: true,
-      owner: "Fatma Ben Ali",
-      available: true,
-      addedToFavorites: "2024-01-12"
-    },
-    {
-      id: 3,
-      title: "Villa avec jardin sécurisé",
-      price: 1200,
-      priceType: "mois",
-      location: "Sidi Bou Saïd",
-      distance: "10 min du centre",
-      rating: 4.9,
-      reviews: 32,
-      type: "villa",
-      amenities: ["wifi", "garden", "parking", "security"],
-      images: ["/placeholder.svg"],
-      isFamilyFriendly: true,
-      owner: "Mohamed Trabelsi",
-      available: true,
-      addedToFavorites: "2024-01-10"
+  const queryClient = useQueryClient();
+  const [compareMode, setCompareMode] = useState(false);
+  const [selectedForComparison, setSelectedForComparison] = useState<number[]>([]);
+  
+  // Get current user ID from localStorage
+  const getCurrentUserId = () => {
+    try {
+      const userData = localStorage.getItem("userData");
+      if (userData) {
+        const user = JSON.parse(userData);
+        return user.id;
+      }
+    } catch (error) {
+      console.error("Error getting user ID:", error);
     }
-  ];
+    return null;
+  };
+  
+  const currentUserId = getCurrentUserId();
 
+
+  // Fetch user favorites from API
+  const { data: favorites = [], isLoading, error, refetch } = useQuery({
+    queryKey: [`/api/users/${currentUserId}/favorites`],
+    queryFn: async () => {
+      if (!currentUserId) throw new Error('User not authenticated');
+      const response = await fetch(`/api/users/${currentUserId}/favorites`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch favorites');
+      }
+      return response.json();
+    },
+    enabled: !!currentUserId,
+    staleTime: 30000, // 30 seconds
+    refetchOnWindowFocus: true
+  });
+  
   useEffect(() => {
     // Check authentication
     const isAuth = localStorage.getItem("isAuthenticated");
@@ -81,26 +69,40 @@ const Favorites = () => {
       navigate("/login");
       return;
     }
-
-    // Load favorites from localStorage or use mock data
-    const savedFavorites = localStorage.getItem("userFavorites");
-    if (savedFavorites) {
-      setFavorites(JSON.parse(savedFavorites));
-    } else {
-      setFavorites(mockFavorites);
-      localStorage.setItem("userFavorites", JSON.stringify(mockFavorites));
-    }
   }, [navigate]);
 
+  // Remove from favorites mutation
+  const removeFromFavoritesMutation = useMutation({
+    mutationFn: async (propertyId: number) => {
+      if (!currentUserId) throw new Error('User not authenticated');
+      const response = await fetch(`/api/users/${currentUserId}/favorites/${propertyId}`, {
+        method: 'DELETE'
+      });
+      if (!response.ok) {
+        throw new Error('Failed to remove from favorites');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate and refetch favorites data
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${currentUserId}/favorites`] });
+      
+      toast({
+        title: "Retiré des favoris",
+        description: "Le bien a été retiré de vos favoris"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de retirer le bien des favoris",
+        variant: "destructive"
+      });
+    }
+  });
+  
   const removeFavorite = (propertyId: number) => {
-    const updatedFavorites = favorites.filter(fav => fav.id !== propertyId);
-    setFavorites(updatedFavorites);
-    localStorage.setItem("userFavorites", JSON.stringify(updatedFavorites));
-    
-    toast({
-      title: "Retiré des favoris",
-      description: "Le bien a été retiré de vos favoris",
-    });
+    removeFromFavoritesMutation.mutate(propertyId);
   };
 
   const getAmenityIcon = (amenity: string): string => {
@@ -129,40 +131,135 @@ const Favorites = () => {
               {favorites.length} bien(s) sauvegardé(s)
             </p>
           </div>
-          <Button onClick={() => navigate("/search")} className="flex items-center space-x-2">
-            <Search className="h-4 w-4" />
-            <span>Continuer la recherche</span>
-          </Button>
+          <div className="flex items-center gap-3">
+            {favorites.length > 1 && (
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setCompareMode(!compareMode);
+                  setSelectedForComparison([]);
+                }}
+                className="flex items-center space-x-2"
+              >
+                <Scale className="h-4 w-4" />
+                <span>{compareMode ? 'Annuler' : 'Comparer'}</span>
+              </Button>
+            )}
+            {compareMode && selectedForComparison.length >= 2 && (
+              <Button 
+                onClick={() => navigate(`/compare?properties=${selectedForComparison.join(',')}`)}
+                className="flex items-center space-x-2"
+              >
+                <Eye className="h-4 w-4" />
+                <span>Voir la comparaison</span>
+              </Button>
+            )}
+            <Button onClick={() => navigate("/search")} className="flex items-center space-x-2">
+              <Search className="h-4 w-4" />
+              <span>Continuer la recherche</span>
+            </Button>
+          </div>
         </div>
 
-        {/* Favorites Grid */}
-        {favorites.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {isLoading ? (
+          <div className="flex justify-center py-16">
+            <LoadingSpinner size="lg" text="Chargement des favoris..." />
+          </div>
+        ) : error ? (
+          <div className="text-center py-16">
+            <Heart className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-xl font-semibold mb-2">Erreur de chargement</h3>
+            <p className="text-muted-foreground mb-6">
+              Impossible de charger vos favoris
+            </p>
+            <Button onClick={() => refetch()} className="flex items-center space-x-2">
+              <span>Réessayer</span>
+            </Button>
+          </div>
+        ) : favorites.length > 0 ? (
+          <>
+            {compareMode && (
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 className="font-semibold text-blue-900 mb-2">Mode Comparaison</h3>
+                <p className="text-blue-700 text-sm">
+                  Sélectionnez 2 à 4 propriétés à comparer. {selectedForComparison.length} sélectionnée(s).
+                </p>
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {favorites.map((property) => (
               <Card 
                 key={property.id} 
-                className="glass-card cursor-pointer hover:scale-105 transition-transform"
-                onClick={() => navigate(`/property/${property.id}`)}
+                className={`glass-card cursor-pointer hover:scale-105 transition-all ${
+                  compareMode 
+                    ? selectedForComparison.includes(property.id) 
+                      ? 'ring-2 ring-blue-500 bg-blue-50/50' 
+                      : 'hover:ring-2 hover:ring-blue-300'
+                    : ''
+                }`}
+                onClick={() => {
+                  if (compareMode) {
+                    if (selectedForComparison.includes(property.id)) {
+                      setSelectedForComparison(prev => prev.filter(id => id !== property.id));
+                    } else if (selectedForComparison.length < 4) {
+                      setSelectedForComparison(prev => [...prev, property.id]);
+                    } else {
+                      toast({
+                        title: "Limite atteinte",
+                        description: "Vous ne pouvez comparer que 4 propriétés maximum",
+                        variant: "destructive"
+                      });
+                    }
+                  } else {
+                    navigate(`/property/${property.id}`);
+                  }
+                }}
               >
                 <CardContent className="p-0">
                   {/* Image */}
                   <div className="relative h-48 bg-muted rounded-t-lg overflow-hidden">
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Home className="h-12 w-12 text-muted-foreground" />
-                    </div>
+                    {property.images && property.images.length > 0 && property.images[0] !== '/placeholder.svg' ? (
+                      <img 
+                        src={property.images[0]} 
+                        alt={property.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Home className="h-12 w-12 text-muted-foreground" />
+                      </div>
+                    )}
                     
                     {/* Remove from favorites button */}
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="absolute top-2 right-2 bg-white/20 backdrop-blur-sm hover:bg-destructive/20"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeFavorite(property.id);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    {!compareMode && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="absolute top-2 right-2 bg-white/20 backdrop-blur-sm hover:bg-destructive/20"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeFavorite(property.id);
+                        }}
+                        disabled={removeFromFavoritesMutation.isPending}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
+                    
+                    {/* Compare mode selection indicator */}
+                    {compareMode && (
+                      <div className="absolute top-2 right-2">
+                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                          selectedForComparison.includes(property.id)
+                            ? 'bg-blue-500 border-blue-500'
+                            : 'bg-white/20 border-white backdrop-blur-sm'
+                        }`}>
+                          {selectedForComparison.includes(property.id) && (
+                            <CheckCircle className="h-4 w-4 text-white" />
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Badges */}
                     {!property.available && (
@@ -199,12 +296,51 @@ const Favorites = () => {
                     </div>
 
                     <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-1">
-                        <Star className="h-4 w-4 fill-warning text-warning" />
-                        <span className="text-sm font-medium">{property.rating}</span>
-                        <span className="text-sm text-muted-foreground">
-                          ({property.reviews} avis)
-                        </span>
+                      <div className="flex items-center gap-3">
+                        {property.rating > 0 ? (
+                          <div className="flex items-center space-x-1">
+                            <Star className="h-4 w-4 fill-warning text-warning" />
+                            <span className="text-sm font-medium">{property.rating}</span>
+                            <span className="text-sm text-muted-foreground">
+                              ({property.reviews || 0} avis)
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-1">
+                            <Star className="h-4 w-4 text-gray-400" />
+                            <span className="text-xs text-gray-500">Nouveau</span>
+                          </div>
+                        )}
+                        
+                        {/* Property details */}
+                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                          {property.rooms && (
+                            <div className="flex items-center gap-1">
+                              <Bed className="h-4 w-4" />
+                              <span>{property.rooms}</span>
+                            </div>
+                          )}
+                          {property.bathrooms && (
+                            <div className="flex items-center gap-1">
+                              <Bath className="h-4 w-4" />
+                              <span>{property.bathrooms}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Owner information */}
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 bg-gradient-to-br from-gray-400 to-gray-600 rounded-full flex items-center justify-center">
+                          <User className="h-3 w-3 text-white" />
+                        </div>
+                        <span className="text-sm text-gray-600">{property.owner || 'Propriétaire'}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-green-600">
+                        <CheckCircle className="h-3 w-3" />
+                        <span>Vérifié</span>
                       </div>
                     </div>
 
@@ -230,6 +366,7 @@ const Favorites = () => {
               </Card>
             ))}
           </div>
+          </>
         ) : (
           <div className="text-center py-16">
             <Heart className="h-16 w-16 text-muted-foreground mx-auto mb-4" />

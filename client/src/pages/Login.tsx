@@ -119,12 +119,6 @@ const Login = () => {
                 S'inscrire
               </Link>
             </p>
-            <div className="text-xs text-muted-foreground text-center space-y-1">
-              <p className="font-semibold">Comptes de test:</p>
-              <p><strong>Propriétaires:</strong> ahmed_malik ou sara_ben_ali</p>
-              <p><strong>Locataires:</strong> mohamed_student, amira_etudiant ou youssef_learner</p>
-              <p><strong>Mot de passe:</strong> hashed_password_123 (ou 456, 789, 101, 202)</p>
-            </div>
           </CardFooter>
         </form>
       </Card>

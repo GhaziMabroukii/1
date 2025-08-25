@@ -13,6 +13,7 @@ import PropertyDetails from "./pages/PropertyDetails";
 import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
 import Favorites from "./pages/Favorites";
+import Compare from "./pages/Compare";
 import AddProperty from "./pages/AddProperty";
 import ManageProperties from "./pages/ManageProperties";
 import Contracts from "./pages/Contracts";
@@ -57,6 +58,7 @@ const App = () => {
             <Route path="/property/:id" component={PropertyDetails} />
             <Route path="/messages" component={Messages} />
             <Route path="/favorites" component={Favorites} />
+            <Route path="/compare" component={Compare} />
             <Route path="/add-property" component={AddProperty} />
             <Route path="/manage-properties" component={ManageProperties} />
             <Route path="/contracts" component={ContractsDashboard} />

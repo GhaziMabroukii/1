@@ -2712,6 +2712,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Favorites endpoints
+  app.get("/api/users/:userId/favorites", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+
+      const favorites = await storage.getUserFavorites(parseInt(userId));
+      res.json(favorites);
+    } catch (error) {
+      console.error("Error fetching user favorites:", error);
+      res.status(500).json({ error: "Failed to fetch favorites" });
+    }
+  });
+
+  app.post("/api/users/:userId/favorites", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { propertyId } = req.body;
+      
+      if (!userId || !propertyId) {
+        return res.status(400).json({ error: "User ID and property ID are required" });
+      }
+
+      // Check if property exists
+      const property = await storage.getProperty(propertyId);
+      if (!property) {
+        return res.status(404).json({ error: "Property not found" });
+      }
+
+      // Check if already favorited
+      const isAlreadyFavorited = await storage.isPropertyFavorited(parseInt(userId), propertyId);
+      if (isAlreadyFavorited) {
+        return res.status(409).json({ error: "Property already in favorites" });
+      }
+
+      const favorite = await storage.addToFavorites(parseInt(userId), propertyId);
+      
+      // Broadcast real-time update via WebSocket
+      const ws = wsConnections.get(parseInt(userId));
+      if (ws) {
+        ws.send(JSON.stringify({ 
+          event: 'favorite_added', 
+          data: { propertyId, property } 
+        }));
+      }
+      
+      res.status(201).json({ message: "Property added to favorites", favorite });
+    } catch (error) {
+      console.error("Error adding to favorites:", error);
+      res.status(500).json({ error: "Failed to add to favorites" });
+    }
+  });
+
+  app.delete("/api/users/:userId/favorites/:propertyId", async (req, res) => {
+    try {
+      const { userId, propertyId } = req.params;
+      
+      if (!userId || !propertyId) {
+        return res.status(400).json({ error: "User ID and property ID are required" });
+      }
+
+      const removed = await storage.removeFromFavorites(parseInt(userId), parseInt(propertyId));
+      
+      if (!removed) {
+        return res.status(404).json({ error: "Favorite not found" });
+      }
+
+      // Broadcast real-time update via WebSocket
+      const ws = wsConnections.get(parseInt(userId));
+      if (ws) {
+        ws.send(JSON.stringify({ 
+          event: 'favorite_removed', 
+          data: { propertyId: parseInt(propertyId) } 
+        }));
+      }
+      
+      res.json({ message: "Property removed from favorites" });
+    } catch (error) {
+      console.error("Error removing from favorites:", error);
+      res.status(500).json({ error: "Failed to remove from favorites" });
+    }
+  });
+
+  app.get("/api/users/:userId/favorites/:propertyId/check", async (req, res) => {
+    try {
+      const { userId, propertyId } = req.params;
+      
+      if (!userId || !propertyId) {
+        return res.status(400).json({ error: "User ID and property ID are required" });
+      }
+
+      const isFavorited = await storage.isPropertyFavorited(parseInt(userId), parseInt(propertyId));
+      res.json({ isFavorited });
+    } catch (error) {
+      console.error("Error checking favorite status:", error);
+      res.status(500).json({ error: "Failed to check favorite status" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // WebSocket server setup with authentication and real-time events

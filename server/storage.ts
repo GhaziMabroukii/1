@@ -1,9 +1,10 @@
 import { 
-  users, properties, offers, contracts, notifications, conversations, messages, userBlocks, userSessions,
+  users, properties, offers, contracts, notifications, conversations, messages, userBlocks, userSessions, userFavorites,
   type User, type InsertUser, type Property, type InsertProperty,
   type Offer, type InsertOffer, type Contract, type InsertContract,
   type Notification, type InsertNotification, type Message, type InsertMessage,
-  type UserBlock, type InsertUserBlock, type UserSession, type InsertUserSession
+  type UserBlock, type InsertUserBlock, type UserSession, type InsertUserSession,
+  type UserFavorite, type InsertUserFavorite
 } from "@shared/schema";
 // Database is only available in production
 let db: any = null;
@@ -73,12 +74,24 @@ export interface IStorage {
   blockUser(blockerId: number, blockedId: number): Promise<UserBlock>;
   unblockUser(blockerId: number, blockedId: number): Promise<boolean>;
   getBlockedUsers(userId: number): Promise<number[]>;
+  
+  // Favorites operations
+  addToFavorites(userId: number, propertyId: number): Promise<UserFavorite>;
+  removeFromFavorites(userId: number, propertyId: number): Promise<boolean>;
+  getUserFavorites(userId: number): Promise<Property[]>;
+  isPropertyFavorited(userId: number, propertyId: number): Promise<boolean>;
   isUserBlocked(blockerId: number, blockedId: number): Promise<boolean>;
   
   // User session operations
   updateUserOnlineStatus(userId: number, isOnline: boolean): Promise<void>;
   getUserOnlineStatus(userId: number): Promise<{ isOnline: boolean; lastSeen: Date | null }>;
   searchUsers(query: string, currentUserId: number): Promise<User[]>;
+
+  // Favorites operations
+  addToFavorites(userId: number, propertyId: number): Promise<UserFavorite>;
+  removeFromFavorites(userId: number, propertyId: number): Promise<boolean>;
+  getUserFavorites(userId: number): Promise<Property[]>;
+  isPropertyFavorited(userId: number, propertyId: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -519,6 +532,78 @@ export class DatabaseStorage implements IStorage {
     return !!block;
   }
 
+  // Favorites operations
+  async addToFavorites(userId: number, propertyId: number): Promise<UserFavorite> {
+    const [favorite] = await db
+      .insert(userFavorites)
+      .values({ userId, propertyId })
+      .returning();
+    return favorite;
+  }
+
+  async removeFromFavorites(userId: number, propertyId: number): Promise<boolean> {
+    const result = await db
+      .delete(userFavorites)
+      .where(and(
+        eq(userFavorites.userId, userId),
+        eq(userFavorites.propertyId, propertyId)
+      ));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async getUserFavorites(userId: number): Promise<Property[]> {
+    const result = await db.select({
+      id: properties.id,
+      ownerId: properties.ownerId,
+      title: properties.title,
+      description: properties.description,
+      type: properties.type,
+      price: properties.price,
+      priceType: properties.priceType,
+      surface: properties.surface,
+      rooms: properties.rooms,
+      bathrooms: properties.bathrooms,
+      address: properties.address,
+      latitude: properties.latitude,
+      longitude: properties.longitude,
+      amenities: properties.amenities,
+      rules: properties.rules,
+      images: properties.images,
+      status: properties.status,
+      deposit: properties.deposit,
+      fees: properties.fees,
+      utilities: properties.utilities,
+      utilitiesIncluded: properties.utilitiesIncluded,
+      categories: properties.categories,
+      geographicHighlight: properties.geographicHighlight,
+      furnished: properties.furnished,
+      furniture: properties.furniture,
+      availability: properties.availability,
+      createdAt: properties.createdAt,
+      updatedAt: properties.updatedAt,
+      addedAt: userFavorites.addedAt
+    })
+    .from(userFavorites)
+    .innerJoin(properties, eq(userFavorites.propertyId, properties.id))
+    .where(eq(userFavorites.userId, userId))
+    .orderBy(desc(userFavorites.addedAt));
+    
+    return result.map(row => ({
+      ...row,
+      addedToFavorites: row.addedAt?.toISOString() || new Date().toISOString()
+    }));
+  }
+
+  async isPropertyFavorited(userId: number, propertyId: number): Promise<boolean> {
+    const [favorite] = await db.select()
+      .from(userFavorites)
+      .where(and(
+        eq(userFavorites.userId, userId),
+        eq(userFavorites.propertyId, propertyId)
+      ));
+    return !!favorite;
+  }
+
   // User session operations
   async updateUserOnlineStatus(userId: number, isOnline: boolean): Promise<void> {
     const [existing] = await db.select()
@@ -592,6 +677,7 @@ export class MemStorage implements IStorage {
   private messages: any[] = [];
   private userBlocks: any[] = [];
   private userSessions: any[] = [];
+  private userFavorites: UserFavorite[] = [];
   private nextId = 1;
 
   constructor() {
@@ -600,7 +686,14 @@ export class MemStorage implements IStorage {
   }
 
   private initializeTestData() {
-    // Create test users with hashed passwords (bcrypt hash of 'password123')
+    // Only initialize test data in development mode
+    if (process.env.NODE_ENV !== 'development') {
+      this.users = [];
+      this.nextId = 1;
+      return;
+    }
+    
+    // Create test users with hashed passwords (bcrypt hash of 'password123') - DEVELOPMENT ONLY
     const hashedPassword = '$2b$10$9409EDjn9m.1RE0NkAnNSuq9s1iLjXGQChlbq1H5S7lq.uXC9am7K';
     
     this.users = [
@@ -616,6 +709,27 @@ export class MemStorage implements IStorage {
         profilePicture: null,
         documentNumber: "12345678",
         bio: "Locataire sérieux et respectueux",
+        // Add missing required fields
+        isVerified: false,
+        verificationScore: 0,
+        emailVerified: false,
+        emailVerificationCode: null,
+        phoneVerified: false,
+        phoneVerificationCode: null,
+        documentVerified: false,
+        identityScore: 0,
+        backgroundCheckScore: 0,
+        referencesScore: 0,
+        criminalRecordCheck: false,
+        incomeVerified: false,
+        studentStatus: false,
+        employmentStatus: null,
+        monthlyIncome: null,
+        guarantorInfo: null,
+        emergencyContact: null,
+        preferences: null,
+        tags: null,
+        lastLoginAt: null,
         createdAt: new Date(),
         updatedAt: new Date()
       },
@@ -631,27 +745,33 @@ export class MemStorage implements IStorage {
         profilePicture: null,
         documentNumber: "87654321",
         bio: "Propriétaire attentif et disponible",
-        createdAt: new Date(),
-        updatedAt: new Date()
-      },
-      {
-        id: 3,
-        username: "sarah@test.com",
-        password: hashedPassword,
-        email: "sarah@test.com",
-        firstName: "Sarah",
-        lastName: "Belgacem",
-        phone: "+216 20 123 456",
-        userType: "owner",
-        profilePicture: null,
-        documentNumber: "09876543",
-        bio: "Propriétaire expérimenté",
+        // Add missing required fields
+        isVerified: false,
+        verificationScore: 0,
+        emailVerified: false,
+        emailVerificationCode: null,
+        phoneVerified: false,
+        phoneVerificationCode: null,
+        documentVerified: false,
+        identityScore: 0,
+        backgroundCheckScore: 0,
+        referencesScore: 0,
+        criminalRecordCheck: false,
+        incomeVerified: false,
+        studentStatus: false,
+        employmentStatus: null,
+        monthlyIncome: null,
+        guarantorInfo: null,
+        emergencyContact: null,
+        preferences: null,
+        tags: null,
+        lastLoginAt: null,
         createdAt: new Date(),
         updatedAt: new Date()
       }
     ];
     
-    this.nextId = 4;
+    this.nextId = 3;
     
     // Create sample properties
     this.properties = [
@@ -1467,7 +1587,7 @@ export class MemStorage implements IStorage {
       };
     } else {
       this.userSessions.push({
-        id: this.getNextId(),
+        id: this.getNextId().toString(),
         userId,
         isOnline,
         lastSeen: new Date(),
@@ -1518,6 +1638,54 @@ export class MemStorage implements IStorage {
 
   async getUserById(userId: number): Promise<any | undefined> {
     return this.users.find(u => u.id === userId);
+  }
+
+  // Favorites operations
+  async addToFavorites(userId: number, propertyId: number): Promise<UserFavorite> {
+    // Check if already favorited
+    const existing = this.userFavorites.find(f => f.userId === userId && f.propertyId === propertyId);
+    if (existing) {
+      return existing;
+    }
+
+    const favorite: UserFavorite = {
+      id: this.getNextId(),
+      userId,
+      propertyId,
+      addedAt: new Date()
+    };
+    
+    this.userFavorites.push(favorite);
+    return favorite;
+  }
+
+  async removeFromFavorites(userId: number, propertyId: number): Promise<boolean> {
+    const index = this.userFavorites.findIndex(f => f.userId === userId && f.propertyId === propertyId);
+    if (index === -1) return false;
+    
+    this.userFavorites.splice(index, 1);
+    return true;
+  }
+
+  async getUserFavorites(userId: number): Promise<Property[]> {
+    const userFavoriteIds = this.userFavorites
+      .filter(f => f.userId === userId)
+      .map(f => f.propertyId);
+    
+    const favoriteProperties = this.properties.filter(p => userFavoriteIds.includes(p.id));
+    
+    // Add the addedToFavorites date for each property
+    return favoriteProperties.map(property => {
+      const favorite = this.userFavorites.find(f => f.userId === userId && f.propertyId === property.id);
+      return {
+        ...property,
+        addedToFavorites: favorite?.addedAt?.toISOString() || new Date().toISOString()
+      };
+    }).sort((a, b) => new Date(b.addedToFavorites).getTime() - new Date(a.addedToFavorites).getTime());
+  }
+
+  async isPropertyFavorited(userId: number, propertyId: number): Promise<boolean> {
+    return this.userFavorites.some(f => f.userId === userId && f.propertyId === propertyId);
   }
 }
 

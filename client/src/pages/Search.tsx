@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import Header from "@/components/Header";
 import { LoadingSpinner, PropertySkeleton } from "@/components/LoadingSpinner";
 import { NetworkError } from "@/components/ErrorBoundary";
@@ -35,6 +38,128 @@ import {
   Eye
 } from "lucide-react";
 
+// FavoriteButton component
+const FavoriteButton = ({ propertyId, userId, onFavoriteChange }: { propertyId: number, userId: number | null, onFavoriteChange?: (isFavorited: boolean) => void }) => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  // Check if property is favorited
+  const { data: isFavorited = false, isLoading } = useQuery({
+    queryKey: [`/api/users/${userId}/favorites/${propertyId}/check`],
+    queryFn: async () => {
+      if (!userId) return false;
+      const response = await fetch(`/api/users/${userId}/favorites/${propertyId}/check`);
+      if (response.ok) {
+        const data = await response.json();
+        return data.isFavorited;
+      }
+      return false;
+    },
+    enabled: !!userId,
+    staleTime: 30000 // 30 seconds
+  });
+  
+  // Add to favorites mutation
+  const addToFavoritesMutation = useMutation({
+    mutationFn: async () => {
+      if (!userId) throw new Error('User not authenticated');
+      return apiRequest(`/api/users/${userId}/favorites`, {
+        method: 'POST',
+        body: JSON.stringify({ propertyId })
+      });
+    },
+    onSuccess: () => {
+      // Invalidate and refetch favorites data
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/favorites`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/favorites/${propertyId}/check`] });
+      
+      toast({
+        title: "Ajouté aux favoris",
+        description: "Le bien a été ajouté à vos favoris"
+      });
+      
+      onFavoriteChange?.(true);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible d'ajouter le bien aux favoris",
+        variant: "destructive"
+      });
+    }
+  });
+  
+  // Remove from favorites mutation
+  const removeFromFavoritesMutation = useMutation({
+    mutationFn: async () => {
+      if (!userId) throw new Error('User not authenticated');
+      const response = await fetch(`/api/users/${userId}/favorites/${propertyId}`, {
+        method: 'DELETE'
+      });
+      if (!response.ok) {
+        throw new Error('Failed to remove from favorites');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate and refetch favorites data
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/favorites`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${userId}/favorites/${propertyId}/check`] });
+      
+      toast({
+        title: "Retiré des favoris",
+        description: "Le bien a été retiré de vos favoris"
+      });
+      
+      onFavoriteChange?.(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de retirer le bien des favoris",
+        variant: "destructive"
+      });
+    }
+  });
+  
+  const handleFavoriteClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!userId) {
+      toast({
+        title: "Connexion requise",
+        description: "Veuillez vous connecter pour ajouter des favoris",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (isFavorited) {
+      removeFromFavoritesMutation.mutate();
+    } else {
+      addToFavoritesMutation.mutate();
+    }
+  };
+  
+  return (
+    <Button 
+      variant="ghost" 
+      size="icon" 
+      className={`absolute top-2 right-2 z-10 backdrop-blur-sm border-0 h-8 w-8 p-0 rounded-full transition-all duration-200 ${
+        isFavorited 
+          ? 'bg-red-500/80 hover:bg-red-600/80'
+          : 'bg-black/20 hover:bg-black/40'
+      }`}
+      onClick={handleFavoriteClick}
+      disabled={isLoading || addToFavoritesMutation.isPending || removeFromFavoritesMutation.isPending}
+      data-testid={`button-favorite-${propertyId}`}
+    >
+      <Heart className={`h-4 w-4 ${isFavorited ? 'text-white fill-white' : 'text-white'}`} />
+    </Button>
+  );
+};
+
 const Search = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [priceRange, setPriceRange] = useState([0, 2000]);
@@ -49,6 +174,22 @@ const Search = () => {
     parking: false
   });
   const [, navigate] = useLocation();
+  
+  // Get current user ID from localStorage
+  const getCurrentUserId = () => {
+    try {
+      const userData = localStorage.getItem("userData");
+      if (userData) {
+        const user = JSON.parse(userData);
+        return user.id;
+      }
+    } catch (error) {
+      console.error("Error getting user ID:", error);
+    }
+    return null;
+  };
+  
+  const currentUserId = getCurrentUserId();
 
   const [properties, setProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -652,25 +793,10 @@ const Search = () => {
                     </div>
                     
                     {/* Favorite Button */}
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="absolute bottom-3 right-3 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const favorites = JSON.parse(localStorage.getItem("userFavorites") || "[]");
-                        const isAlreadyFavorite = favorites.some((fav: any) => fav.id === property.id);
-                        
-                        if (!isAlreadyFavorite) {
-                          const newFavorite = { ...property, addedToFavorites: new Date().toISOString() };
-                          favorites.push(newFavorite);
-                          localStorage.setItem("userFavorites", JSON.stringify(favorites));
-                        }
-                      }}
-                      data-testid={`button-favorite-${property.id}`}
-                    >
-                      <Heart className="h-4 w-4 text-white" />
-                    </Button>
+                    <FavoriteButton 
+                      propertyId={property.id}
+                      userId={currentUserId}
+                    />
                   </div>
 
                   {/* Enhanced Content Section */}
