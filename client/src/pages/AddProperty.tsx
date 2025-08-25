@@ -1245,7 +1245,6 @@ const AddProperty = () => {
                 )}
                 </CardContent>
               </Card>
-            )}
 
             {/* Location */}
             <Card className="glass-card">

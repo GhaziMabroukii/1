@@ -1,6 +1,6 @@
 [x] 1. Install the required packages
 [x] 2. Restart the workflow to see if the project is working  
-[x] 3. Verify the project is working using the feedback tool
-[x] 4. Fix conversation system to allow multiple property-specific conversations 
+[x] 3. Fix JSX syntax error in AddProperty.tsx (removed extra closing bracket)
+[x] 4. Verify the project is working using the feedback tool
 [x] 5. Inform user the import is completed and they can start building, mark the import as completed using the complete_project_import tool
 [x] 6. Migration completed successfully - application running on port 5000
