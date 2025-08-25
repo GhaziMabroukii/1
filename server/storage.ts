@@ -97,7 +97,7 @@ export interface IStorage {
   isPropertyFavorited(userId: number, propertyId: number): Promise<boolean>;
 
   // Review operations
-  getPropertyReviews(propertyId: number): Promise<Review[]>;
+  getPropertyReviews(propertyId: number): Promise<any[]>;
   createReview(review: any): Promise<Review>;
   getReview(id: number): Promise<Review | undefined>;
   updateReview(id: number, updates: Partial<Review>): Promise<Review | undefined>;
@@ -777,11 +777,43 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Review operations
-  async getPropertyReviews(propertyId: number): Promise<Review[]> {
-    return await db.select()
-      .from(reviews)
-      .where(eq(reviews.propertyId, propertyId))
-      .orderBy(desc(reviews.createdAt));
+  async getPropertyReviews(propertyId: number): Promise<any[]> {
+    const reviewsList = await db.select({
+      id: reviews.id,
+      propertyId: reviews.propertyId,
+      userId: reviews.userId,
+      rating: reviews.rating,
+      comment: reviews.comment,
+      createdAt: reviews.createdAt,
+      updatedAt: reviews.updatedAt,
+      // User information
+      userFirstName: users.firstName,
+      userLastName: users.lastName,
+      userIsVerified: users.isVerified,
+      userProfilePicture: users.profilePicture
+    })
+    .from(reviews)
+    .leftJoin(users, eq(reviews.userId, users.id))
+    .where(eq(reviews.propertyId, propertyId))
+    .orderBy(desc(reviews.createdAt));
+
+    // Transform to include user object
+    return reviewsList.map(review => ({
+      id: review.id,
+      propertyId: review.propertyId,
+      userId: review.userId,
+      rating: review.rating,
+      comment: review.comment,
+      createdAt: review.createdAt,
+      updatedAt: review.updatedAt,
+      user: {
+        id: review.userId,
+        firstName: review.userFirstName,
+        lastName: review.userLastName,
+        isVerified: review.userIsVerified,
+        profilePicture: review.userProfilePicture
+      }
+    }));
   }
 
   async createReview(review: any): Promise<Review> {
@@ -2088,10 +2120,25 @@ export class MemStorage implements IStorage {
   }
 
   // Review operations
-  async getPropertyReviews(propertyId: number): Promise<Review[]> {
-    return this.reviews
+  async getPropertyReviews(propertyId: number): Promise<any[]> {
+    const propertyReviews = this.reviews
       .filter(r => r.propertyId === propertyId)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    // Add user information to each review
+    return propertyReviews.map(review => {
+      const user = this.users.find(u => u.id === review.userId);
+      return {
+        ...review,
+        user: user ? {
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          isVerified: user.isVerified,
+          profilePicture: user.profilePicture
+        } : null
+      };
+    });
   }
 
   async createReview(reviewData: any): Promise<Review> {

@@ -950,10 +950,27 @@ export default function PropertyDetails() {
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center space-x-2">
                               <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                                <span className="text-sm font-medium">U</span>
+                                {review.user?.profilePicture ? (
+                                  <img 
+                                    src={review.user.profilePicture} 
+                                    alt={`${review.user.firstName} ${review.user.lastName}`}
+                                    className="w-8 h-8 rounded-full object-cover"
+                                  />
+                                ) : (
+                                  <span className="text-sm font-medium">
+                                    {review.user?.firstName?.[0]?.toUpperCase() || 'U'}
+                                  </span>
+                                )}
                               </div>
                               <div>
-                                <p className="font-medium text-sm">Utilisateur #{review.userId}</p>
+                                <div className="flex items-center space-x-2">
+                                  <p className="font-medium text-sm">
+                                    {review.user ? `${review.user.firstName} ${review.user.lastName}` : `Utilisateur #${review.userId}`}
+                                  </p>
+                                  {review.user?.isVerified && (
+                                    <CheckCircle className="h-3 w-3 text-green-600" />
+                                  )}
+                                </div>
                                 <div className="flex">
                                   {Array.from({length: 5}).map((_, i) => (
                                     <Star 
