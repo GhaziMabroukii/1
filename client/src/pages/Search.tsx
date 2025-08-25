@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import Header from "@/components/Header";
+import { LoadingSpinner, PropertySkeleton } from "@/components/LoadingSpinner";
+import { NetworkError } from "@/components/ErrorBoundary";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -50,6 +52,8 @@ const Search = () => {
 
   const [properties, setProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     fetchProperties();
@@ -79,10 +83,19 @@ const Search = () => {
   const fetchProperties = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/properties");
+      setError(null);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch("/api/properties", {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
-        throw new Error("Failed to fetch properties");
+        throw new Error(`Erreur ${response.status}: ${response.statusText}`);
       }
       
       const fetchedProperties = await response.json();
@@ -135,12 +148,25 @@ const Search = () => {
       );
       
       setProperties(propertiesWithData);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching properties:", error);
       setProperties([]);
+      
+      if (error.name === 'AbortError') {
+        setError("La connexion a pris trop de temps. Vérifiez votre connexion internet.");
+      } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        setError("Impossible de se connecter au serveur. Vérifiez votre connexion internet.");
+      } else {
+        setError(error.message || "Une erreur s'est produite lors du chargement des propriétés.");
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const retryFetch = () => {
+    setRetryCount(prev => prev + 1);
+    fetchProperties();
   };
 
   // Initialize filtered properties with fetched data
@@ -527,13 +553,43 @@ const Search = () => {
           </Select>
         </div>
 
+        {/* Loading State */}
+        {loading && (
+          <div className="space-y-8">
+            <div className="text-center">
+              <LoadingSpinner size="lg" text="Recherche des propriétés..." />
+            </div>
+            <PropertySkeleton />
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && !loading && (
+          <NetworkError 
+            message={error}
+            onRetry={retryFetch}
+          />
+        )}
+
         {/* Enhanced Property Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
-          {filteredProperties.map((property) => {
-            const theme = property.themeData || getPropertyTheme(property);
-            const trustStars = Array.from({ length: 5 }, (_, i) => i < Math.floor(theme.trustScore));
-            
-            return (
+        {!loading && !error && (
+          <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
+            {filteredProperties.length === 0 ? (
+              <div className="col-span-full text-center py-12">
+                <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center">
+                  <Home className="h-8 w-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Aucun bien trouvé</h3>
+                <p className="text-muted-foreground">
+                  Essayez de modifier vos critères de recherche
+                </p>
+              </div>
+            ) : (
+              filteredProperties.map((property) => {
+                const theme = property.themeData || getPropertyTheme(property);
+                const trustStars = Array.from({ length: 5 }, (_, i) => i < Math.floor(theme.trustScore));
+                
+                return (
               <Card 
                 key={property.id} 
                 className={`cursor-pointer hover:scale-[1.02] hover:shadow-xl transition-all duration-300 border-0 shadow-lg ${theme.bgColor} overflow-hidden`}
@@ -760,37 +816,9 @@ const Search = () => {
                   </div>
                 </CardContent>
               </Card>
-            );
-          })}
-        </div>
-
-        {filteredProperties.length === 0 && !loading && (
-          <div className="text-center py-16">
-            <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl p-12 max-w-md mx-auto">
-              <Home className="h-20 w-20 text-gray-400 mx-auto mb-6" />
-              <h3 className="text-2xl font-bold mb-4 text-gray-700">🔍 Aucun bien trouvé</h3>
-              <p className="text-gray-500 mb-6">
-                Essayez de modifier vos critères de recherche ou explorez d'autres régions
-              </p>
-              <Button 
-                onClick={() => {
-                  setSearchQuery("");
-                  setPropertyType("");
-                  setCategoryFilter("");
-                  setPriceRange([0, 2000]);
-                }}
-                className="bg-gradient-to-r from-primary to-orange-500 text-white"
-              >
-                🔄 Réinitialiser les filtres
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {loading && (
-          <div className="text-center py-16">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-gray-600">🏠 Chargement des propriétés...</p>
+                );
+              })
+            )}
           </div>
         )}
       </div>

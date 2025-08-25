@@ -124,8 +124,7 @@ const HeroSection = () => {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  className="text-xs sm:text-sm" 
-                  className="flex items-center gap-2"
+                  className="text-xs sm:text-sm flex items-center gap-2"
                   onClick={() => navigator.geolocation?.getCurrentPosition(() => {
                     // Géolocalisation logic
                     console.log("Géolocalisation activée");

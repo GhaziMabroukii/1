@@ -16,6 +16,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { z } from "zod";
 import { MapPin, Home, Bed, Bath, Phone, MessageCircle, Banknote, ArrowLeft, Star, Heart, Share, Calendar, Users, Wifi, Car, Utensils, Tv, Wind, Droplets, ChevronLeft, ChevronRight, ExternalLink, Map, StarIcon, Clock, CheckCircle, XCircle, FileText, Shield, Info, DollarSign, Tag, MapPinned, Navigation, Building2, Armchair, Clock3, CreditCard, Zap } from "lucide-react";
 import Header from "@/components/Header";
+import { PageLoadingSpinner } from "@/components/LoadingSpinner";
+import { NetworkError } from "@/components/ErrorBoundary";
 
 
 
@@ -38,6 +40,7 @@ export default function PropertyDetails() {
   const locationMapRef = useRef<HTMLDivElement>(null);
 
   const propertyId = params?.id ? parseInt(params.id) : 0;
+  const [networkError, setNetworkError] = useState<string | null>(null);
 
   // Get current user from localStorage
   const getUserData = () => {

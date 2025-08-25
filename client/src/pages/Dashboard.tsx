@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import Header from "@/components/Header";
 import RecentProperties from "@/components/RecentProperties";
+import { LoadingSpinner, CardSkeleton } from "@/components/LoadingSpinner";
+import { NetworkError } from "@/components/ErrorBoundary";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,20 +24,49 @@ import {
 const Dashboard = () => {
   const [userType, setUserType] = useState<string>("");
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [, navigate] = useLocation();
 
   useEffect(() => {
-    const isAuth = localStorage.getItem("isAuthenticated");
-    if (!isAuth) {
-      navigate("/login");
-      return;
-    }
+    const loadDashboardData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Check authentication
+        const isAuth = localStorage.getItem("isAuthenticated");
+        if (!isAuth) {
+          navigate("/login");
+          return;
+        }
 
+        // Simulate network delay for loading state demonstration
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        const type = localStorage.getItem("userType") || "";
+        const profile = JSON.parse(localStorage.getItem("userProfile") || "{}");
+        
+        setUserType(type);
+        setUserProfile(profile);
+        setLoading(false);
+      } catch (err: any) {
+        setError(err.message || "Une erreur s'est produite lors du chargement du dashboard");
+        setLoading(false);
+      }
+    };
+
+    loadDashboardData();
+  }, [navigate]);
+
+  const retryLoading = () => {
+    setError(null);
     const type = localStorage.getItem("userType") || "";
     const profile = JSON.parse(localStorage.getItem("userProfile") || "{}");
     setUserType(type);
     setUserProfile(profile);
-  }, [navigate]);
+    setLoading(false);
+  };
 
   // Mock data
   const mockFavorites = [
