@@ -304,7 +304,7 @@ const AddProperty = () => {
       images: [...prev.images, ...validFiles].slice(0, 10) // Max 10 images
     }));
 
-    if (prev.images.length + validFiles.length > 10) {
+    if (formData.images.length + validFiles.length > 10) {
       toast({
         title: "Limite atteinte",
         description: "Maximum 10 fichiers autorisés. Les fichiers supplémentaires ont été ignorés.",
@@ -644,10 +644,10 @@ const AddProperty = () => {
     e.preventDefault();
     
     // Validation
-    if (!formData.title || !formData.type || !formData.price || !formData.address) {
+    if (!formData.title || !formData.type || !formData.price || !formData.address || !formData.city) {
       toast({
         title: "Champs requis manquants",
-        description: "Veuillez remplir tous les champs obligatoires",
+        description: "Veuillez remplir tous les champs obligatoires (titre, type, prix, adresse, ville)",
         variant: "destructive",
       });
       return;
@@ -705,6 +705,7 @@ const AddProperty = () => {
         rooms: formData.rooms ? parseInt(formData.rooms) : null,
         bathrooms: formData.bathrooms ? parseInt(formData.bathrooms) : null,
         address: formData.address,
+        city: formData.city || null,
         latitude: formData.location.lat !== 0 ? formData.location.lat.toString() : null,
         longitude: formData.location.lng !== 0 ? formData.location.lng.toString() : null,
         amenities: formData.amenities.length > 0 ? formData.amenities : null,
@@ -1266,9 +1267,49 @@ const AddProperty = () => {
             <Card className="glass-card">
               <CardHeader>
                 <CardTitle>Localisation</CardTitle>
-                <p className="text-sm text-muted-foreground">Choisissez la méthode de localisation</p>
+                <p className="text-sm text-muted-foreground">Sélectionnez d'abord votre ville, puis choisissez la méthode de localisation</p>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* City Selection */}
+                <div>
+                  <Label htmlFor="city" className="text-base font-medium flex items-center space-x-2">
+                    <MapPin className="h-4 w-4" />
+                    <span>Ville *</span>
+                  </Label>
+                  <Select 
+                    value={formData.city} 
+                    onValueChange={(value) => {
+                      handleInputChange('city', value);
+                      // Automatically set coordinates for selected city
+                      const selectedCity = tunisianCities.find(c => c.name === value);
+                      if (selectedCity) {
+                        handleInputChange('location', { lat: selectedCity.lat, lng: selectedCity.lng });
+                        handleInputChange('address', `${selectedCity.name}, Tunisie`);
+                        toast({
+                          title: `📍 Ville sélectionnée: ${selectedCity.name}`,
+                          description: `Position automatiquement définie pour ${selectedCity.name}, ${selectedCity.region}`,
+                        });
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Sélectionner votre ville" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tunisianCities.map((city) => (
+                        <SelectItem key={city.name} value={city.name}>
+                          <div className="flex items-center space-x-2">
+                            <span>{city.name}</span>
+                            <span className="text-xs text-muted-foreground">({city.region})</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Choisissez parmi les 24 gouvernorats de Tunisie
+                  </p>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Button
                     type="button"
