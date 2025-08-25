@@ -3001,6 +3001,154 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Dashboard stats endpoint
+  app.get('/api/dashboard/stats/:userId', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { userType } = req.query;
+      
+      if (!userId || !userType) {
+        return res.status(400).json({ error: 'Missing userId or userType' });
+      }
+
+      const userIdNum = parseInt(userId);
+      let stats: any = {};
+
+      if (userType === 'owner') {
+        const properties = await storage.getPropertiesForOwner(userIdNum);
+        const contracts = await storage.getOwnerContracts(userIdNum);
+        const offers = await storage.getOffersByOwnerId(userIdNum);
+        
+        const totalViews = properties.reduce((sum: number, p: any) => sum + (p.views || 0), 0);
+        const activeContracts = contracts.filter((c: any) => c.status === 'fully_signed' || c.status === 'active').length;
+        const monthlyRevenue = contracts
+          .filter((c: any) => c.status === 'fully_signed' || c.status === 'active')
+          .reduce((sum: number, c: any) => sum + (parseInt(c.monthlyRent) || 0), 0);
+        const occupancyRate = properties.length > 0 ? Math.round((activeContracts / properties.length) * 100) : 0;
+        
+        stats = {
+          totalProperties: properties.length,
+          totalViews,
+          activeContracts,
+          monthlyRevenue,
+          occupancyRate,
+          pendingOffers: offers.filter((o: any) => o.status === 'pending').length,
+          totalOffers: offers.length
+        };
+      } else if (userType === 'tenant') {
+        const contracts = await storage.getContractsByTenant(userIdNum);
+        const offers = await storage.getOffersByTenantId(userIdNum);
+        const favorites = await storage.getFavoritesByUser(userIdNum);
+        const conversations = await storage.getConversationsByUser(userIdNum);
+        
+        stats = {
+          activeContracts: contracts.filter((c: any) => c.status === 'fully_signed' || c.status === 'active').length,
+          favoritesCount: favorites.length,
+          offersCount: offers.length,
+          recentActivity: {
+            messagesCount: conversations.length,
+            lastActivity: new Date().toISOString()
+          }
+        };
+      }
+
+      res.json(stats);
+    } catch (error) {
+      console.error('Dashboard stats error:', error);
+      res.status(500).json({ error: 'Failed to fetch dashboard stats' });
+    }
+  });
+
+  // Property visibility enhancement endpoint
+  app.post('/api/properties/:id/boost', requireAuth, async (req, res) => {
+    try {
+      const propertyId = parseInt(req.params.id);
+      const { boostType = 'featured', duration = 7 } = req.body;
+      
+      const property = await storage.getProperty(propertyId);
+      if (!property) {
+        return res.status(404).json({ error: 'Property not found' });
+      }
+
+      // Update property with boost
+      const boostedUntil = new Date();
+      boostedUntil.setDate(boostedUntil.getDate() + duration);
+      
+      const updatedProperty = await storage.updateProperty(propertyId, {
+        isFeatured: boostType === 'featured',
+        featuredUntil: boostedUntil,
+        boostLevel: boostType === 'premium' ? 2 : 1,
+        updatedAt: new Date()
+      });
+
+      // Create notification for property owner
+      await storage.createNotification({
+        userId: property.ownerId,
+        title: "Propriété mise en avant",
+        message: `Votre propriété "${property.title}" est maintenant mise en avant pour ${duration} jours.`,
+        type: "property_boost",
+        relatedId: propertyId,
+      });
+
+      res.json({ 
+        message: 'Property boost applied successfully',
+        property: updatedProperty,
+        boostedUntil
+      });
+    } catch (error) {
+      console.error('Property boost error:', error);
+      res.status(500).json({ error: 'Failed to boost property' });
+    }
+  });
+
+  // Get recommended properties for better reach
+  app.get('/api/properties/recommendations/:userId', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { userType = 'tenant' } = req.query;
+      
+      const userIdNum = parseInt(userId);
+      let recommendations: any[] = [];
+
+      if (userType === 'tenant') {
+        // Get user's favorites to understand preferences
+        const favorites = await storage.getFavoritesByUser(userIdNum);
+        const allProperties = await storage.getProperties();
+        
+        // Simple recommendation based on user's favorite types and locations
+        const favoriteTypes = [...new Set(favorites.map((f: any) => f.property?.type).filter(Boolean))];
+        const favoriteLocations = [...new Set(favorites.map((f: any) => f.property?.address?.split(',')[0]).filter(Boolean))];
+        
+        recommendations = allProperties
+          .filter((p: any) => 
+            !favorites.some((f: any) => f.propertyId === p.id) && // Not already favorited
+            (favoriteTypes.length === 0 || favoriteTypes.includes(p.type) || 
+             favoriteLocations.length === 0 || favoriteLocations.some((loc: string) => p.address?.includes(loc)))
+          )
+          .sort((a: any, b: any) => (b.views || 0) - (a.views || 0)) // Sort by popularity
+          .slice(0, 10);
+      } else {
+        // For owners, recommend similar properties for comparison
+        const ownProperties = await storage.getPropertiesForOwner(userIdNum);
+        if (ownProperties.length > 0) {
+          const allProperties = await storage.getProperties();
+          const avgPrice = ownProperties.reduce((sum: number, p: any) => sum + (parseInt(p.price) || 0), 0) / ownProperties.length;
+          
+          recommendations = allProperties
+            .filter((p: any) => p.ownerId !== userIdNum)
+            .filter((p: any) => Math.abs((parseInt(p.price) || 0) - avgPrice) < avgPrice * 0.3) // Within 30% price range
+            .sort((a: any, b: any) => (b.views || 0) - (a.views || 0))
+            .slice(0, 8);
+        }
+      }
+
+      res.json(recommendations);
+    } catch (error) {
+      console.error('Recommendations error:', error);
+      res.status(500).json({ error: 'Failed to fetch recommendations' });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // WebSocket server setup with authentication and real-time events
