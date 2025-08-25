@@ -363,34 +363,34 @@ export default function PropertyDetails() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-6">
+      <div className="container mx-auto px-4 py-6 sm:py-8">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
           <Button 
             variant="ghost" 
             onClick={() => navigate("/search")}
-            className="flex items-center space-x-2"
+            className="flex items-center space-x-2 text-sm sm:text-base"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span>Retour</span>
+            <span className="hidden sm:inline">Retour</span>
           </Button>
           
-          <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="icon">
+          <div className="flex items-center space-x-1 sm:space-x-2">
+            <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-10 sm:w-10">
               <Heart className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-10 sm:w-10">
               <Share className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           {/* Main Property Info */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
             {/* Property Images Gallery */}
             {property.images && property.images.length > 0 ? (
               <div className="relative group">
-                <div className="aspect-video bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl overflow-hidden shadow-lg">
+                <div className="aspect-video sm:aspect-video bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg sm:rounded-xl overflow-hidden shadow-lg">
                   <img
                     src={property.images[currentImageIndex]}
                     alt={`${property.title} - Image ${currentImageIndex + 1}`}
@@ -403,25 +403,25 @@ export default function PropertyDetails() {
                       <Button
                         variant="secondary"
                         size="sm"
-                        className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 shadow-lg rounded-full h-10 w-10 p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                        className="absolute left-2 sm:left-4 top-1/2 transform -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 shadow-lg rounded-full h-8 w-8 sm:h-10 sm:w-10 p-0 opacity-80 sm:opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                         onClick={prevImage}
                       >
-                        <ChevronLeft className="h-5 w-5" />
+                        <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                       </Button>
                       <Button
                         variant="secondary"
                         size="sm"
-                        className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 shadow-lg rounded-full h-10 w-10 p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                        className="absolute right-2 sm:right-4 top-1/2 transform -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 shadow-lg rounded-full h-8 w-8 sm:h-10 sm:w-10 p-0 opacity-80 sm:opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                         onClick={nextImage}
                       >
-                        <ChevronRight className="h-5 w-5" />
+                        <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
                       </Button>
                     </>
                   )}
                   
                   {/* Enhanced image counter */}
                   {property.images.length > 1 && (
-                    <div className="absolute bottom-4 right-4 bg-black/70 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-sm font-medium">
+                    <div className="absolute bottom-2 sm:bottom-4 right-2 sm:right-4 bg-black/70 backdrop-blur-sm text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium">
                       📸 {currentImageIndex + 1} / {property.images.length}
                     </div>
                   )}

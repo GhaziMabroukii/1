@@ -87,102 +87,105 @@ const Dashboard = () => {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex justify-between items-center mb-8">
+        <div className="container mx-auto px-4 py-6 sm:py-8">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
             <div>
-              <h1 className="text-3xl font-bold gradient-text">Dashboard Propriétaire</h1>
-              <p className="text-muted-foreground">
+              <h1 className="text-2xl sm:text-3xl font-bold gradient-text">Dashboard Propriétaire</h1>
+              <p className="text-sm sm:text-base text-muted-foreground">
                 Bienvenue, {userProfile?.firstName} {userProfile?.lastName}
               </p>
             </div>
-            <div className="flex space-x-2">
-              <Button onClick={() => navigate("/add-property")} className="flex items-center space-x-2">
+            <div className="flex flex-col sm:flex-row gap-2 sm:space-x-2 w-full sm:w-auto">
+              <Button onClick={() => navigate("/add-property")} className="flex items-center justify-center space-x-2 text-sm sm:text-base">
                 <Plus className="h-4 w-4" />
-                <span>Ajouter un bien</span>
+                <span className="hidden sm:inline">Ajouter un bien</span>
+                <span className="sm:hidden">Ajouter</span>
               </Button>
               <Button 
                 variant="outline"
                 onClick={() => navigate("/manage-properties")} 
-                className="flex items-center space-x-2"
+                className="flex items-center justify-center space-x-2 text-sm sm:text-base"
               >
                 <Home className="h-4 w-4" />
-                <span>Gérer mes biens</span>
+                <span className="hidden sm:inline">Gérer mes biens</span>
+                <span className="sm:hidden">Gérer</span>
               </Button>
             </div>
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
             <Card className="glass-card">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Biens totaux</CardTitle>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 sm:px-6">
+                <CardTitle className="text-xs sm:text-sm font-medium">Biens totaux</CardTitle>
                 <Home className="h-4 w-4 text-primary" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{mockStats.totalProperties}</div>
+              <CardContent className="px-4 sm:px-6">
+                <div className="text-xl sm:text-2xl font-bold">{mockStats.totalProperties}</div>
                 <p className="text-xs text-muted-foreground">+1 ce mois</p>
               </CardContent>
             </Card>
             
             <Card className="glass-card">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Contrats actifs</CardTitle>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 sm:px-6">
+                <CardTitle className="text-xs sm:text-sm font-medium">Contrats actifs</CardTitle>
                 <Users className="h-4 w-4 text-success" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{mockStats.activeContracts}</div>
+              <CardContent className="px-4 sm:px-6">
+                <div className="text-xl sm:text-2xl font-bold">{mockStats.activeContracts}</div>
                 <p className="text-xs text-muted-foreground">Stable</p>
               </CardContent>
             </Card>
 
             <Card className="glass-card">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Revenus mensuels</CardTitle>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 sm:px-6">
+                <CardTitle className="text-xs sm:text-sm font-medium">Revenus mensuels</CardTitle>
                 <DollarSign className="h-4 w-4 text-accent" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{mockStats.monthlyRevenue} TND</div>
+              <CardContent className="px-4 sm:px-6">
+                <div className="text-lg sm:text-2xl font-bold">{mockStats.monthlyRevenue} TND</div>
                 <p className="text-xs text-muted-foreground">+12% vs mois dernier</p>
               </CardContent>
             </Card>
 
             <Card className="glass-card">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Taux d'occupation</CardTitle>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 sm:px-6">
+                <CardTitle className="text-xs sm:text-sm font-medium">Taux d'occupation</CardTitle>
                 <TrendingUp className="h-4 w-4 text-warning" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{mockStats.occupancyRate}%</div>
+              <CardContent className="px-4 sm:px-6">
+                <div className="text-xl sm:text-2xl font-bold">{mockStats.occupancyRate}%</div>
                 <p className="text-xs text-muted-foreground">Excellent</p>
               </CardContent>
             </Card>
           </div>
 
           {/* Properties */}
-          <Card className="glass-card mb-8">
-            <CardHeader>
-              <CardTitle>Mes biens</CardTitle>
-              <CardDescription>Gérez vos propriétés</CardDescription>
+          <Card className="glass-card mb-6 sm:mb-8">
+            <CardHeader className="px-4 sm:px-6">
+              <CardTitle className="text-lg sm:text-xl">Mes biens</CardTitle>
+              <CardDescription className="text-sm">Gérez vos propriétés</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-4 sm:px-6">
               <div className="space-y-4">
                 {mockProperties.map((property) => (
-                  <div key={property.id} className="flex items-center justify-between p-4 border border-white/10 rounded-lg">
+                  <div key={property.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 border border-white/10 rounded-lg space-y-3 sm:space-y-0">
                     <div className="flex-1">
-                      <h3 className="font-semibold">{property.title}</h3>
+                      <h3 className="font-semibold text-sm sm:text-base">{property.title}</h3>
                       <p className="text-sm text-muted-foreground">{property.price}</p>
                     </div>
-                    <div className="flex items-center space-x-4">
-                      <Badge variant={property.status === "Disponible" ? "default" : "secondary"}>
+                    <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+                      <Badge variant={property.status === "Disponible" ? "default" : "secondary"} className="self-start sm:self-center">
                         {property.status}
                       </Badge>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-xs sm:text-sm text-muted-foreground">
                         {property.views} vues • {property.messages} messages
                       </div>
                       <Button 
                         variant="ghost" 
                         size="sm"
                         onClick={() => navigate("/manage-properties")}
+                        className="self-start sm:self-center text-sm"
                       >
                         Gérer
                       </Button>
@@ -201,81 +204,82 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-8">
+      <div className="container mx-auto px-4 py-6 sm:py-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
           <div>
-            <h1 className="text-3xl font-bold gradient-text">
+            <h1 className="text-2xl sm:text-3xl font-bold gradient-text">
               Dashboard {userType === "student" ? "Étudiant" : "Locataire"}
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-sm sm:text-base text-muted-foreground">
               Bienvenue, {userProfile?.firstName} {userProfile?.lastName}
             </p>
             {userType === "student" && userProfile?.studentInfo?.university && (
-              <p className="text-sm text-primary">
+              <p className="text-sm text-primary mt-1">
                 📚 {userProfile.studentInfo.university}
               </p>
             )}
           </div>
-          <Button onClick={() => navigate("/search")} className="flex items-center space-x-2">
+          <Button onClick={() => navigate("/search")} className="flex items-center justify-center space-x-2 text-sm sm:text-base w-full sm:w-auto">
             <MapPin className="h-4 w-4" />
-            <span>Rechercher un bien</span>
+            <span className="hidden sm:inline">Rechercher un bien</span>
+            <span className="sm:hidden">Rechercher</span>
           </Button>
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
           <Card className="glass-card cursor-pointer hover:scale-105 transition-transform" onClick={() => navigate("/search")}>
-            <CardContent className="flex flex-col items-center p-6">
-              <MapPin className="h-8 w-8 text-primary mb-2" />
-              <p className="text-sm font-medium">Rechercher</p>
+            <CardContent className="flex flex-col items-center p-4 sm:p-6">
+              <MapPin className="h-6 w-6 sm:h-8 sm:w-8 text-primary mb-2" />
+              <p className="text-xs sm:text-sm font-medium text-center">Rechercher</p>
             </CardContent>
           </Card>
           
           <Card className="glass-card cursor-pointer hover:scale-105 transition-transform" onClick={() => navigate("/favorites")}>
-            <CardContent className="flex flex-col items-center p-6">
-              <Heart className="h-8 w-8 text-destructive mb-2" />
-              <p className="text-sm font-medium">Favoris</p>
+            <CardContent className="flex flex-col items-center p-4 sm:p-6">
+              <Heart className="h-6 w-6 sm:h-8 sm:w-8 text-destructive mb-2" />
+              <p className="text-xs sm:text-sm font-medium text-center">Favoris</p>
             </CardContent>
           </Card>
           
           <Card className="glass-card cursor-pointer hover:scale-105 transition-transform" onClick={() => navigate("/messages")}>
-            <CardContent className="flex flex-col items-center p-6">
-              <MessageSquare className="h-8 w-8 text-accent mb-2" />
-              <p className="text-sm font-medium">Messages</p>
+            <CardContent className="flex flex-col items-center p-4 sm:p-6">
+              <MessageSquare className="h-6 w-6 sm:h-8 sm:w-8 text-accent mb-2" />
+              <p className="text-xs sm:text-sm font-medium text-center">Messages</p>
             </CardContent>
           </Card>
           
           <Card className="glass-card cursor-pointer hover:scale-105 transition-transform" onClick={() => navigate("/contracts")}>
-            <CardContent className="flex flex-col items-center p-6">
-              <Calendar className="h-8 w-8 text-success mb-2" />
-              <p className="text-sm font-medium">Contrats</p>
+            <CardContent className="flex flex-col items-center p-4 sm:p-6">
+              <Calendar className="h-6 w-6 sm:h-8 sm:w-8 text-success mb-2" />
+              <p className="text-xs sm:text-sm font-medium text-center">Contrats</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Favorites */}
-        <Card className="glass-card mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
+        <Card className="glass-card mb-6 sm:mb-8">
+          <CardHeader className="px-4 sm:px-6">
+            <CardTitle className="flex items-center space-x-2 text-lg sm:text-xl">
               <Heart className="h-5 w-5 text-destructive" />
               <span>Mes favoris</span>
             </CardTitle>
-            <CardDescription>Biens sauvegardés</CardDescription>
+            <CardDescription className="text-sm">Biens sauvegardés</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 sm:px-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {mockFavorites.map((property) => (
-                <div key={property.id} className="glass-card p-4 rounded-lg cursor-pointer hover:scale-105 transition-transform">
+                <div key={property.id} className="glass-card p-3 sm:p-4 rounded-lg cursor-pointer hover:scale-105 transition-transform">
                   <div className="flex items-start space-x-3">
-                    <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
-                      <Home className="h-6 w-6 text-muted-foreground" />
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Home className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-sm">{property.title}</h3>
-                      <p className="text-primary font-medium">{property.price}</p>
-                      <p className="text-xs text-muted-foreground flex items-center space-x-1">
-                        <MapPin className="h-3 w-3" />
-                        <span>{property.location}</span>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-xs sm:text-sm truncate">{property.title}</h3>
+                      <p className="text-primary font-medium text-sm">{property.price}</p>
+                      <p className="text-xs text-muted-foreground flex items-center space-x-1 mt-1">
+                        <MapPin className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate">{property.location}</span>
                       </p>
                       <div className="flex items-center space-x-1 mt-1">
                         <Star className="h-3 w-3 fill-warning text-warning" />
@@ -291,26 +295,26 @@ const Dashboard = () => {
 
         {/* Recent Activity */}
         <Card className="glass-card">
-          <CardHeader>
-            <CardTitle>Activité récente</CardTitle>
-            <CardDescription>Vos dernières actions</CardDescription>
+          <CardHeader className="px-4 sm:px-6">
+            <CardTitle className="text-lg sm:text-xl">Activité récente</CardTitle>
+            <CardDescription className="text-sm">Vos dernières actions</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 sm:px-6">
             <div className="space-y-4">
-              <div className="flex items-center space-x-3">
-                <Avatar>
-                  <AvatarFallback>AK</AvatarFallback>
+              <div className="flex items-start space-x-3">
+                <Avatar className="mt-1 flex-shrink-0">
+                  <AvatarFallback className="text-xs">AK</AvatarFallback>
                 </Avatar>
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-sm">Ahmed Karim a répondu à votre message</p>
                   <p className="text-xs text-muted-foreground">Il y a 2 heures</p>
                 </div>
               </div>
-              <div className="flex items-center space-x-3">
-                <Avatar>
-                  <AvatarFallback>SF</AvatarFallback>
+              <div className="flex items-start space-x-3">
+                <Avatar className="mt-1 flex-shrink-0">
+                  <AvatarFallback className="text-xs">SF</AvatarFallback>
                 </Avatar>
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-sm">Nouveau bien ajouté près de votre université</p>
                   <p className="text-xs text-muted-foreground">Il y a 1 jour</p>
                 </div>

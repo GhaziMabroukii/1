@@ -351,45 +351,47 @@ const Search = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
       <Header />
       
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-6 sm:py-8">
         {/* Enhanced Search Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-orange-500 bg-clip-text text-transparent mb-4">
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary to-orange-500 bg-clip-text text-transparent mb-4">
             🔍 Trouvez votre logement idéal
           </h1>
-          <p className="text-gray-600 text-lg">Découvrez les meilleures propriétés avec des informations détaillées et fiables</p>
+          <p className="text-gray-600 text-sm sm:text-base md:text-lg px-4">Découvrez les meilleures propriétés avec des informations détaillées et fiables</p>
         </div>
 
         {/* Search Bar */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-          <div className="flex flex-col md:flex-row gap-4">
+        <div className="bg-white rounded-2xl shadow-lg p-4 sm:p-6 mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-col md:flex-row gap-3 sm:gap-4">
             <div className="flex-1">
               <Input
                 placeholder="🏠 Rechercher par titre ou adresse..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="border-0 bg-gray-50 text-lg h-12"
+                className="border-0 bg-gray-50 text-sm sm:text-base md:text-lg h-10 sm:h-12"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
               <Button 
                 onClick={handleLocationSearch}
                 variant="outline" 
-                className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 h-12 px-6"
+                className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 h-10 sm:h-12 px-4 sm:px-6 text-sm sm:text-base"
               >
-                📍 Près de moi
+                <span className="hidden sm:inline">📍 Près de moi</span>
+                <span className="sm:hidden">📍 Localiser</span>
               </Button>
               <Button 
                 onClick={() => navigate("/map")}
                 variant="default"
-                className="bg-primary hover:bg-primary/90 h-12 px-6"
+                className="bg-primary hover:bg-primary/90 h-10 sm:h-12 px-4 sm:px-6 text-sm sm:text-base"
               >
-                🗺️ Voir la carte
+                <span className="hidden sm:inline">🗺️ Voir la carte</span>
+                <span className="sm:hidden">🗺️ Carte</span>
               </Button>
               <Button 
                 onClick={() => setShowFilters(!showFilters)}
                 variant="outline"
-                className="bg-gray-50 hover:bg-gray-100 h-12 px-6"
+                className="bg-gray-50 hover:bg-gray-100 h-10 sm:h-12 px-4 sm:px-6 text-sm sm:text-base"
               >
                 <Filter className="h-4 w-4 mr-2" />
                 Filtres
@@ -400,9 +402,9 @@ const Search = () => {
 
         {/* Enhanced Filters */}
         {showFilters && (
-          <Card className="mb-8 shadow-lg border-0">
-            <CardContent className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card className="mb-6 sm:mb-8 shadow-lg border-0">
+            <CardContent className="p-4 sm:p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                 <div>
                   <label className="text-sm font-semibold mb-3 block text-gray-700">Type de bien</label>
                   <Select value={propertyType} onValueChange={setPropertyType}>
@@ -491,8 +493,8 @@ const Search = () => {
         )}
 
         {/* Results */}
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-2xl font-bold text-gray-800">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800">
             🎯 {filteredProperties.length} bien(s) trouvé(s)
           </h2>
           <Select defaultValue="price" onValueChange={(value) => {
@@ -513,7 +515,7 @@ const Search = () => {
             }
             setFilteredProperties(sorted);
           }}>
-            <SelectTrigger className="w-48 h-11">
+            <SelectTrigger className="w-full sm:w-48 h-10 sm:h-11">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -526,7 +528,7 @@ const Search = () => {
         </div>
 
         {/* Enhanced Property Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
           {filteredProperties.map((property) => {
             const theme = property.themeData || getPropertyTheme(property);
             const trustStars = Array.from({ length: 5 }, (_, i) => i < Math.floor(theme.trustScore));
@@ -540,7 +542,7 @@ const Search = () => {
               >
                 <CardContent className="p-0">
                   {/* Enhanced Image Section */}
-                  <div className="relative h-52 overflow-hidden">
+                  <div className="relative h-48 sm:h-52 overflow-hidden">
                     {property.images && property.images.length > 0 ? (
                       <>
                         <img
@@ -616,33 +618,33 @@ const Search = () => {
                   </div>
 
                   {/* Enhanced Content Section */}
-                  <div className="p-5">
+                  <div className="p-4 sm:p-5">
                     {/* Title and Type */}
                     <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-2xl">{theme.icon}</span>
+                          <span className="text-xl sm:text-2xl">{theme.icon}</span>
                           <Badge className={`${theme.badge} text-xs`} data-testid={`badge-type-${property.id}`}>
                             {property.type}
                           </Badge>
                         </div>
-                        <h3 className="font-bold text-lg leading-tight mb-1" data-testid={`text-title-${property.id}`}>
+                        <h3 className="font-bold text-base sm:text-lg leading-tight mb-1 truncate" data-testid={`text-title-${property.id}`}>
                           {property.title}
                         </h3>
                       </div>
                     </div>
                     
                     {/* Price and Details */}
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-3">
                       <div className="flex items-baseline gap-1">
-                        <span className="text-2xl font-bold bg-gradient-to-r from-primary to-orange-500 bg-clip-text text-transparent" data-testid={`text-price-${property.id}`}>
+                        <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary to-orange-500 bg-clip-text text-transparent" data-testid={`text-price-${property.id}`}>
                           {property.price}
                         </span>
                         <span className="text-sm text-muted-foreground font-medium">
                           TND/{property.priceType}
                         </span>
                       </div>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-3 sm:gap-4 text-sm text-muted-foreground">
                         {property.rooms && (
                           <div className="flex items-center gap-1">
                             <Bed className="h-4 w-4" />

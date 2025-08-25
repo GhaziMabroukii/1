@@ -40,61 +40,61 @@ const HeroSection = () => {
       <div className="absolute top-20 right-10 w-32 h-32 bg-primary/20 rounded-full blur-3xl floating-element hidden lg:block" />
       <div className="absolute bottom-20 left-10 w-40 h-40 bg-secondary/20 rounded-full blur-3xl floating-element animation-delay-2000 hidden lg:block" />
 
-      <div className="relative container mx-auto px-4 py-20">
+      <div className="relative container mx-auto px-4 py-12 sm:py-16 lg:py-20">
         <div className="max-w-5xl mx-auto text-center slide-up">
           {/* Main Headline */}
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold mb-4 sm:mb-6 leading-tight">
             Trouvez votre
             <span className="block gradient-text">chez-vous parfait</span>
             <span className="block text-secondary">en Tunisie</span>
           </h1>
 
           {/* Subtitle */}
-          <p className="text-lg md:text-xl mb-8 text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg md:text-xl mb-6 sm:mb-8 text-muted-foreground max-w-2xl mx-auto px-4">
             La première plateforme de location intelligente adaptée aux étudiants et familles tunisiennes
           </p>
 
           {/* User Type Selection */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center mb-6 sm:mb-8 px-4">
             <Button 
               variant={activeUserType === "student" ? "success" : "glass"} 
               size="lg" 
-              className="flex items-center gap-3"
+              className="flex items-center justify-center gap-2 sm:gap-3 text-sm sm:text-base w-full sm:w-auto"
               onClick={() => setActiveUserType(activeUserType === "student" ? null : "student")}
             >
-              <GraduationCap className="h-5 w-5" />
+              <GraduationCap className="h-4 w-4 sm:h-5 sm:w-5" />
               Je suis étudiant
             </Button>
             <Button 
               variant={activeUserType === "family" ? "accent" : "glass"} 
               size="lg" 
-              className="flex items-center gap-3"
+              className="flex items-center justify-center gap-2 sm:gap-3 text-sm sm:text-base w-full sm:w-auto"
               onClick={() => setActiveUserType(activeUserType === "family" ? null : "family")}
             >
-              <Users className="h-5 w-5" />
+              <Users className="h-4 w-4 sm:h-5 sm:w-5" />
               Je suis une famille
             </Button>
           </div>
 
           {/* Search Section */}
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-4xl mx-auto px-4">
             <div className="glass-card">
               {/* Main Search Bar */}
-              <div className="flex flex-col lg:flex-row gap-4 mb-4">
+              <div className="flex flex-col sm:flex-col lg:flex-row gap-3 sm:gap-4 mb-4">
                 <div className="flex-1">
                   <input
                     type="text"
-                    placeholder="Où cherchez-vous ? (ex: Ariana, Tunis, Sousse...)"
-                    className="glass-input w-full text-base"
+                    placeholder="Où cherchez-vous ?"
+                    className="glass-input w-full text-sm sm:text-base"
                     value={searchLocation}
                     onChange={(e) => setSearchLocation(e.target.value)}
                   />
                 </div>
                 
                 {/* Price Range */}
-                <div className="lg:w-48">
+                <div className="w-full lg:w-48">
                   <select 
-                    className="glass-input w-full text-base"
+                    className="glass-input w-full text-sm sm:text-base"
                     value={maxPrice}
                     onChange={(e) => setMaxPrice(e.target.value)}
                   >
@@ -110,19 +110,21 @@ const HeroSection = () => {
                 <Button 
                   variant="default" 
                   size="lg" 
-                  className="lg:w-auto"
+                  className="w-full lg:w-auto text-sm sm:text-base"
                   onClick={handleSearchClick}
                 >
-                  <Search className="h-5 w-5 mr-2" />
-                  Rechercher
+                  <Search className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                  <span className="hidden sm:inline">Rechercher</span>
+                  <span className="sm:hidden">Recherche</span>
                 </Button>
               </div>
 
               {/* Quick Actions */}
-              <div className="flex flex-wrap gap-3 pt-4 border-t border-white/10">
+              <div className="flex flex-wrap gap-2 sm:gap-3 pt-4 border-t border-white/10">
                 <Button 
                   variant="outline" 
-                  size="sm" 
+                  size="sm"
+                  className="text-xs sm:text-sm" 
                   className="flex items-center gap-2"
                   onClick={() => navigator.geolocation?.getCurrentPosition(() => {
                     // Géolocalisation logic
