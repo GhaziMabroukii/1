@@ -640,6 +640,19 @@ const AddProperty = () => {
     }));
   };
 
+  const handleCityChange = (value: string) => {
+    handleInputChange('city', value);
+    const selectedCity = tunisianCities.find(c => c.name === value);
+    if (selectedCity) {
+      handleInputChange('location', { lat: selectedCity.lat, lng: selectedCity.lng });
+      handleInputChange('address', selectedCity.name + ', Tunisie');
+      toast({
+        title: "📍 Ville sélectionnée: " + selectedCity.name,
+        description: "Position automatiquement définie pour " + selectedCity.name + ", " + selectedCity.region,
+      });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -890,30 +903,6 @@ const AddProperty = () => {
               </CardContent>
             </Card>
 
-            {/* City Selection */}
-            <Card className="glass-card">
-              <CardHeader>
-                <CardTitle>Ville et localisation</CardTitle>
-                <p className="text-sm text-muted-foreground">Sélectionnez la ville où se trouve votre bien</p>
-              </CardHeader>
-              <CardContent>
-                <div>
-                  <Label htmlFor="city">Gouvernorat/Ville *</Label>
-                  <Select value={formData.city} onValueChange={(value) => handleInputChange('city', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choisir une ville" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {tunisianCities.map(city => (
-                        <SelectItem key={city.name} value={city.name}>
-                          {city.name} ({city.region})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
 
             {/* Property Tags */}
             <Card className="glass-card">
@@ -1144,16 +1133,10 @@ const AddProperty = () => {
                       key={category.id}
                       type="button"
                       onClick={() => handleInputChange('category', category.id)}
-                      className={`p-4 border-2 rounded-lg transition-all hover:shadow-md ${
-                        formData.category === category.id
-                          ? "border-primary bg-primary/5"
-                          : "border-gray-200 hover:border-primary/50"
-                      }`}
+                      className={`p-4 border-2 rounded-lg transition-all hover:shadow-md ${formData.category === category.id ? "border-primary bg-primary/5" : "border-gray-200 hover:border-primary/50"}`}
                     >
                       <div className="flex flex-col items-center text-center space-y-2">
-                        <div className={`p-2 rounded-full ${
-                          formData.category === category.id ? "bg-primary text-white" : "bg-gray-100"
-                        }`}>
+                        <div className={`p-2 rounded-full ${formData.category === category.id ? "bg-primary text-white" : "bg-gray-100"}`}>
                           {category.icon}
                         </div>
                         <h3 className="font-semibold">{category.label}</h3>
@@ -1260,8 +1243,9 @@ const AddProperty = () => {
                     </div>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Location */}
             <Card className="glass-card">
@@ -1278,19 +1262,7 @@ const AddProperty = () => {
                   </Label>
                   <Select 
                     value={formData.city} 
-                    onValueChange={(value) => {
-                      handleInputChange('city', value);
-                      // Automatically set coordinates for selected city
-                      const selectedCity = tunisianCities.find(c => c.name === value);
-                      if (selectedCity) {
-                        handleInputChange('location', { lat: selectedCity.lat, lng: selectedCity.lng });
-                        handleInputChange('address', `${selectedCity.name}, Tunisie`);
-                        toast({
-                          title: `📍 Ville sélectionnée: ${selectedCity.name}`,
-                          description: `Position automatiquement définie pour ${selectedCity.name}, ${selectedCity.region}`,
-                        });
-                      }
-                    }}
+                    onValueChange={handleCityChange}
                   >
                     <SelectTrigger className="mt-2">
                       <SelectValue placeholder="Sélectionner votre ville" />

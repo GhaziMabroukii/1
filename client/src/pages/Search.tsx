@@ -793,9 +793,22 @@ const Search = () => {
                   <Home className="h-8 w-8 text-gray-400" />
                 </div>
                 <h3 className="text-lg font-semibold mb-2">Aucun bien trouvé</h3>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground mb-6">
                   Essayez de modifier vos critères de recherche
                 </p>
+                <Button 
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSelectedPropertyType("");
+                    setSelectedCategory("");
+                    setPriceRange([0, 2000]);
+                    setSelectedAmenities([]);
+                  }}
+                  variant="outline"
+                  className="mx-auto"
+                >
+                  🔄 Réinitialiser les filtres
+                </Button>
               </div>
             ) : (
               filteredProperties.map((property) => {
