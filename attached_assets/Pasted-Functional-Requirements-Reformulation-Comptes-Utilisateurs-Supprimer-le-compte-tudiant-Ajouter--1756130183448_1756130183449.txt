@@ -1,0 +1,63 @@
+Functional Requirements Reformulation
+
+Comptes Utilisateurs
+
+Supprimer le compte Étudiant.
+
+Ajouter un compte Agence permettant de publier plusieurs biens.
+
+Les biens publiés par une agence doivent être tagués afin de faciliter les recherches filtrées par les utilisateurs (ex. maison d’hôtes, villa, bureau, dépôt, garage, magasin, etc.).
+
+Publication de Biens
+
+Chaque type de bien doit avoir un formulaire spécifique (ex. un bureau requiert des champs différents d’un appartement ou d’une maison).
+
+Les champs communs (localisation, prix, surface, etc.) doivent rester standardisés.
+
+Contrats
+
+Les contrats doivent automatiquement récupérer les informations du propriétaire et du locataire.
+
+Les CIN doivent être acceptés comme identifiant valide.
+
+Recherche
+
+La recherche doit couvrir les 24 villes de Tunisie.
+
+Sur la page d’accueil et sur la page /search, tous les filtres et champs de recherche doivent être fonctionnels.
+
+L’expérience de recherche doit être simple, fluide et intuitive.
+
+Messagerie
+
+Lorsqu’un utilisateur clique sur “Contacter le propriétaire”, une conversation s’ouvre directement (existante ou nouvelle).
+
+Pièces jointes PDF dans la messagerie : affichage correct du document (au lieu d’une page blanche).
+
+Images dans la messagerie : affichage en plein écran avec possibilité de revenir à la taille originale.
+
+Avis & Négociations
+
+Les utilisateurs doivent pouvoir laisser des avis et notations.
+
+Une fonctionnalité de négociation de prix doit être intégrée, sans complexité inutile, respectant une logique simple d’offre/contre-offre.
+
+Performance & Expérience Utilisateur
+
+Ajout de chargement (loading) sur chaque page avec gestion des erreurs.
+
+En cas de mauvaise connexion, affichage d’une page dédiée (“mauvaise connexion / pas d’internet”).
+
+Système d’auto-refresh si nécessaire.
+
+Profils & Médias
+
+Les avatars, logos et photos de profil doivent être fonctionnels lors de l’upload et visibles par les autres utilisateurs.
+
+Les utilisateurs doivent pouvoir consulter le profil des autres membres.
+
+Interactions Sociales
+
+Ajout de like / dislike sur les biens et les avis.
+
+Le calcul de la note globale d’un bien et de son taux de visibilité doit être basé sur de vraies données (et non des données factices).
