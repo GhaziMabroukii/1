@@ -76,7 +76,7 @@ const UserProfile = () => {
     },
     enabled: avatarModal.isOpen && !!avatarModal.gender,
     staleTime: 0, // Always refetch to ensure fresh data
-    cacheTime: 5 * 60 * 1000 // Cache for 5 minutes
+    gcTime: 5 * 60 * 1000 // Cache for 5 minutes
   });
 
   // Update profile mutation
@@ -225,6 +225,7 @@ const UserProfile = () => {
   };
 
   const openAvatarModal = (gender: "male" | "female") => {
+    console.log("Opening avatar modal for gender:", gender);
     setAvatarModal({ isOpen: true, gender });
   };
 
@@ -752,6 +753,13 @@ const UserProfile = () => {
               <h3 className="text-xl font-semibold">
                 Choisir un avatar {avatarModal.gender === 'male' ? 'masculin' : 'féminin'}
               </h3>
+              <div className="text-xs text-gray-500">
+                Modal: {avatarModal.isOpen ? 'Open' : 'Closed'} | 
+                Gender: {avatarModal.gender} | 
+                Loading: {avatarsLoading ? 'Yes' : 'No'} | 
+                Data: {avatarsData ? 'Yes' : 'No'} |
+                Count: {avatarsData?.avatars?.length || 0}
+              </div>
               <Button
                 variant="ghost"
                 size="sm"
