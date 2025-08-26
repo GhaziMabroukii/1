@@ -1459,6 +1459,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: 'Only the property owner can use this endpoint' });
       }
 
+      // Check for existing pending termination requests for this contract
+      const existingRequests = await storage.getContractTerminationRequests(contractId);
+      const pendingRequests = existingRequests.filter(req => req.status === 'pending');
+      
+      if (pendingRequests.length > 0) {
+        return res.status(400).json({
+          error: 'Une demande de résiliation est déjà en cours pour ce contrat. Veuillez attendre sa résolution avant d\'en créer une nouvelle.'
+        });
+      }
+
       // Create termination request using storage interface
       const terminationRequest = {
         contractId,
@@ -1530,6 +1540,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verify the requester is the tenant
       if (contract.tenantId !== requestedBy) {
         return res.status(403).json({ error: 'Only the tenant can use this endpoint' });
+      }
+
+      // Check for existing pending termination requests for this contract
+      const existingRequests = await storage.getContractTerminationRequests(contractId);
+      const pendingRequests = existingRequests.filter(req => req.status === 'pending');
+      
+      if (pendingRequests.length > 0) {
+        return res.status(400).json({
+          error: 'Une demande de résiliation est déjà en cours pour ce contrat. Veuillez attendre sa résolution avant d\'en créer une nouvelle.'
+        });
       }
 
       // Create termination request using storage interface
