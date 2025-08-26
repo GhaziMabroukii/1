@@ -67,12 +67,9 @@ const UserProfile = () => {
   const { data: avatarsData, isLoading: avatarsLoading, error: avatarsError } = useQuery({
     queryKey: ["/api/avatars", avatarModal.gender],
     queryFn: async () => {
-      console.log("Fetching avatars for gender:", avatarModal.gender);
       const response = await fetch(`/api/avatars?gender=${avatarModal.gender}`);
       if (!response.ok) throw new Error("Failed to fetch avatars");
-      const data = await response.json();
-      console.log("Avatars data received:", data);
-      return data;
+      return await response.json();
     },
     enabled: avatarModal.isOpen && !!avatarModal.gender,
     staleTime: 0, // Always refetch to ensure fresh data
@@ -225,7 +222,6 @@ const UserProfile = () => {
   };
 
   const openAvatarModal = (gender: "male" | "female") => {
-    console.log("Opening avatar modal for gender:", gender);
     setAvatarModal({ isOpen: true, gender });
   };
 
@@ -753,14 +749,6 @@ const UserProfile = () => {
               <h3 className="text-xl font-semibold">
                 Choisir un avatar {avatarModal.gender === 'male' ? 'masculin' : 'féminin'}
               </h3>
-              <div className="text-xs text-gray-500">
-                Modal: {avatarModal.isOpen ? 'Open' : 'Closed'} | 
-                Gender: {avatarModal.gender} | 
-                Loading: {avatarsLoading ? 'Yes' : 'No'} | 
-                Data: {avatarsData ? 'Yes' : 'No'} |
-                Count: {avatarsData?.avatars?.length || 0} |
-                HasAvatars: {avatarsData && avatarsData.avatars && avatarsData.avatars.length > 0 ? 'Yes' : 'No'}
-              </div>
               <Button
                 variant="ghost"
                 size="sm"
@@ -769,10 +757,6 @@ const UserProfile = () => {
               >
                 ✕
               </Button>
-            </div>
-            
-            <div className="text-xs text-gray-400 mb-4">
-              Debug: {JSON.stringify(avatarsData, null, 2)}
             </div>
             
             {avatarsError ? (
@@ -816,12 +800,8 @@ const UserProfile = () => {
                       className="w-20 h-20 object-cover rounded-full border-2 border-transparent group-hover:border-primary/30"
                       loading="lazy"
                       onError={(e) => {
-                        console.error('Failed to load avatar:', avatarUrl);
                         // Hide broken images
                         (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                      onLoad={() => {
-                        console.log('Avatar loaded successfully:', avatarUrl);
                       }}
                     />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-full flex items-center justify-center">
