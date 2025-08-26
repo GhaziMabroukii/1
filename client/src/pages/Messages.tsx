@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import UserAvatar from "@/components/UserAvatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -993,16 +994,11 @@ export default function Messages() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                       <div className="relative">
-                        <Avatar className="h-12 w-12 ring-2 ring-blue-200 dark:ring-blue-700">
-                          <AvatarImage 
-                            src={selectedConversation?.participant?.profilePicture} 
-                            alt={selectedConversation?.participant?.name}
-                            className="object-cover"
-                          />
-                          <AvatarFallback className="bg-gradient-to-br from-blue-400 to-purple-500 text-white font-semibold">
-                            {selectedConversation?.participant?.name?.split(' ').map((n: string) => n[0]).join('') || 'U'}
-                          </AvatarFallback>
-                        </Avatar>
+                        <UserAvatar 
+                          user={selectedConversation?.participant}
+                          size="lg"
+                          className="h-12 w-12 ring-2 ring-blue-200 dark:ring-blue-700"
+                        />
                         <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
                       </div>
                       <div>
@@ -1208,12 +1204,10 @@ export default function Messages() {
                                       }}
                                     >
                                       <div className="flex items-start space-x-3">
-                                        <Avatar className="h-6 w-6">
-                                          <AvatarImage src={msg.sender?.profilePicture} />
-                                          <AvatarFallback className="bg-gradient-to-br from-blue-400 to-purple-500 text-white text-xs">
-                                            {msg.sender?.firstName?.[0]}{msg.sender?.lastName?.[0]}
-                                          </AvatarFallback>
-                                        </Avatar>
+                                        <UserAvatar 
+                                          user={msg.sender}
+                                          size="sm"
+                                        />
                                         <div className="flex-1 min-w-0">
                                           <div className="flex items-center space-x-2 mb-1">
                                             <span className="text-xs font-medium text-gray-900 dark:text-gray-100">
@@ -1335,16 +1329,11 @@ export default function Messages() {
                               data-testid={`message-${message.id}`}
                             >
                               {!isOwn && showAvatar && (
-                                <Avatar className="h-8 w-8 mr-2 self-end">
-                                  <AvatarImage 
-                                    src={message.sender?.profilePicture} 
-                                    alt={message.sender?.firstName}
-                                    className="object-cover"
-                                  />
-                                  <AvatarFallback className="bg-gradient-to-br from-green-400 to-blue-500 text-white text-xs">
-                                    {message.sender?.firstName?.[0]}{message.sender?.lastName?.[0]}
-                                  </AvatarFallback>
-                                </Avatar>
+                                <UserAvatar 
+                                  user={message.sender}
+                                  size="md"
+                                  className="h-8 w-8 mr-2 self-end"
+                                />
                               )}
                               {!isOwn && !showAvatar && <div className="w-10" />}
                               
@@ -1521,12 +1510,10 @@ export default function Messages() {
                         {isTyping && (
                           <div className="flex justify-start">
                             <div className="flex items-center space-x-2 px-4 py-3 bg-white dark:bg-gray-700 rounded-3xl shadow-sm">
-                              <Avatar className="h-6 w-6">
-                                <AvatarImage src={selectedConversation?.participant?.profilePicture} />
-                                <AvatarFallback className="bg-gradient-to-br from-green-400 to-blue-500 text-white text-xs">
-                                  {selectedConversation?.participant?.name?.split(' ').map((n: string) => n[0]).join('')}
-                                </AvatarFallback>
-                              </Avatar>
+                              <UserAvatar 
+                                user={selectedConversation?.participant}
+                                size="sm"
+                              />
                               <div className="flex space-x-1">
                                 <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
                                 <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>

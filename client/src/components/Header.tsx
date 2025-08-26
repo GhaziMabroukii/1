@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { MapPin, Menu, Bell, Heart, User, Search, LogOut, Home, Settings, FileText, AlertCircle, X } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import UserAvatar from "./UserAvatar";
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -215,11 +215,18 @@ const Header = () => {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 sm:h-10 sm:w-10 rounded-full">
-                    <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
-                      <AvatarFallback className="text-xs sm:text-sm">
-                        {userEmail.substring(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
+                    <UserAvatar 
+                      user={(() => {
+                        try {
+                          const userData = localStorage.getItem("userData");
+                          return userData ? JSON.parse(userData) : { email: userEmail };
+                        } catch {
+                          return { email: userEmail };
+                        }
+                      })()} 
+                      size="lg" 
+                      className="h-8 w-8 sm:h-10 sm:w-10"
+                    />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56" align="end" forceMount>

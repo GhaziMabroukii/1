@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import UserAvatar from "./UserAvatar";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import UserBadge from "./UserBadge";
 import { 
@@ -106,16 +106,12 @@ export default function UserProfile({ userId, onClose, showContactInfo = false }
         <CardHeader>
           <div className="flex items-start justify-between">
             <div className="flex items-center space-x-4">
-              <Avatar className="h-16 w-16">
-                <AvatarFallback className="text-lg font-semibold bg-primary text-primary-foreground">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
+              <UserAvatar user={profile} size="xl" />
               <div>
                 <div className="flex items-center space-x-2">
                   <h2 className="text-xl font-bold">{fullName}</h2>
                   {profile.isVerified && (
-                    <Shield className="h-5 w-5 text-blue-600" title="Utilisateur vérifié" />
+                    <Shield className="h-5 w-5 text-blue-600" />
                   )}
                 </div>
                 <p className="text-muted-foreground capitalize">{profile.userType}</p>

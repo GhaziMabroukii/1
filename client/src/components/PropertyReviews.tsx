@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Star, User } from "lucide-react";
+import UserAvatar from "./UserAvatar";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -158,8 +159,13 @@ const PropertyReviews = ({ propertyId }: PropertyReviewsProps) => {
             <div key={review.id} className="border-b border-border/50 pb-4 last:border-b-0">
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center space-x-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium text-sm">Utilisateur #{review.userId}</span>
+                  <UserAvatar 
+                    user={review.user || { username: `Utilisateur #${review.userId}` }}
+                    size="sm"
+                  />
+                  <span className="font-medium text-sm">
+                    {review.user ? `${review.user.firstName || ''} ${review.user.lastName || ''}`.trim() || review.user.username : `Utilisateur #${review.userId}`}
+                  </span>
                 </div>
                 <div className="flex items-center space-x-2">
                   {renderStars(review.rating)}
