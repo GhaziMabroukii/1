@@ -8,6 +8,7 @@ import { z } from "zod";
 import bcrypt from "bcrypt";
 import multer from "multer";
 import path from "path";
+import { processAIMessage } from "./ai-service";
 
 // Import database connection
 import { db } from "./db";
@@ -3607,6 +3608,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     return badges;
   }
+
+  // ============ AI ASSISTANT ROUTES ============
+
+  // AI Chat endpoint
+  app.post("/api/ai/chat", async (req, res) => {
+    try {
+      const { message, userId, userType, language, conversationHistory } = req.body;
+      
+      if (!message || !userId) {
+        return res.status(400).json({ error: "Message and userId are required" });
+      }
+
+      // Get user information for personalization
+      const user = await storage.getUserById(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Process the message with AI intelligence
+      const aiResponse = await processAIMessage({
+        message,
+        user,
+        userType,
+        language,
+        conversationHistory,
+        storage
+      });
+
+      res.json(aiResponse);
+    } catch (error) {
+      console.error("AI Chat error:", error);
+      res.status(500).json({ error: "AI processing failed" });
+    }
+  });
+
+  // AI Feedback endpoint
+  app.post("/api/ai/feedback", async (req, res) => {
+    try {
+      const { messageId, feedback, userId } = req.body;
+      
+      // Store feedback for AI improvement (in real app, this would go to a feedback table)
+      console.log(`AI Feedback - Message: ${messageId}, User: ${userId}, Feedback: ${feedback}`);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("AI Feedback error:", error);
+      res.status(500).json({ error: "Failed to record feedback" });
+    }
+  });
 
   const httpServer = createServer(app);
   

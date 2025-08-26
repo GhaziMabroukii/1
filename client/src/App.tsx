@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Router, Route, Switch } from "wouter";
 import { useGlobalWebSocket } from "./hooks/useWebSocket";
+import AIAssistantWrapper from "./components/AIAssistantWrapper";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -83,6 +84,8 @@ const App = () => {
             <Route path="/contract-termination-status/:requestId" component={ContractTerminationStatus} />
             <Route component={NotFound} />
           </Switch>
+          {/* Global AI Assistant */}
+          <AIAssistantWrapper />
         </Router>
       </TooltipProvider>
     </QueryClientProvider>
