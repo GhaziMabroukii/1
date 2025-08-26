@@ -2840,14 +2840,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const getDefaultAvatar = (gender: string) => {
     const avatars = {
       male: [
-        'https://api.dicebear.com/7.x/avataaars/svg?seed=male1&gender=male',
-        'https://api.dicebear.com/7.x/avataaars/svg?seed=male2&gender=male',
-        'https://api.dicebear.com/7.x/avataaars/svg?seed=male3&gender=male'
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=DefaultMale1&gender=male&backgroundColor=b6e3f4&topType=ShortHairDreads01&hairColor=BrownDark&facialHairType=BeardMedium&clotheType=BlazerSweater',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=DefaultMale2&gender=male&backgroundColor=c0aede&topType=ShortHairTheCaesar&hairColor=Black&facialHairType=Blank&clotheType=CollarSweater',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=DefaultMale3&gender=male&backgroundColor=ffd93d&topType=ShortHairShortCurly&hairColor=Brown&facialHairType=MoustacheFancy&clotheType=BlazerShirt',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=DefaultMale4&gender=male&backgroundColor=ffdfbf&topType=ShortHairSides&hairColor=Blonde&facialHairType=Blank&clotheType=Hoodie',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=DefaultMale5&gender=male&backgroundColor=d1d4f9&topType=ShortHairShortFlat&hairColor=Auburn&facialHairType=BeardLight&clotheType=ShirtCrewNeck'
       ],
       female: [
-        'https://api.dicebear.com/7.x/avataaars/svg?seed=female1&gender=female', 
-        'https://api.dicebear.com/7.x/avataaars/svg?seed=female2&gender=female',
-        'https://api.dicebear.com/7.x/avataaars/svg?seed=female3&gender=female'
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=DefaultFemale1&gender=female&backgroundColor=ffd93d&topType=LongHairStraight&hairColor=BrownDark&clotheType=BlazerSweater',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=DefaultFemale2&gender=female&backgroundColor=ffdfbf&topType=LongHairCurly&hairColor=Black&clotheType=BlazerShirt',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=DefaultFemale3&gender=female&backgroundColor=c0aede&topType=LongHairBigHair&hairColor=Brown&clotheType=CollarSweater',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=DefaultFemale4&gender=female&backgroundColor=b6e3f4&topType=LongHairStraight2&hairColor=Blonde&clotheType=ShirtCrewNeck',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=DefaultFemale5&gender=female&backgroundColor=d1d4f9&topType=LongHairCurvy&hairColor=Auburn&clotheType=Hoodie'
       ]
     };
     
@@ -2858,20 +2862,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get available avatars endpoint
   app.get("/api/avatars", (req, res) => {
     const { gender } = req.query;
+    
     const maleAvatars = [
-      'https://api.dicebear.com/7.x/avataaars/svg?seed=John&gender=male&backgroundColor=b6e3f4&topType=ShortHairDreads01&hairColor=BrownDark',
-      'https://api.dicebear.com/7.x/avataaars/svg?seed=Mike&gender=male&backgroundColor=c0aede&topType=ShortHairTheCaesar&hairColor=Black',
-      'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex&gender=male&backgroundColor=ffd93d&topType=ShortHairShortCurly&hairColor=Brown',
-      'https://api.dicebear.com/7.x/avataaars/svg?seed=David&gender=male&backgroundColor=ffdfbf&topType=ShortHairSides&hairColor=Blonde',
-      'https://api.dicebear.com/7.x/avataaars/svg?seed=James&gender=male&backgroundColor=d1d4f9&topType=ShortHairShortFlat&hairColor=Auburn'
+      // Business professional looks
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=John&gender=male&backgroundColor=b6e3f4&topType=ShortHairDreads01&hairColor=BrownDark&facialHairType=BeardMedium&clotheType=BlazerSweater',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Mike&gender=male&backgroundColor=c0aede&topType=ShortHairTheCaesar&hairColor=Black&facialHairType=Blank&clotheType=CollarSweater',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex&gender=male&backgroundColor=ffd93d&topType=ShortHairShortCurly&hairColor=Brown&facialHairType=MoustacheFancy&clotheType=BlazerShirt',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=David&gender=male&backgroundColor=ffdfbf&topType=ShortHairSides&hairColor=Blonde&facialHairType=Blank&clotheType=Hoodie',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=James&gender=male&backgroundColor=d1d4f9&topType=ShortHairShortFlat&hairColor=Auburn&facialHairType=BeardLight&clotheType=ShirtCrewNeck',
+      
+      // Casual and trendy looks
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Ryan&gender=male&backgroundColor=e6f3ff&topType=ShortHairShortWaved&hairColor=Black&facialHairType=GoateeSmall&clotheType=GraphicShirt',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Chris&gender=male&backgroundColor=f0e6ff&topType=ShortHairTheCaesarSidePart&hairColor=Red&facialHairType=Blank&clotheType=Overall',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Matt&gender=male&backgroundColor=fff0e6&topType=ShortHairFrizzle&hairColor=Brown&facialHairType=BeardMedium&clotheType=ShirtScoopNeck',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Tom&gender=male&backgroundColor=e6ffe6&topType=ShortHairShortRound&hairColor=BrownDark&facialHairType=MoustacheMagnum&clotheType=BlazerSweater',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Jack&gender=male&backgroundColor=ffe6e6&topType=ShortHairDreads02&hairColor=Blonde&facialHairType=BeardLight&clotheType=Hoodie',
+      
+      // Young and modern looks
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Tyler&gender=male&backgroundColor=f5f5f5&topType=ShortHairShaggyMullet&hairColor=Auburn&facialHairType=Blank&clotheType=GraphicShirt',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Noah&gender=male&backgroundColor=e8f4f8&topType=ShortHairThe Caesar&hairColor=PastelPink&facialHairType=GoateeSmall&clotheType=CollarSweater',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Lucas&gender=male&backgroundColor=f8e8f4&topType=ShortHairShortCurly&hairColor=SilverGray&facialHairType=Blank&clotheType=BlazerShirt',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Mason&gender=male&backgroundColor=f8f8e8&topType=ShortHairFrizzle&hairColor=Red&facialHairType=BeardMedium&clotheType=ShirtCrewNeck',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Ethan&gender=male&backgroundColor=e8f8e8&topType=ShortHairSides&hairColor=Black&facialHairType=MoustacheFancy&clotheType=Overall'
     ];
     
     const femaleAvatars = [
-      'https://api.dicebear.com/7.x/avataaars/svg?seed=Emma&gender=female&backgroundColor=ffd93d&topType=LongHairStraight&hairColor=BrownDark',
-      'https://api.dicebear.com/7.x/avataaars/svg?seed=Sofia&gender=female&backgroundColor=ffdfbf&topType=LongHairCurly&hairColor=Black',
-      'https://api.dicebear.com/7.x/avataaars/svg?seed=Maya&gender=female&backgroundColor=c0aede&topType=LongHairBigHair&hairColor=Brown',
-      'https://api.dicebear.com/7.x/avataaars/svg?seed=Aria&gender=female&backgroundColor=b6e3f4&topType=LongHairStraight2&hairColor=Blonde',
-      'https://api.dicebear.com/7.x/avataaars/svg?seed=Luna&gender=female&backgroundColor=d1d4f9&topType=LongHairCurvy&hairColor=Auburn'
+      // Professional and elegant looks
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Emma&gender=female&backgroundColor=ffd93d&topType=LongHairStraight&hairColor=BrownDark&clotheType=BlazerSweater',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Sofia&gender=female&backgroundColor=ffdfbf&topType=LongHairCurly&hairColor=Black&clotheType=BlazerShirt',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Maya&gender=female&backgroundColor=c0aede&topType=LongHairBigHair&hairColor=Brown&clotheType=CollarSweater',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Aria&gender=female&backgroundColor=b6e3f4&topType=LongHairStraight2&hairColor=Blonde&clotheType=ShirtCrewNeck',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Luna&gender=female&backgroundColor=d1d4f9&topType=LongHairCurvy&hairColor=Auburn&clotheType=Hoodie',
+      
+      // Modern and trendy looks
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Zoe&gender=female&backgroundColor=e6f3ff&topType=LongHairBun&hairColor=Red&clotheType=GraphicShirt',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Grace&gender=female&backgroundColor=f0e6ff&topType=LongHairFrida&hairColor=PastelPink&clotheType=Overall',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Chloe&gender=female&backgroundColor=fff0e6&topType=LongHairShavedSides&hairColor=SilverGray&clotheType=ShirtScoopNeck',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Lily&gender=female&backgroundColor=e6ffe6&topType=LongHairMiaWallace&hairColor=Black&clotheType=BlazerSweater',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Ruby&gender=female&backgroundColor=ffe6e6&topType=LongHairDreads&hairColor=BrownDark&clotheType=Hoodie',
+      
+      // Casual and friendly looks
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Mia&gender=female&backgroundColor=f5f5f5&topType=LongHairFro&hairColor=Brown&clotheType=GraphicShirt',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Ava&gender=female&backgroundColor=e8f4f8&topType=LongHairStraightStrand&hairColor=Blonde&clotheType=CollarSweater',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Ella&gender=female&backgroundColor=f8e8f4&topType=LongHairNotTooLong&hairColor=Auburn&clotheType=BlazerShirt',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Ivy&gender=female&backgroundColor=f8f8e8&topType=LongHairFroBand&hairColor=Red&clotheType=ShirtCrewNeck',
+      'https://api.dicebear.com/7.x/avataaars/svg?seed=Nora&gender=female&backgroundColor=e8f8e8&topType=LongHairCurvy&hairColor=Black&clotheType=Overall'
     ];
     
     if (gender === 'male') {

@@ -590,7 +590,8 @@ const UserProfile = () => {
                           variant="secondary"
                           onClick={() => document.getElementById('photo-upload')?.click()}
                           disabled={uploadPhotoMutation.isPending || setAvatarMutation.isPending}
-                          title="Télécharger une photo"
+                          title="Télécharger une photo personnelle"
+                          className="bg-white/90 hover:bg-white text-gray-700"
                         >
                           <Camera className="h-4 w-4" />
                         </Button>
@@ -600,6 +601,7 @@ const UserProfile = () => {
                           onClick={() => openAvatarModal("male")}
                           disabled={uploadPhotoMutation.isPending || setAvatarMutation.isPending}
                           title="Choisir un avatar masculin"
+                          className="bg-blue-500/90 hover:bg-blue-500 text-white border-blue-600"
                         >
                           👨
                         </Button>
@@ -609,6 +611,7 @@ const UserProfile = () => {
                           onClick={() => openAvatarModal("female")}
                           disabled={uploadPhotoMutation.isPending || setAvatarMutation.isPending}
                           title="Choisir un avatar féminin"
+                          className="bg-pink-500/90 hover:bg-pink-500 text-white border-pink-600"
                         >
                           👩
                         </Button>
@@ -620,6 +623,34 @@ const UserProfile = () => {
                         onChange={handleFileUpload}
                         style={{ display: 'none' }}
                       />
+                    </div>
+                  )}
+                  
+                  {isEditing && (
+                    <div className="mt-3 text-center">
+                      <p className="text-xs text-muted-foreground">
+                        Survolez pour changer votre photo
+                      </p>
+                      <div className="flex justify-center space-x-2 mt-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openAvatarModal("male")}
+                          disabled={uploadPhotoMutation.isPending || setAvatarMutation.isPending}
+                          className="text-xs"
+                        >
+                          👨 Avatars masculins
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openAvatarModal("female")}
+                          disabled={uploadPhotoMutation.isPending || setAvatarMutation.isPending}
+                          className="text-xs"
+                        >
+                          👩 Avatars féminins
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -711,44 +742,70 @@ const UserProfile = () => {
       {/* Avatar Selection Modal */}
       {avatarModal.isOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setAvatarModal({ isOpen: false, gender: null })}>
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[85vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold">
+              <h3 className="text-xl font-semibold">
                 Choisir un avatar {avatarModal.gender === 'male' ? 'masculin' : 'féminin'}
               </h3>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setAvatarModal({ isOpen: false, gender: null })}
+                className="hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 ✕
               </Button>
             </div>
             
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
-              {avatarsData?.avatars?.map((avatarUrl: string, index: number) => (
-                <button
-                  key={index}
-                  onClick={() => handleAvatarSelect(avatarUrl)}
-                  className="relative group rounded-full overflow-hidden hover:ring-4 hover:ring-primary/20 transition-all"
-                  disabled={setAvatarMutation.isPending}
-                >
-                  <img
-                    src={avatarUrl}
-                    alt={`Avatar ${index + 1}`}
-                    className="w-20 h-20 object-cover rounded-full"
-                  />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-full" />
-                </button>
-              ))}
-            </div>
-            
-            {setAvatarMutation.isPending && (
-              <div className="flex items-center justify-center mt-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                <span className="ml-2 text-sm">Mise à jour en cours...</span>
+            {avatarsData?.avatars ? (
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
+                {avatarsData.avatars.map((avatarUrl: string, index: number) => (
+                  <button
+                    key={index}
+                    onClick={() => handleAvatarSelect(avatarUrl)}
+                    className="relative group rounded-full overflow-hidden hover:ring-4 hover:ring-primary/30 transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-primary/50"
+                    disabled={setAvatarMutation.isPending}
+                    title={`Choisir cet avatar`}
+                  >
+                    <img
+                      src={avatarUrl}
+                      alt={`Avatar ${index + 1}`}
+                      className="w-20 h-20 object-cover rounded-full border-2 border-transparent group-hover:border-primary/30"
+                      loading="lazy"
+                      onError={(e) => {
+                        // Hide broken images
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-full flex items-center justify-center">
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full p-1">
+                        <CheckCircle className="h-4 w-4 text-primary" />
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                  <p className="text-sm text-muted-foreground">Chargement des avatars...</p>
+                </div>
               </div>
             )}
+            
+            {setAvatarMutation.isPending && (
+              <div className="flex items-center justify-center mt-6 p-4 bg-primary/10 rounded-lg">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                <span className="ml-3 text-sm font-medium">Mise à jour de votre avatar...</span>
+              </div>
+            )}
+            
+            <div className="mt-6 text-center">
+              <p className="text-xs text-muted-foreground">
+                Cliquez sur un avatar pour l'utiliser comme photo de profil
+              </p>
+            </div>
           </div>
         </div>
       )}
