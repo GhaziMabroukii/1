@@ -64,14 +64,19 @@ const UserProfile = () => {
   });
 
   // Fetch avatars
-  const { data: avatarsData } = useQuery({
+  const { data: avatarsData, isLoading: avatarsLoading, error: avatarsError } = useQuery({
     queryKey: ["/api/avatars", avatarModal.gender],
     queryFn: async () => {
+      console.log("Fetching avatars for gender:", avatarModal.gender);
       const response = await fetch(`/api/avatars?gender=${avatarModal.gender}`);
       if (!response.ok) throw new Error("Failed to fetch avatars");
-      return response.json();
+      const data = await response.json();
+      console.log("Avatars data received:", data);
+      return data;
     },
-    enabled: avatarModal.isOpen && !!avatarModal.gender
+    enabled: avatarModal.isOpen && !!avatarModal.gender,
+    staleTime: 0, // Always refetch to ensure fresh data
+    cacheTime: 5 * 60 * 1000 // Cache for 5 minutes
   });
 
   // Update profile mutation
@@ -757,7 +762,32 @@ const UserProfile = () => {
               </Button>
             </div>
             
-            {avatarsData?.avatars ? (
+            {avatarsError ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-center">
+                  <AlertTriangle className="h-8 w-8 text-red-500 mx-auto mb-2" />
+                  <p className="text-sm text-red-600">Erreur lors du chargement des avatars</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={() => {
+                      setAvatarModal({ isOpen: false, gender: null });
+                      setTimeout(() => setAvatarModal({ isOpen: true, gender: avatarModal.gender }), 100);
+                    }}
+                  >
+                    Réessayer
+                  </Button>
+                </div>
+              </div>
+            ) : avatarsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                  <p className="text-sm text-muted-foreground">Chargement des avatars...</p>
+                </div>
+              </div>
+            ) : avatarsData?.avatars && avatarsData.avatars.length > 0 ? (
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
                 {avatarsData.avatars.map((avatarUrl: string, index: number) => (
                   <button
@@ -773,8 +803,12 @@ const UserProfile = () => {
                       className="w-20 h-20 object-cover rounded-full border-2 border-transparent group-hover:border-primary/30"
                       loading="lazy"
                       onError={(e) => {
+                        console.error('Failed to load avatar:', avatarUrl);
                         // Hide broken images
                         (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                      onLoad={() => {
+                        console.log('Avatar loaded successfully:', avatarUrl);
                       }}
                     />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-full flex items-center justify-center">
@@ -788,8 +822,11 @@ const UserProfile = () => {
             ) : (
               <div className="flex items-center justify-center py-8">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-                  <p className="text-sm text-muted-foreground">Chargement des avatars...</p>
+                  <AlertTriangle className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Aucun avatar disponible</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Données reçues: {JSON.stringify(avatarsData)}
+                  </p>
                 </div>
               </div>
             )}
