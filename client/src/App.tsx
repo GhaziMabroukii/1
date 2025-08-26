@@ -37,6 +37,7 @@ import OwnerTerminationReview from "./pages/OwnerTerminationReview";
 import OwnerTerminationWorkflow from "./pages/OwnerTerminationWorkflow";
 import TenantTerminationWorkflow from "./pages/TenantTerminationWorkflow";
 import ContractTermination from "./pages/ContractTermination";
+import EmailVerification from "./pages/EmailVerification";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +55,7 @@ const App = () => {
             <Route path="/" component={Index} />
             <Route path="/login" component={Login} />
             <Route path="/signup" component={Signup} />
+            <Route path="/verify-email" component={EmailVerification} />
             <Route path="/dashboard" component={Dashboard} />
             <Route path="/search" component={Search} />
             <Route path="/property/:id" component={PropertyDetails} />

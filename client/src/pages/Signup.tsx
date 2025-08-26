@@ -50,7 +50,7 @@ const Signup = () => {
     "Autre"
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (formData.password !== formData.confirmPassword) {
@@ -71,8 +71,56 @@ const Signup = () => {
       return;
     }
 
-    // Mock registration
-    localStorage.setItem("isAuthenticated", "true");
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: formData.email, // Use email as username
+          password: formData.password,
+          email: formData.email,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          phone: formData.phone,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: "Inscription réussie !",
+          description: data.message || "Votre compte a été créé avec succès.",
+        });
+
+        // If email verification is required, redirect to verification page
+        if (data.requiresEmailVerification) {
+          navigate(`/verify-email?email=${encodeURIComponent(formData.email)}`);
+        } else {
+          // If no verification needed, store auth data and redirect
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("user", JSON.stringify(data.user));
+          localStorage.setItem("userType", data.userType);
+          localStorage.setItem("isAuthenticated", "true");
+          navigate("/dashboard");
+        }
+      } else {
+        toast({
+          title: "Erreur d'inscription",
+          description: data.error || "Une erreur s'est produite lors de l'inscription.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Registration error:", error);
+      toast({
+        title: "Erreur",
+        description: "Une erreur s'est produite. Veuillez réessayer.",
+        variant: "destructive",
+      });
+    }
     localStorage.setItem("userEmail", formData.email);
     localStorage.setItem("userType", formData.userType);
     localStorage.setItem("userProfile", JSON.stringify(formData));

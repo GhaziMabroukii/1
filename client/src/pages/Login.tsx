@@ -35,6 +35,17 @@ const Login = () => {
         body: JSON.stringify({ username, password }),
       });
       
+      // Check if email verification is required
+      if (response.requiresEmailVerification) {
+        toast({
+          title: "Vérification requise",
+          description: response.message || "Veuillez vérifier votre email avant de continuer.",
+          variant: "destructive",
+        });
+        navigate(`/verify-email?email=${encodeURIComponent(response.user.email)}`);
+        return;
+      }
+      
       // Store user session data
       localStorage.setItem("isAuthenticated", "true");
       localStorage.setItem("authToken", response.token);

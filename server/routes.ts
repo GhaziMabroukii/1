@@ -9,6 +9,7 @@ import bcrypt from "bcrypt";
 import multer from "multer";
 import path from "path";
 import { processAIMessage } from "./ai-service";
+import { emailService } from "./email-service";
 
 // Import database connection
 import { db } from "./db";
@@ -2228,7 +2229,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastName: user.lastName,
         phone: user.phone,
         userType: user.userType,
+        emailVerified: user.emailVerified,
       };
+      
+      // Check if email verification is required
+      if (!user.emailVerified) {
+        return res.json({ 
+          user: responseUser,
+          userType: user.userType,
+          requiresEmailVerification: true,
+          message: "Veuillez vérifier votre email avant d'accéder à toutes les fonctionnalités." 
+        });
+      }
       
       res.json({ 
         user: responseUser, 
@@ -2282,7 +2294,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Registration with automatic user type detection
+  // Registration with email verification
   app.post("/api/auth/register", async (req, res) => {
     try {
       const { username, password, email, firstName, lastName, phone } = req.body;
@@ -2295,6 +2307,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existingUser = await storage.getUserByUsername(username);
       if (existingUser) {
         return res.status(409).json({ error: "Username already exists" });
+      }
+
+      // Check if email is already in use
+      const existingEmailUser = await storage.getUserByEmail(email);
+      if (existingEmailUser) {
+        return res.status(409).json({ error: "Email already exists" });
       }
       
       // Auto-detect user type based on email patterns
@@ -2327,8 +2345,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Hash password before storing
       const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Generate email verification code
+      const verificationCode = emailService.generateVerificationCode();
+      const verificationExpiry = emailService.getCodeExpiryDate();
       
-      // Create user
+      // Create user with email verification fields
       const newUser = await storage.createUser({
         username,
         password: hashedPassword,
@@ -2337,10 +2359,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastName,
         phone,
         userType,
+        emailVerified: false,
+        emailVerificationCode: verificationCode,
+        emailVerificationExpiry: verificationExpiry,
       });
+
+      // Send verification email
+      const emailSent = await emailService.sendVerificationEmail(email, verificationCode, firstName);
       
-      // Create session token
-      const sessionToken = `session_${newUser.id}_${newUser.userType}_${Date.now()}`;
+      if (!emailSent) {
+        console.warn(`Failed to send verification email to ${email}, but user was created`);
+      }
       
       const responseUser = {
         id: newUser.id,
@@ -2350,17 +2379,127 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastName: newUser.lastName,
         phone: newUser.phone,
         userType: newUser.userType,
+        emailVerified: newUser.emailVerified,
       };
       
       res.status(201).json({ 
-        user: responseUser, 
-        token: sessionToken,
+        user: responseUser,
         userType: newUser.userType,
-        message: `Compte créé avec succès en tant que ${newUser.userType === 'owner' ? 'propriétaire' : 'locataire'}` 
+        requiresEmailVerification: true,
+        message: `Compte créé avec succès en tant que ${newUser.userType === 'owner' ? 'propriétaire' : 'locataire'}. Vérifiez votre email pour activer votre compte.` 
       });
     } catch (error) {
       console.error("Registration error:", error);
       res.status(500).json({ error: "Registration failed" });
+    }
+  });
+
+  // Email verification endpoint
+  app.post("/api/auth/verify-email", async (req, res) => {
+    try {
+      const { email, code } = req.body;
+      
+      if (!email || !code) {
+        return res.status(400).json({ error: "Email and verification code required" });
+      }
+      
+      // Get user by email
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Check if already verified
+      if (user.emailVerified) {
+        return res.status(400).json({ error: "Email already verified" });
+      }
+      
+      // Check verification code
+      if (user.emailVerificationCode !== code.trim()) {
+        return res.status(400).json({ error: "Invalid verification code" });
+      }
+      
+      // Check if code expired
+      if (!user.emailVerificationExpiry || emailService.isCodeExpired(user.emailVerificationExpiry)) {
+        return res.status(400).json({ error: "Verification code expired. Please request a new one." });
+      }
+      
+      // Update user as verified
+      await storage.updateUser(user.id, {
+        emailVerified: true,
+        emailVerificationCode: null,
+        emailVerificationExpiry: null,
+      });
+      
+      // Create session token for newly verified user
+      const sessionToken = `session_${user.id}_${user.userType}_${Date.now()}`;
+      
+      const responseUser = {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phone: user.phone,
+        userType: user.userType,
+        emailVerified: true,
+      };
+      
+      res.json({ 
+        user: responseUser,
+        token: sessionToken,
+        userType: user.userType,
+        message: "Email verified successfully! You can now access all features." 
+      });
+    } catch (error) {
+      console.error("Email verification error:", error);
+      res.status(500).json({ error: "Email verification failed" });
+    }
+  });
+
+  // Resend verification email endpoint
+  app.post("/api/auth/resend-verification", async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ error: "Email required" });
+      }
+      
+      // Get user by email
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Check if already verified
+      if (user.emailVerified) {
+        return res.status(400).json({ error: "Email already verified" });
+      }
+      
+      // Generate new verification code
+      const verificationCode = emailService.generateVerificationCode();
+      const verificationExpiry = emailService.getCodeExpiryDate();
+      
+      // Update user with new code
+      await storage.updateUser(user.id, {
+        emailVerificationCode: verificationCode,
+        emailVerificationExpiry: verificationExpiry,
+      });
+      
+      // Send verification email
+      const emailSent = await emailService.sendVerificationEmail(email, verificationCode, user.firstName);
+      
+      if (!emailSent) {
+        return res.status(500).json({ error: "Failed to send verification email" });
+      }
+      
+      res.json({ 
+        message: "Verification email sent successfully. Please check your inbox." 
+      });
+    } catch (error) {
+      console.error("Resend verification error:", error);
+      res.status(500).json({ error: "Failed to resend verification email" });
     }
   });
 

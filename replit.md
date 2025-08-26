@@ -7,6 +7,9 @@ Ekrili is a modern property rental platform for the Tunisian market, focusing on
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
+- **January 26, 2025**: Added comprehensive email verification system for user registration
+- **Email Security**: Free Gmail SMTP integration with console fallback for development
+- **Registration Flow**: Users must verify email before accessing full platform features
 - **January 20, 2025**: Successfully migrated Ekrili from Replit Agent to standard Replit environment
 - **Migration completed**: All functionality working with real user authentication
 - **Test users created**: Both tenant and owner accounts with real credentials (no mock data)
@@ -39,6 +42,8 @@ Preferred communication style: Simple, everyday language.
 - **Client-side**: localStorage-based session management
 - **User Types**: Role-based (tenants, property owners)
 - **Profile Management**: Comprehensive user profiles with verification
+- **Email Verification**: Required for new registrations with secure code generation
+- **Email Service**: Free Gmail SMTP with nodemailer (console fallback for development)
 
 ### UI/UX Design System
 - **Design Philosophy**: Neo-brutalism with glassmorphism
