@@ -9,15 +9,9 @@ import bcrypt from "bcrypt";
 import multer from "multer";
 import path from "path";
 
-// Conditionally import db only if DATABASE_URL is available
-let db: any = null;
-if (process.env.DATABASE_URL) {
-  try {
-    db = require("./db").db;
-  } catch (error) {
-    console.log("Database not available, using in-memory storage only");
-  }
-}
+// Import database connection
+import { db } from "./db";
+console.log("✓ Database connection established successfully");
 
 // Alias tables for clarity in joins
 const offersTable = offers;
@@ -746,6 +740,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Contract password confirmation endpoint
+  app.post("/api/contracts/:id/confirm-password", async (req, res) => {
+    try {
+      const contractId = parseInt(req.params.id);
+      const { password, userType } = req.body;
+      
+      if (!password || !userType || !['owner', 'tenant'].includes(userType)) {
+        return res.status(400).json({ error: "Password and user type are required" });
+      }
+
+      // Get contract to validate user access
+      const contract = await storage.getContract(contractId);
+      if (!contract) {
+        return res.status(404).json({ error: "Contract not found" });
+      }
+
+      // Get user to verify password
+      const userId = userType === 'owner' ? contract.ownerId : contract.tenantId;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Verify password
+      const bcrypt = require('bcrypt');
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ error: "Mot de passe incorrect" });
+      }
+
+      // Update contract with password confirmation
+      const updates = userType === 'owner' 
+        ? { ownerPasswordConfirmed: true, ownerConfirmedAt: new Date() }
+        : { tenantPasswordConfirmed: true, tenantConfirmedAt: new Date() };
+
+      const updatedContract = await storage.updateContract(contractId, updates);
+
+      // Notify the other party when both have confirmed
+      if (userType === 'owner' && updatedContract.tenantPasswordConfirmed) {
+        await storage.createNotification({
+          userId: contract.tenantId,
+          title: "Prêt pour signature",
+          message: "Les deux parties ont confirmé le contrat. Vous pouvez maintenant procéder à la signature numérique.",
+          type: "contract_ready_for_signature",
+          relatedId: contractId,
+        });
+      } else if (userType === 'tenant' && updatedContract.ownerPasswordConfirmed) {
+        await storage.createNotification({
+          userId: contract.ownerId,
+          title: "Prêt pour signature", 
+          message: "Les deux parties ont confirmé le contrat. Vous pouvez maintenant procéder à la signature numérique.",
+          type: "contract_ready_for_signature",
+          relatedId: contractId,
+        });
+      } else {
+        // Notify the other party to confirm
+        const otherUserId = userType === 'owner' ? contract.tenantId : contract.ownerId;
+        const otherUserRole = userType === 'owner' ? 'locataire' : 'propriétaire';
+        await storage.createNotification({
+          userId: otherUserId,
+          title: "Confirmation de contrat requise",
+          message: `Le ${userType === 'owner' ? 'propriétaire' : 'locataire'} a confirmé le contrat. Veuillez confirmer avec votre mot de passe.`,
+          type: "contract_confirmation_required",
+          relatedId: contractId,
+        });
+      }
+
+      res.json({ success: true, contract: updatedContract });
+    } catch (error) {
+      console.error("Contract password confirmation error:", error);
+      res.status(500).json({ error: "Failed to confirm password" });
+    }
+  });
+
   app.put("/api/contracts/:id/sign", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -753,6 +821,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!['owner', 'tenant'].includes(signatureType)) {
         return res.status(400).json({ error: "Invalid signature type" });
+      }
+
+      // Get contract to check password confirmation
+      const existingContract = await storage.getContract(id);
+      if (!existingContract) {
+        return res.status(404).json({ error: "Contract not found" });
+      }
+
+      // Verify password confirmation before allowing signature
+      if (signatureType === 'owner' && !existingContract.ownerPasswordConfirmed) {
+        return res.status(400).json({ error: "Vous devez confirmer votre mot de passe avant de signer le contrat" });
+      }
+      if (signatureType === 'tenant' && !existingContract.tenantPasswordConfirmed) {
+        return res.status(400).json({ error: "Vous devez confirmer votre mot de passe avant de signer le contrat" });
       }
 
       const contract = await storage.updateContractSignature(id, signatureType, signatureData);

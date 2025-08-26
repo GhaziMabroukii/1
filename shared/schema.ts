@@ -122,6 +122,10 @@ export const contracts = pgTable("contracts", {
   tenantSignature: text("tenant_signature"), // Base64 signature data
   ownerSignedAt: timestamp("owner_signed_at"),
   tenantSignedAt: timestamp("tenant_signed_at"),
+  ownerPasswordConfirmed: boolean("owner_password_confirmed").default(false),
+  tenantPasswordConfirmed: boolean("tenant_password_confirmed").default(false),
+  ownerConfirmedAt: timestamp("owner_confirmed_at"),
+  tenantConfirmedAt: timestamp("tenant_confirmed_at"),
   status: text("status").notNull().default("draft"), // draft, owner_signed, fully_signed, active, expired, cancelled, terminated
   tenantSignDeadline: timestamp("tenant_sign_deadline"), // 3 days from owner signature
   pdfUrl: text("pdf_url"),

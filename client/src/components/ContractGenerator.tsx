@@ -1,11 +1,15 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import SignatureCanvas from "react-signature-canvas";
-import { FileText, Download, PenTool, X } from "lucide-react";
+import { FileText, Download, PenTool, X, Lock, AlertCircle, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { apiRequest } from "@/lib/queryClient";
 
 interface ContractGeneratorProps {
   contract?: any;
@@ -29,7 +33,9 @@ export default function ContractGenerator({
 }: ContractGeneratorProps) {
   const [signatureCanvas, setSignatureCanvas] = useState<SignatureCanvas | null>(null);
   const [showSignatureCanvas, setShowSignatureCanvas] = useState(false);
+  const [password, setPassword] = useState("");
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Handle different modes
   const contractData = contract || initialData;
@@ -74,16 +80,61 @@ export default function ContractGenerator({
   // Determine user role based on contract data
   const userRole: 'owner' | 'tenant' = currentUserId === contractData.ownerId ? 'owner' : 'tenant';
   
-  const canSign = () => {
+  const needsPasswordConfirmation = () => {
     if (userRole === 'owner') {
-      // Owner can sign if they haven't signed yet, regardless of contract status
-      return !contractData.ownerSignature;
+      return !contractData.ownerPasswordConfirmed;
     } else if (userRole === 'tenant') {
-      // Tenant can sign if owner has signed but tenant hasn't
-      return contractData.ownerSignature && !contractData.tenantSignature;
+      return !contractData.tenantPasswordConfirmed;
     }
     return false;
   };
+
+  const canConfirmPassword = () => {
+    return needsPasswordConfirmation();
+  };
+
+  const canSign = () => {
+    if (userRole === 'owner') {
+      // Owner can sign if they have confirmed password and haven't signed yet
+      return contractData.ownerPasswordConfirmed && !contractData.ownerSignature;
+    } else if (userRole === 'tenant') {
+      // Tenant can sign if both parties confirmed passwords and owner has signed but tenant hasn't
+      return contractData.ownerPasswordConfirmed && contractData.tenantPasswordConfirmed && 
+             contractData.ownerSignature && !contractData.tenantSignature;
+    }
+    return false;
+  };
+
+  // Password confirmation mutation
+  const confirmPasswordMutation = useMutation({
+    mutationFn: async (password: string) => {
+      return apiRequest(`/api/contracts/${contractData.id}/confirm-password`, {
+        method: 'POST',
+        body: JSON.stringify({
+          password,
+          userType: userRole
+        })
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Mot de passe confirmé",
+        description: "Vous pouvez maintenant procéder à la signature numérique.",
+      });
+      setPassword('');
+      // Refresh contract data
+      if (contractData.id) {
+        queryClient.invalidateQueries({ queryKey: [`/api/contracts/${contractData.id}`] });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erreur",
+        description: error.message || "Mot de passe incorrect",
+        variant: "destructive"
+      });
+    }
+  });
 
   const handleSign = () => {
     if (!signatureCanvas || signatureCanvas.isEmpty()) {
@@ -106,6 +157,13 @@ export default function ContractGenerator({
       title: "Signature enregistrée",
       description: "Votre signature a été ajoutée au contrat",
     });
+  };
+
+  const handlePasswordConfirm = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password.trim()) {
+      confirmPasswordMutation.mutate(password);
+    }
   };
 
   const clearSignature = () => {
@@ -297,6 +355,91 @@ export default function ContractGenerator({
         </CardContent>
       </Card>
 
+      {/* Password Confirmation Step */}
+      {canConfirmPassword() && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Lock className="mr-2 h-5 w-5" />
+              Confirmation par mot de passe
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-start space-x-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-blue-800">
+                    Confirmation de sécurité requise
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Veuillez saisir votre mot de passe pour confirmer votre accord avant la signature du contrat.
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handlePasswordConfirm} className="space-y-4">
+                <div>
+                  <Label htmlFor="password">Mot de passe</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Saisissez votre mot de passe"
+                    required
+                  />
+                </div>
+                
+                <Button 
+                  type="submit" 
+                  disabled={confirmPasswordMutation.isPending || !password.trim()}
+                >
+                  <Lock className="mr-2 h-4 w-4" />
+                  {confirmPasswordMutation.isPending ? 'Vérification...' : 'Confirmer avec mot de passe'}
+                </Button>
+              </form>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Digital Signature Step */}
+      {canSign() && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <PenTool className="mr-2 h-5 w-5" />
+              Signature numérique
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-start space-x-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-green-800">
+                    Prêt pour la signature
+                  </p>
+                  <p className="text-xs text-green-600 mt-1">
+                    Votre mot de passe a été confirmé. Vous pouvez maintenant procéder à la signature numérique.
+                  </p>
+                </div>
+              </div>
+
+              <Button 
+                onClick={() => setShowSignatureCanvas(true)} 
+                disabled={isLoading}
+                className="w-full"
+              >
+                <PenTool className="h-4 w-4 mr-2" />
+                {userRole === 'owner' ? 'Signer en tant que propriétaire' : 'Signer en tant que locataire'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Action Buttons - Role-based access */}
       <div className="flex justify-between items-center">
         {/* Download button for fully signed contracts */}
@@ -307,16 +450,18 @@ export default function ContractGenerator({
           </Button>
         )}
         
-        {/* Signing button - only show when it's the user's turn to sign */}
-        {canSign() && (
-          <Button onClick={() => setShowSignatureCanvas(true)} disabled={isLoading}>
-            <PenTool className="h-4 w-4 mr-2" />
-            {userRole === 'owner' ? 'Signer en tant que propriétaire' : 'Signer en tant que locataire'}
-          </Button>
-        )}
 
         {/* Status messages */}
-        {userRole === 'tenant' && !contractData.ownerSignature && (
+        {!needsPasswordConfirmation() && !canSign() && !contractData.ownerSignature && !contractData.tenantSignature && (
+          <div className="text-sm text-muted-foreground">
+            {userRole === 'owner' 
+              ? "En attente de la confirmation du locataire pour commencer les signatures"
+              : "En attente de la confirmation du propriétaire pour commencer les signatures"
+            }
+          </div>
+        )}
+
+        {userRole === 'tenant' && !contractData.ownerSignature && contractData.ownerPasswordConfirmed && (
           <div className="text-sm text-muted-foreground">
             En attente de la signature du propriétaire
           </div>
