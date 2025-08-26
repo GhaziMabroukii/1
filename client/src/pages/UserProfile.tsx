@@ -758,7 +758,8 @@ const UserProfile = () => {
                 Gender: {avatarModal.gender} | 
                 Loading: {avatarsLoading ? 'Yes' : 'No'} | 
                 Data: {avatarsData ? 'Yes' : 'No'} |
-                Count: {avatarsData?.avatars?.length || 0}
+                Count: {avatarsData?.avatars?.length || 0} |
+                HasAvatars: {avatarsData && avatarsData.avatars && avatarsData.avatars.length > 0 ? 'Yes' : 'No'}
               </div>
               <Button
                 variant="ghost"
@@ -768,6 +769,10 @@ const UserProfile = () => {
               >
                 ✕
               </Button>
+            </div>
+            
+            <div className="text-xs text-gray-400 mb-4">
+              Debug: {JSON.stringify(avatarsData, null, 2)}
             </div>
             
             {avatarsError ? (
@@ -795,7 +800,7 @@ const UserProfile = () => {
                   <p className="text-sm text-muted-foreground">Chargement des avatars...</p>
                 </div>
               </div>
-            ) : avatarsData?.avatars && avatarsData.avatars.length > 0 ? (
+            ) : avatarsData && avatarsData.avatars && avatarsData.avatars.length > 0 ? (
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
                 {avatarsData.avatars.map((avatarUrl: string, index: number) => (
                   <button
