@@ -73,7 +73,7 @@ export default function ContractTerminationStatus() {
               <Button 
                 variant="outline" 
                 className="mt-4"
-                onClick={() => navigate(-1)}
+                onClick={() => navigate('/contract-termination')}
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Retour
@@ -138,7 +138,7 @@ export default function ContractTerminationStatus() {
       <div className="mb-6">
         <Button 
           variant="outline" 
-          onClick={() => navigate(-1)}
+          onClick={() => navigate('/dashboard')}
           className="mb-4"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />

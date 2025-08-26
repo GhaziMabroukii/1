@@ -31,13 +31,13 @@ export function NotificationCenter({ userId }: NotificationCenterProps) {
   // Fetch notifications - real-time updates via WebSocket
   const { data: notifications = [], refetch } = useQuery({
     queryKey: ['/api/notifications', userId],
-    queryFn: async () => {
+    queryFn: async (): Promise<Notification[]> => {
       const response = await fetch(`/api/notifications?userId=${userId}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
       if (!response.ok) throw new Error('Failed to fetch notifications');
-      return response.json() as Notification[];
+      return response.json();
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
@@ -66,6 +66,10 @@ export function NotificationCenter({ userId }: NotificationCenterProps) {
         return <Clock className="h-4 w-4 text-red-500" />;
       case 'contract_modified':
         return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
+      case 'contract_termination_request':
+        return <AlertTriangle className="h-4 w-4 text-orange-500" />;
+      case 'contract_modification_request':
+        return <FileText className="h-4 w-4 text-purple-500" />;
       default:
         return <Bell className="h-4 w-4 text-gray-500" />;
     }
@@ -77,9 +81,28 @@ export function NotificationCenter({ userId }: NotificationCenterProps) {
       markReadMutation.mutate(notification.id);
     }
 
-    // Navigate to related content
-    if (notification.type.includes('contract') && notification.relatedId) {
-      navigate(`/contract/${notification.relatedId}`);
+    // Navigate to related content based on notification type
+    if (notification.relatedId) {
+      if (notification.type === 'contract_termination_request') {
+        // Navigate to the termination status page to see the request details
+        navigate(`/contract-termination-status/${notification.relatedId}`);
+      } else if (notification.type === 'contract_modification_request') {
+        // For modification requests, navigate to the tenant request response page
+        navigate(`/tenant-requests/modification/${notification.relatedId}`);
+      } else if (notification.type.includes('contract_signature')) {
+        // For signature notifications, go to the contract page
+        navigate(`/contract/${notification.relatedId}`);
+      } else if (notification.type.includes('contract')) {
+        // For other contract-related notifications, try the contract page first
+        // If it doesn't exist, the application will handle it gracefully
+        navigate(`/contract/${notification.relatedId}`);
+      } else {
+        // For general notifications without specific routing, go to notifications page
+        navigate(`/notifications`);
+      }
+    } else {
+      // If no relatedId, just go to notifications page
+      navigate(`/notifications`);
     }
   };
 

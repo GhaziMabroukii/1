@@ -12,7 +12,12 @@ export function AutomaticTenantNavigation({ userId, userType }: AutomaticTenantN
   
   // Only works for tenants
   const { data: notifications = [] } = useQuery({
-    queryKey: ['/api/notifications'],
+    queryKey: ['/api/notifications', userId],
+    queryFn: async () => {
+      const response = await fetch(`/api/notifications?userId=${userId}`);
+      if (!response.ok) return [];
+      return response.json();
+    },
     enabled: userType === 'tenant',
     refetchInterval: 5000 // Check every 5 seconds
   });
@@ -21,14 +26,18 @@ export function AutomaticTenantNavigation({ userId, userType }: AutomaticTenantN
     if (userType !== 'tenant') return;
     
     // Look for new contract management request notifications
-    const managementNotifications = notifications.filter((notification: any) => 
+    const managementNotifications = (notifications as any[]).filter((notification: any) => 
       (notification.type === 'contract_modification_request' || 
        notification.type === 'contract_termination_request') &&
-      notification.isRead === false
+      notification.read === false
     );
 
-    // If there's a new management request notification and we're not already on the response page
-    if (managementNotifications.length > 0 && !location.includes('/tenant-requests/')) {
+    // Only auto-navigate if there are new notifications and user is on the dashboard
+    // This prevents interfering with manual navigation from notification clicks
+    if (managementNotifications.length > 0 && 
+        location === '/dashboard' && 
+        !location.includes('/tenant-requests/') &&
+        !location.includes('/contract-termination')) {
       const latestNotification = managementNotifications[0];
       
       // Determine request type and navigate to response page
