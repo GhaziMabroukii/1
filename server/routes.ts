@@ -2478,7 +2478,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         firstName: 'Ahmed',
         lastName: 'Ben Ali',
         phone: '+216 20 123 456',
-        userType: 'tenant'
+        userType: 'tenant',
+        profilePicture: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face'
       });
 
       // Create owner user
@@ -2490,7 +2491,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         firstName: 'Fatma',
         lastName: 'Trabelsi',
         phone: '+216 98 765 432',
-        userType: 'owner'
+        userType: 'owner',
+        profilePicture: 'https://images.unsplash.com/photo-1494790108755-2616b723deff?w=150&h=150&fit=crop&crop=face'
       });
 
       // Create sample properties for the owner
