@@ -41,31 +41,69 @@ const MapView = () => {
   useEffect(() => {
     fetchProperties();
     
-    // Check if Google Maps is available
-    const checkGoogleMaps = () => {
+    // Initialize Google Maps with proper timing for keyless API
+    const initMapWhenReady = () => {
+      // Set up global callback for the keyless API
+      window.initMapCallback = () => {
+        console.log("Map callback triggered from keyless API");
+        if (mapRef.current && !mapInstance.current) {
+          try {
+            mapInstance.current = new window.google.maps.Map(mapRef.current, {
+              zoom: 12,
+              center: { lat: 36.8065, lng: 10.1815 },
+              mapTypeId: window.google.maps.MapTypeId.ROADMAP,
+              disableDefaultUI: false,
+              zoomControl: true,
+              streetViewControl: false,
+              fullscreenControl: false
+            });
+            console.log("Map initialized successfully with keyless API");
+            setMapError(false);
+            setLoading(false);
+            
+            // Wait a bit then add markers
+            setTimeout(() => {
+              console.log("Adding markers after delay, properties count:", filteredProperties.length);
+              updateMapMarkers();
+            }, 500);
+          } catch (error) {
+            console.error("Error creating map:", error);
+            setMapError(true);
+            setLoading(false);
+          }
+        }
+      };
+
+      // Check if Google Maps is already loaded
       if (typeof window !== 'undefined' && window.google && window.google.maps) {
-        initializeGoogleMaps();
+        console.log("Google Maps API already available");
+        window.initMapCallback();
       } else {
-        // No Google Maps API, show fallback
-        console.log("Google Maps API not available, showing fallback view");
-        setMapError(true);
-        setLoading(false);
+        // Wait for the keyless API to load
+        console.log("Waiting for keyless Google Maps API to load...");
+        let attempts = 0;
+        const maxAttempts = 50; // 10 seconds with 200ms intervals
+        
+        const checkInterval = setInterval(() => {
+          attempts++;
+          if (window.google && window.google.maps) {
+            console.log("Keyless Google Maps API loaded successfully");
+            clearInterval(checkInterval);
+            window.initMapCallback();
+          } else if (attempts >= maxAttempts) {
+            console.log("Keyless Google Maps API failed to load after maximum attempts");
+            clearInterval(checkInterval);
+            setMapError(true);
+            setLoading(false);
+          }
+        }, 200);
       }
     };
 
-    // Try to check immediately
-    checkGoogleMaps();
-    
-    // Also check after a delay in case the API is still loading
-    const timeout = setTimeout(() => {
-      if (!mapInstance.current) {
-        setMapError(true);
-        setLoading(false);
-      }
-    }, 3000);
+    // Initialize maps
+    initMapWhenReady();
     
     return () => {
-      clearTimeout(timeout);
       // Cleanup
       if (markersRef.current) {
         markersRef.current.forEach(marker => {
@@ -123,39 +161,6 @@ const MapView = () => {
     }
   };
 
-  const initializeGoogleMaps = () => {
-    // Global initMap callback function
-    window.initMapCallback = () => {
-      console.log("Map callback triggered");
-      if (mapRef.current && !mapInstance.current) {
-        try {
-          mapInstance.current = new window.google.maps.Map(mapRef.current, {
-            zoom: 12,
-            center: { lat: 36.8065, lng: 10.1815 },
-            mapTypeId: window.google.maps.MapTypeId.ROADMAP,
-            disableDefaultUI: false,
-            zoomControl: true,
-            streetViewControl: false,
-            fullscreenControl: false
-          });
-          console.log("Map initialized successfully");
-          
-          // Wait a bit then add markers
-          setTimeout(() => {
-            console.log("Adding markers after delay, properties count:", filteredProperties.length);
-            updateMapMarkers();
-          }, 500);
-        } catch (error) {
-          console.error("Error creating map:", error);
-        }
-      }
-    };
-
-    // Try to initialize immediately if Google is already loaded
-    if (window.google && window.google.maps) {
-      window.initMapCallback();
-    }
-  };
 
   const updateMapMarkers = () => {
     if (!mapInstance.current) {
