@@ -1,0 +1,56 @@
+Attempting to reconnect in 1000ms...
+Header: Set user type to: tenant with user ID: 1
+WebSocket connected
+WebSocket authenticated successfully
+Global WebSocket message: 
+Object {event: "auth_success", data: {…}}
+Received WebSocket event: connection_established 
+Object {userId: 1, timestamp: "2025-08-27T12:58:17.217Z"}
+Global WebSocket message: 
+Object {event: "connection_established", data: {…}}
+Header: Set user type to: tenant with user ID: 1
+📍 Google Maps API already available
+🗺️ Initializing map - checking readiness
+mapRef.current: false
+window.google: true
+window.google.maps: true
+⏳ Map not ready yet, waiting...
+- DOM ref not ready
+Header: Set user type to: tenant with user ID: 1
+`DialogContent` requires a `DialogTitle` for the component to be accessible for screen reader users.
+
+If you want to hide the `DialogTitle`, you can wrap it with our VisuallyHidden component.
+
+For more information, see https://radix-ui.com/primitives/docs/components/dialog
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+Header: Set user type to: tenant with user ID: 1
+📍 Google Maps API already available
+🗺️ Initializing map - checking readiness
+mapRef.current: false
+window.google: true
+window.google.maps: true
+⏳ Map not ready yet, waiting...
+- DOM ref not ready
+Header: Set user type to: tenant with user ID: 1
+`DialogContent` requires a `DialogTitle` for the component to be accessible for screen reader users.
+
+If you want to hide the `DialogTitle`, you can wrap it with our VisuallyHidden component.
+
+For more information, see https://radix-ui.com/primitives/docs/components/dialog
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+Header: Set user type to: tenant with user ID: 1
+`DialogContent` requires a `DialogTitle` for the component to be accessible for screen reader users.
+
+If you want to hide the `DialogTitle`, you can wrap it with our VisuallyHidden component.
+
+For more information, see https://radix-ui.com/primitives/docs/components/dialog
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+Header: Set user type to: tenant with user ID: 1
+📍 Google Maps API already available
+🗺️ Initializing map - checking readiness
+mapRef.current: false
+window.google: true
+window.google.maps: true
+⏳ Map not ready yet, waiting...
+- DOM ref not ready
+Header: Set user type to: tenant with user ID: 1

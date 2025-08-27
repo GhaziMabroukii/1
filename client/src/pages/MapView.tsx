@@ -42,125 +42,12 @@ const MapView = () => {
     fetchProperties();
   }, []);
 
-  // Separate effect for map initialization after DOM is ready
+  // Simple map initialization with polling
   useEffect(() => {
-    // Don't initialize if we already have a map
+    // Skip if we already have a map
     if (mapInstance.current) return;
     
-    const initializeMap = () => {
-      console.log("🗺️ Initializing map - checking readiness");
-      console.log("mapRef.current:", !!mapRef.current);
-      console.log("window.google:", !!window.google);
-      console.log("window.google.maps:", !!(window.google && window.google.maps));
-      
-      if (mapRef.current && window.google && window.google.maps && !mapInstance.current) {
-        try {
-          console.log("✨ Creating Google Maps instance...");
-          mapInstance.current = new window.google.maps.Map(mapRef.current, {
-            zoom: 12,
-            center: { lat: 36.8065, lng: 10.1815 },
-            mapTypeId: window.google.maps.MapTypeId.ROADMAP,
-            disableDefaultUI: false,
-            zoomControl: true,
-            streetViewControl: false,
-            fullscreenControl: false
-          });
-          console.log("✅ Map created successfully!");
-          setMapError(false);
-          setLoading(false);
-          
-          // Add markers after delay
-          setTimeout(() => {
-            console.log("🎯 Adding markers to map...");
-            updateMapMarkers();
-          }, 500);
-        } catch (error) {
-          console.error("❌ Error creating map:", error);
-          setMapError(true);
-          setLoading(false);
-        }
-      } else {
-        console.log("⏳ Map not ready yet, waiting...");
-        if (!mapRef.current) console.log("- DOM ref not ready");
-        if (!window.google) console.log("- Google API not loaded");
-        if (window.google && !window.google.maps) console.log("- Google Maps API not ready");
-        if (mapInstance.current) console.log("- Map already exists");
-        
-        // If Google Maps is ready but DOM ref is not, wait for DOM ref
-        if (window.google && window.google.maps && !mapRef.current && !mapInstance.current) {
-          console.log("🔄 Waiting for DOM ref to be ready...");
-          let domAttempts = 0;
-          const maxDomAttempts = 50; // 5 seconds
-          const domCheckInterval = setInterval(() => {
-            domAttempts++;
-            console.log(`⏳ DOM check attempt ${domAttempts}, mapRef ready: ${!!mapRef.current}`);
-            
-            if (mapRef.current) {
-              console.log("✅ DOM ref is now ready, initializing map!");
-              clearInterval(domCheckInterval);
-              initializeMap(); // Recursive call now that DOM is ready
-            } else if (domAttempts >= maxDomAttempts) {
-              console.log("❌ DOM ref failed to become ready");
-              clearInterval(domCheckInterval);
-              setMapError(true);
-              setLoading(false);
-            }
-          }, 100);
-        }
-      }
-    };
-
-    // Global callback for when Google Maps API loads
-    window.initMapCallback = initializeMap;
-
-    // Check if Google Maps API is already available
-    if (window.google && window.google.maps) {
-      console.log("📍 Google Maps API already available");
-      // Small delay to ensure DOM is ready
-      setTimeout(initializeMap, 100);
-    } else {
-      // Wait for Google Maps API to load
-      console.log("⏳ Waiting for Google Maps API...");
-      
-      let attempts = 0;
-      const maxAttempts = 100; // 10 seconds
-      const checkInterval = setInterval(() => {
-        attempts++;
-        
-        if (window.google && window.google.maps) {
-          console.log(`✅ Google Maps API loaded after ${attempts} attempts`);
-          clearInterval(checkInterval);
-          setTimeout(initializeMap, 100); // Small delay for DOM readiness
-        } else if (attempts >= maxAttempts) {
-          console.log(`❌ Google Maps API failed to load after ${attempts} attempts`);
-          clearInterval(checkInterval);
-          setMapError(true);
-          setLoading(false);
-        }
-        
-        // Debug every 25 attempts
-        if (attempts % 25 === 0) {
-          console.log(`🔍 Attempt ${attempts}: google=${!!window.google}, maps=${!!(window.google && window.google.maps)}`);
-        }
-      }, 100);
-      
-      // Cleanup function
-      return () => {
-        clearInterval(checkInterval);
-        if (markersRef.current) {
-          markersRef.current.forEach(marker => {
-            if (marker && typeof marker.setMap === 'function') {
-              marker.setMap(null);
-            }
-          });
-        }
-      };
-    }
-  }, []); // Only run once
-
-  // Direct polling for DOM ref + Google Maps API
-  useEffect(() => {
-    if (mapInstance.current) return;
+    console.log("🚀 Starting map initialization polling...");
     
     let attempts = 0;
     const maxAttempts = 100; // 10 seconds total
@@ -192,24 +79,46 @@ const MapView = () => {
             console.log("🎯 Adding markers...");
             updateMapMarkers();
           }, 500);
+          
+          return; // Stop polling
         } catch (error) {
           console.error("❌ Error creating map:", error);
           setMapError(true);
           setLoading(false);
+          return; // Stop polling
         }
       } else if (attempts >= maxAttempts) {
         console.log("❌ Polling timeout - giving up");
         setMapError(true);
         setLoading(false);
+        return; // Stop polling
       } else {
         // Continue polling
         setTimeout(pollForMapReady, 100);
       }
     };
     
-    // Start polling after a short delay
-    setTimeout(pollForMapReady, 200);
+    // Start polling after a short delay to ensure component is mounted
+    setTimeout(pollForMapReady, 500);
+    
+    // Set global callback for keyless API
+    window.initMapCallback = () => {
+      console.log("🔄 Global callback triggered, starting poll...");
+      setTimeout(pollForMapReady, 100);
+    };
+    
+    // Cleanup
+    return () => {
+      if (markersRef.current) {
+        markersRef.current.forEach(marker => {
+          if (marker && typeof marker.setMap === 'function') {
+            marker.setMap(null);
+          }
+        });
+      }
+    };
   }, []); // Only run once
+
 
   const fetchProperties = async () => {
     try {
