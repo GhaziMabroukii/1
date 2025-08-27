@@ -28,14 +28,66 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <!-- Keyless Google Maps API - must be at end of body -->
-    <script 
-      src="https://cdn.jsdelivr.net/gh/somanchiu/Keyless-Google-Maps-API@v7.1/mapsJavaScriptAPI.js" 
-      async 
-      defer
-      onload="console.log('Keyless Google Maps script loaded successfully')"
-      onerror="console.error('Failed to load keyless Google Maps script')"
-    ></script>
+    <!-- Test multiple approaches for Google Maps API -->
+    <script>
+      console.log('🔄 Trying multiple Google Maps API approaches...');
+      
+      // Approach 1: Try keyless API v7.1
+      const loadKeylessV7 = () => {
+        return new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/gh/somanchiu/Keyless-Google-Maps-API@v7.1/mapsJavaScriptAPI.js';
+          script.onload = () => {
+            console.log('✅ Keyless v7.1 loaded');
+            resolve();
+          };
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      };
+      
+      // Approach 2: Try keyless API latest
+      const loadKeylessLatest = () => {
+        return new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/gh/somanchiu/Keyless-Google-Maps-API@latest/mapsJavaScriptAPI.js';
+          script.onload = () => {
+            console.log('✅ Keyless latest loaded');
+            resolve();
+          };
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      };
+      
+      // Approach 3: Try a different keyless provider
+      const loadAlternativeKeyless = () => {
+        return new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyB41DRUbKWJHPxaFjMAwdrzWzbVKartNGg&callback=initMap';
+          script.onload = () => {
+            console.log('✅ Alternative Maps API loaded');
+            resolve();
+          };
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      };
+      
+      // Try loading in sequence
+      loadKeylessV7()
+        .catch(() => {
+          console.log('❌ Keyless v7.1 failed, trying latest...');
+          return loadKeylessLatest();
+        })
+        .catch(() => {
+          console.log('❌ Keyless latest failed, trying alternative...');
+          return loadAlternativeKeyless();
+        })
+        .catch(() => {
+          console.error('❌ All Google Maps loading approaches failed');
+        });
+    </script>
     <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
     <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>
   </body>
