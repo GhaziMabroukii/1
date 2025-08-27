@@ -1,42 +1,41 @@
 import { useEffect, useRef } from "react";
-import { Button } from "@/components/ui/button";
-import { ExternalLink } from "lucide-react";
-
-interface PropertyLocationMapProps {
-  latitude: string | number;
-  longitude: string | number;
-  title: string;
-}
 
 declare global {
   interface Window {
     google: any;
+    initMapCallback?: () => void;
   }
 }
 
-const PropertyLocationMap = ({ latitude, longitude, title }: PropertyLocationMapProps) => {
+interface PropertyLocationMapProps {
+  latitude: number;
+  longitude: number;
+  title?: string;
+  address?: string;
+}
+
+export default function PropertyLocationMap({ latitude, longitude, title = "Property Location", address }: PropertyLocationMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<any>(null);
 
   useEffect(() => {
-    if (latitude && longitude && mapRef.current) {
-      initializeLocationMap();
+    if (latitude && longitude && mapRef.current && !mapInstanceRef.current) {
+      initializeMap();
     }
   }, [latitude, longitude]);
 
-  const initializeLocationMap = async () => {
+  const initializeMap = async () => {
     try {
       // Wait for Google Maps to load
       if (!(window as any).google || !(window as any).google.maps) {
-        setTimeout(() => initializeLocationMap(), 1000);
+        setTimeout(() => initializeMap(), 1000);
         return;
       }
 
       const google = (window as any).google;
-      const lat = parseFloat(latitude.toString());
-      const lng = parseFloat(longitude.toString());
       
       const mapOptions = {
-        center: { lat, lng },
+        center: { lat: latitude, lng: longitude },
         zoom: 15,
         mapTypeId: google.maps.MapTypeId.ROADMAP,
         disableDefaultUI: false,
@@ -50,9 +49,9 @@ const PropertyLocationMap = ({ latitude, longitude, title }: PropertyLocationMap
 
       const googleMap = new google.maps.Map(mapRef.current, mapOptions);
       
-      // Create marker for property location (non-draggable)
+      // Create marker for property location
       const propertyMarker = new google.maps.Marker({
-        position: { lat, lng },
+        position: { lat: latitude, lng: longitude },
         map: googleMap,
         draggable: false,
         title: title,
@@ -67,44 +66,35 @@ const PropertyLocationMap = ({ latitude, longitude, title }: PropertyLocationMap
           anchor: new google.maps.Point(16, 16)
         }
       });
+
+      // Add info window if address is provided
+      if (address) {
+        const infoWindow = new google.maps.InfoWindow({
+          content: `
+            <div style="padding: 8px; font-family: Arial, sans-serif;">
+              <h3 style="margin: 0 0 8px 0; color: #1f2937; font-size: 14px;">${title}</h3>
+              <p style="margin: 0; color: #6b7280; font-size: 12px;">📍 ${address}</p>
+            </div>
+          `
+        });
+
+        propertyMarker.addListener('click', () => {
+          infoWindow.open(googleMap, propertyMarker);
+        });
+      }
+
+      mapInstanceRef.current = googleMap;
       
     } catch (error) {
-      console.error('Error initializing location map:', error);
-    }
-  };
-
-  const openInGoogleMaps = () => {
-    if (latitude && longitude) {
-      const mapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
-      window.open(mapsUrl, '_blank');
+      console.error('Error initializing property location map:', error);
     }
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Localisation</h3>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={openInGoogleMaps}
-          className="flex items-center gap-2"
-          data-testid="button-open-maps"
-        >
-          <ExternalLink className="h-4 w-4" />
-          Ouvrir dans Maps
-        </Button>
-      </div>
-      
-      <div className="rounded-lg overflow-hidden border">
-        <div 
-          ref={mapRef} 
-          className="h-64 w-full bg-gray-100 dark:bg-gray-800"
-          data-testid="property-location-map"
-        />
-      </div>
-    </div>
+    <div 
+      ref={mapRef} 
+      className="w-full h-64 rounded-lg border border-gray-200"
+      style={{ minHeight: '256px' }}
+    />
   );
-};
-
-export default PropertyLocationMap;
+}
