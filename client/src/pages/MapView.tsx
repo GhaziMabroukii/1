@@ -24,7 +24,7 @@ const MapView = () => {
   const [properties, setProperties] = useState<any[]>([]);
   const [filteredProperties, setFilteredProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [mapError, setMapError] = useState(false);
+  const [mapLoaded, setMapLoaded] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [propertyType, setPropertyType] = useState("all");
@@ -42,83 +42,54 @@ const MapView = () => {
     fetchProperties();
   }, []);
 
-  // Simple map initialization with polling
   useEffect(() => {
-    // Skip if we already have a map
-    if (mapInstance.current) return;
-    
-    console.log("🚀 Starting map initialization polling...");
-    
-    let attempts = 0;
-    const maxAttempts = 100; // 10 seconds total
-    
-    const pollForMapReady = () => {
-      attempts++;
-      console.log(`🔍 Poll attempt ${attempts}: mapRef=${!!mapRef.current}, google=${!!window.google}, maps=${!!(window.google && window.google.maps)}`);
-      
-      if (mapRef.current && window.google && window.google.maps && !mapInstance.current) {
-        console.log("🎯 BOTH DOM and Google Maps ready - creating map!");
-        
-        try {
-          mapInstance.current = new window.google.maps.Map(mapRef.current, {
-            zoom: 12,
-            center: { lat: 36.8065, lng: 10.1815 },
-            mapTypeId: window.google.maps.MapTypeId.ROADMAP,
-            disableDefaultUI: false,
-            zoomControl: true,
-            streetViewControl: false,
-            fullscreenControl: false
-          });
-          
-          console.log("✅ Map successfully created!");
-          setMapError(false);
-          setLoading(false);
-          
-          // Add markers
-          setTimeout(() => {
-            console.log("🎯 Adding markers...");
-            updateMapMarkers();
-          }, 500);
-          
-          return; // Stop polling
-        } catch (error) {
-          console.error("❌ Error creating map:", error);
-          setMapError(true);
-          setLoading(false);
-          return; // Stop polling
-        }
-      } else if (attempts >= maxAttempts) {
-        console.log("❌ Polling timeout - giving up");
-        setMapError(true);
-        setLoading(false);
-        return; // Stop polling
-      } else {
-        // Continue polling
-        setTimeout(pollForMapReady, 100);
-      }
-    };
-    
-    // Start polling after a short delay to ensure component is mounted
-    setTimeout(pollForMapReady, 500);
-    
-    // Set global callback for keyless API
-    window.initMapCallback = () => {
-      console.log("🔄 Global callback triggered, starting poll...");
-      setTimeout(pollForMapReady, 100);
-    };
-    
-    // Cleanup
-    return () => {
-      if (markersRef.current) {
-        markersRef.current.forEach(marker => {
-          if (marker && typeof marker.setMap === 'function') {
-            marker.setMap(null);
-          }
-        });
-      }
-    };
-  }, []); // Only run once
+    if (mapRef.current && !mapInstance.current) {
+      initializeMap();
+    }
+  }, []);
 
+  const initializeMap = () => {
+    console.log("Attempting to initialize map...");
+    
+    if (!window.google?.maps) {
+      console.log("Google Maps not ready, setting up callback...");
+      window.initMapCallback = () => {
+        console.log("Google Maps loaded via callback");
+        createMap();
+      };
+      return;
+    }
+    
+    createMap();
+  };
+
+  const createMap = () => {
+    if (!mapRef.current || mapInstance.current) return;
+    
+    console.log("Creating map...");
+    
+    try {
+      mapInstance.current = new window.google.maps.Map(mapRef.current, {
+        zoom: 12,
+        center: { lat: 36.8065, lng: 10.1815 }, // Tunis center
+        mapTypeId: window.google.maps.MapTypeId.ROADMAP,
+        disableDefaultUI: false,
+        zoomControl: true,
+        streetViewControl: false,
+        fullscreenControl: false
+      });
+      
+      console.log("Map created successfully!");
+      setMapLoaded(true);
+      
+      // Add markers if properties are already loaded
+      if (filteredProperties.length > 0) {
+        updateMapMarkers();
+      }
+    } catch (error) {
+      console.error("Error creating map:", error);
+    }
+  };
 
   const fetchProperties = async () => {
     try {
@@ -130,7 +101,9 @@ const MapView = () => {
       }
       
       const fetchedProperties = await response.json();
+      console.log("Fetched properties:", fetchedProperties);
       
+      // Add coordinates for Tunis area
       const tunisAreas = [
         { name: "Centre Ville", lat: 36.8065, lng: 10.1815 },
         { name: "Bardo", lat: 36.8108, lng: 10.1372 },
@@ -155,8 +128,10 @@ const MapView = () => {
         };
       });
       
+      console.log("Properties with coordinates:", propertiesWithCoordinates);
       setProperties(propertiesWithCoordinates);
       setFilteredProperties(propertiesWithCoordinates);
+      
     } catch (error) {
       console.error("Error fetching properties:", error);
       setProperties([]);
@@ -166,23 +141,17 @@ const MapView = () => {
     }
   };
 
-
   const updateMapMarkers = () => {
     if (!mapInstance.current) {
-      console.log("Map instance not ready");
+      console.log("Map not ready for markers");
       return;
     }
 
-    if (!filteredProperties.length) {
-      console.log("No properties to display");
-      return;
-    }
-
-    console.log(`Adding ${filteredProperties.length} markers to map`);
+    console.log(`Updating markers for ${filteredProperties.length} properties`);
 
     // Clear existing markers
     markersRef.current.forEach(marker => {
-      if (marker && typeof marker.setMap === 'function') {
+      if (marker && marker.setMap) {
         marker.setMap(null);
       }
     });
@@ -190,74 +159,64 @@ const MapView = () => {
 
     // Add new markers
     filteredProperties.forEach((property, index) => {
-      console.log(`Creating marker ${index + 1} for property:`, property.title, property.coordinates);
+      console.log(`Adding marker ${index + 1} for:`, property.title, property.coordinates);
       
-      try {
-        const marker = new window.google.maps.Marker({
-          position: property.coordinates,
-          map: mapInstance.current,
-          title: property.title,
-          icon: createPropertyIcon(property)
-        });
+      const marker = new window.google.maps.Marker({
+        position: property.coordinates,
+        map: mapInstance.current,
+        title: property.title,
+        icon: createPropertyIcon(property)
+      });
 
-        const infoWindow = new window.google.maps.InfoWindow({
-          content: `
-            <div style="padding: 12px; max-width: 280px; font-family: Arial, sans-serif;">
-              <h3 style="margin: 0 0 8px 0; color: #1f2937; font-size: 16px;">${property.title}</h3>
-              <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 13px;">📍 ${property.location}</p>
-              <p style="margin: 0 0 10px 0; font-weight: bold; color: #f59e0b; font-size: 18px;">${property.price} TND/${property.priceType || 'mois'}</p>
-              <div style="margin-bottom: 10px;">
-                <span style="background: ${property.status === 'Disponible' ? '#dcfce7' : '#fee2e2'}; color: ${property.status === 'Disponible' ? '#166534' : '#dc2626'}; padding: 3px 8px; border-radius: 4px; font-size: 12px;">
-                  ${property.status === 'Disponible' ? '✅ Disponible' : '🚫 ' + property.status}
-                </span>
-                ${property.furnished ? '<span style="background: #dbeafe; color: #1e40af; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-left: 4px;">🛋️ Meublé</span>' : '<span style="background: #f3f4f6; color: #374151; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-left: 4px;">🏠 Non meublé</span>'}
-              </div>
-              <button onclick="window.location.href='/property/${property.id}'" 
-                      style="width: 100%; margin-top: 8px; padding: 8px 12px; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
-                Voir les détails →
-              </button>
+      const infoWindow = new window.google.maps.InfoWindow({
+        content: `
+          <div style="padding: 12px; max-width: 280px; font-family: Arial, sans-serif;">
+            <h3 style="margin: 0 0 8px 0; color: #1f2937; font-size: 16px;">${property.title}</h3>
+            <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 13px;">📍 ${property.location}</p>
+            <p style="margin: 0 0 10px 0; font-weight: bold; color: #f59e0b; font-size: 18px;">${property.price} TND/${property.priceType || 'mois'}</p>
+            <div style="margin-bottom: 10px;">
+              <span style="background: ${property.status === 'Disponible' ? '#dcfce7' : '#fee2e2'}; color: ${property.status === 'Disponible' ? '#166534' : '#dc2626'}; padding: 3px 8px; border-radius: 4px; font-size: 12px;">
+                ${property.status === 'Disponible' ? '✅ Disponible' : '🚫 ' + property.status}
+              </span>
+              ${property.furnished ? '<span style="background: #dbeafe; color: #1e40af; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-left: 4px;">🛋️ Meublé</span>' : '<span style="background: #f3f4f6; color: #374151; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-left: 4px;">🏠 Non meublé</span>'}
             </div>
-          `
-        });
+            <button onclick="window.location.href='/property/${property.id}'" 
+                    style="width: 100%; margin-top: 8px; padding: 8px 12px; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
+              Voir les détails →
+            </button>
+          </div>
+        `
+      });
 
-        marker.addListener('click', () => {
-          // Close other info windows
-          markersRef.current.forEach(m => {
-            if (m.infoWindow) {
-              m.infoWindow.close();
-            }
-          });
-          infoWindow.open(mapInstance.current, marker);
+      marker.addListener('click', () => {
+        // Close other info windows
+        markersRef.current.forEach(m => {
+          if (m.infoWindow) {
+            m.infoWindow.close();
+          }
         });
+        infoWindow.open(mapInstance.current, marker);
+      });
 
-        marker.infoWindow = infoWindow;
-        markersRef.current.push(marker);
-        console.log(`Marker ${index + 1} added successfully`);
-      } catch (error) {
-        console.error(`Error creating marker for property ${property.title}:`, error);
-      }
+      marker.infoWindow = infoWindow;
+      markersRef.current.push(marker);
     });
 
     // Fit bounds to show all markers
     if (filteredProperties.length > 0) {
-      try {
-        const bounds = new window.google.maps.LatLngBounds();
-        filteredProperties.forEach(property => {
-          bounds.extend(property.coordinates);
-        });
-        mapInstance.current.fitBounds(bounds, { padding: 50 });
-        
-        // Don't zoom too close for single property
-        if (filteredProperties.length === 1) {
-          setTimeout(() => {
-            if (mapInstance.current && mapInstance.current.getZoom() > 16) {
-              mapInstance.current.setZoom(16);
-            }
-          }, 500);
-        }
-        console.log("Map bounds adjusted to fit all markers");
-      } catch (error) {
-        console.error("Error fitting bounds:", error);
+      const bounds = new window.google.maps.LatLngBounds();
+      filteredProperties.forEach(property => {
+        bounds.extend(property.coordinates);
+      });
+      mapInstance.current.fitBounds(bounds, { padding: 50 });
+      
+      // Don't zoom too close for single property
+      if (filteredProperties.length === 1) {
+        setTimeout(() => {
+          if (mapInstance.current && mapInstance.current.getZoom() > 16) {
+            mapInstance.current.setZoom(16);
+          }
+        }, 500);
       }
     }
   };
@@ -278,7 +237,6 @@ const MapView = () => {
     };
     
     const icon = typeIcons[type] || '🏢';
-    // Use real status field from database
     const isAvailable = property.status === 'Disponible';
     const color = isAvailable ? '#10B981' : '#EF4444';
     const shadowColor = isAvailable ? '#065F46' : '#991B1B';
@@ -333,11 +291,9 @@ const MapView = () => {
       filtered = filtered.filter(property => {
         const amenities = property.amenities || [];
         
-        // Check furnished status using real database field
         if (equipmentFilters.furnished && !property.furnished) return false;
         if (equipmentFilters.unfurnished && property.furnished) return false;
         
-        // Check parking in amenities array
         const hasParking = amenities.includes('parking') || amenities.includes('Parking');
         if (equipmentFilters.parking && !hasParking) return false;
         
@@ -350,19 +306,19 @@ const MapView = () => {
 
   // Update markers when filtered properties change
   useEffect(() => {
-    if (mapInstance.current && filteredProperties.length > 0) {
-      console.log("Updating markers due to filteredProperties change:", filteredProperties.length);
+    if (mapInstance.current && filteredProperties.length >= 0) {
+      console.log("Filtered properties changed, updating markers:", filteredProperties.length);
       updateMapMarkers();
     }
   }, [filteredProperties]);
 
-  // Ensure markers are updated after properties are loaded
+  // Update markers when map loads and properties are ready
   useEffect(() => {
-    if (mapInstance.current && properties.length > 0 && !loading) {
-      console.log("Properties loaded, updating markers:", properties.length);
-      setTimeout(() => updateMapMarkers(), 500);
+    if (mapLoaded && properties.length > 0) {
+      console.log("Map loaded and properties ready, updating markers");
+      updateMapMarkers();
     }
-  }, [properties, loading]);
+  }, [mapLoaded, properties]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -497,254 +453,53 @@ const MapView = () => {
 
         {/* Map Container */}
         <div className="bg-white/10 backdrop-blur-lg rounded-lg border border-white/20 overflow-hidden">
-          {loading && !mapError ? (
-            // Loading state
+          {loading ? (
             <div className="h-96 flex items-center justify-center">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
                 <h3 className="text-lg font-semibold mb-2">Chargement de la carte...</h3>
                 <p className="text-muted-foreground">Initialisation de Google Maps...</p>
-                <div className="mt-4 text-sm text-muted-foreground">
-                  Propriétés: {properties.length} | Map: {mapInstance.current ? 'Ready' : 'Loading'}
-                </div>
               </div>
-            </div>
-          ) : mapError ? (
-            // Fallback interactive map view using CSS/SVG when Google Maps fails
-            <div className="p-6">
-              <div className="text-center mb-6">
-                <MapPin className="h-12 w-12 text-primary mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">Carte Interactive - Tunis</h3>
-                <p className="text-muted-foreground">
-                  Localisation des propriétés en Tunisie
-                </p>
-              </div>
-              
-              {/* Simple SVG Map of Tunisia with property markers */}
-              <div className="bg-gradient-to-br from-blue-50 to-green-50 dark:from-blue-950 dark:to-green-950 rounded-lg p-4 mb-6">
-                <div className="relative w-full h-96 bg-blue-100 dark:bg-blue-900 rounded-lg overflow-hidden">
-                  {/* SVG Tunisia outline */}
-                  <svg viewBox="0 0 400 300" className="w-full h-full">
-                    {/* Tunisia simplified outline */}
-                    <path
-                      d="M120 80 L160 60 L200 70 L240 80 L280 100 L300 140 L290 180 L280 220 L250 250 L200 270 L150 260 L120 240 L100 200 L110 160 L120 120 Z"
-                      fill="rgba(34, 197, 94, 0.3)"
-                      stroke="rgba(34, 197, 94, 0.8)"
-                      strokeWidth="2"
-                    />
-                    
-                    {/* Property markers */}
-                    {filteredProperties.map((property, index) => {
-                      // Map property locations to SVG coordinates
-                      const locations: { [key: string]: { x: number; y: number } } = {
-                        'Centre Ville': { x: 200, y: 150 },
-                        'Bardo': { x: 190, y: 140 },
-                        'Ariana': { x: 210, y: 130 },
-                        'La Marsa': { x: 220, y: 120 },
-                        'Sidi Bou Said': { x: 230, y: 115 },
-                        'Carthage': { x: 225, y: 125 },
-                        'Manouba': { x: 180, y: 145 },
-                        'Ben Arous': { x: 200, y: 170 }
-                      };
-                      
-                      const location = locations[property.location] || locations['Centre Ville'];
-                      const offset = index * 8; // Spread markers slightly
-                      
-                      return (
-                        <g key={property.id}>
-                          {/* Marker circle */}
-                          <circle
-                            cx={location.x + (offset % 20) - 10}
-                            cy={location.y + Math.floor(offset / 20) * 8}
-                            r="8"
-                            fill={property.status === 'Disponible' ? '#10B981' : '#EF4444'}
-                            stroke="white"
-                            strokeWidth="2"
-                            className="cursor-pointer hover:r-10 transition-all"
-                            onClick={() => navigate(`/property/${property.id}`)}
-                          />
-                          {/* Property type emoji */}
-                          <text
-                            x={location.x + (offset % 20) - 10}
-                            y={location.y + Math.floor(offset / 20) * 8 + 3}
-                            textAnchor="middle"
-                            fontSize="10"
-                            className="cursor-pointer pointer-events-none"
-                          >
-                            {property.type === 'studio' ? '🏠' : property.type === 'apartment' ? '🏢' : '🏡'}
-                          </text>
-                        </g>
-                      );
-                    })}
-                  </svg>
-                  
-                  {/* Location labels */}
-                  <div className="absolute top-2 left-2 bg-white/90 dark:bg-black/90 rounded p-2 text-xs">
-                    <div className="font-semibold mb-1">Zones de Tunis:</div>
-                    <div className="space-y-1">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                        <span>Disponible</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                        <span>Occupé</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {filteredProperties.length === 0 ? (
-                <div className="text-center py-12">
-                  <Search className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">Aucune propriété trouvée</h3>
-                  <p className="text-muted-foreground">
-                    Essayez de modifier vos critères de recherche
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredProperties.map((property) => (
-                    <Card key={property.id} className="glass-card hover:scale-105 transition-transform cursor-pointer"
-                          onClick={() => navigate(`/property/${property.id}`)}>
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <CardTitle className="text-lg line-clamp-1">{property.title}</CardTitle>
-                            <div className="flex items-center text-sm text-muted-foreground mt-1">
-                              <MapPin className="h-4 w-4 mr-1" />
-                              {property.location}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-lg font-bold text-primary">
-                              {property.price} TND
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              /{property.priceType || 'mois'}
-                            </div>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="pt-0">
-                        <div className="space-y-3">
-                          <p className="text-sm text-muted-foreground line-clamp-2">
-                            {property.description}
-                          </p>
-                          
-                          <div className="flex items-center justify-between text-sm">
-                            <div className="flex space-x-3">
-                              <span>🛏️ {property.bedrooms}</span>
-                              <span>🚿 {property.bathrooms}</span>
-                              <span>📐 {property.surface}m²</span>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center justify-between">
-                            <div className="flex space-x-2">
-                              <span className={`text-xs px-2 py-1 rounded-full ${
-                                property.availability === 'Disponible' 
-                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                                  : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                              }`}>
-                                {property.availability}
-                              </span>
-                              {property.furnished && (
-                                <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                  Meublé
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center space-x-1 text-muted-foreground">
-                              <Eye className="h-4 w-4" />
-                              <span className="text-xs">{property.views || 0}</span>
-                            </div>
-                          </div>
-                          
-                          {property.amenities && property.amenities.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {property.amenities.slice(0, 3).map((amenity: string, index: number) => (
-                                <span key={index} className="text-xs px-2 py-1 bg-muted rounded-full">
-                                  {amenity}
-                                </span>
-                              ))}
-                              {property.amenities.length > 3 && (
-                                <span className="text-xs px-2 py-1 bg-muted rounded-full">
-                                  +{property.amenities.length - 3}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
             </div>
           ) : (
-            <div className="relative">
-              <div 
-                ref={mapRef}
-                className="w-full h-96 lg:h-[600px] bg-gray-200"
-                style={{ minHeight: '500px' }}
-              />
-              {/* Map loading indicator */}
-              {(!mapInstance.current || loading) && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20 rounded-lg">
-                  <div className="text-center text-foreground">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-primary mx-auto mb-4"></div>
-                    <p className="font-medium text-lg">Chargement de la carte...</p>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      {loading ? 'Récupération des propriétés...' : 'Initialisation de Google Maps...'}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Propriétés: {filteredProperties.length} | Map: {mapInstance.current ? 'Ready' : 'Loading'}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
+            <div 
+              ref={mapRef} 
+              className="w-full h-96"
+              style={{ minHeight: "400px" }}
+            />
           )}
         </div>
 
-        <div className="mt-6 text-center space-y-4">
-          <p className="text-sm text-muted-foreground">
-            🗺️ Cliquez sur les marqueurs pour voir les détails des propriétés
-          </p>
-          
-          {/* Legend */}
-          <div className="bg-white/5 backdrop-blur-sm rounded-lg p-4 border border-white/20">
-            <h3 className="text-sm font-semibold text-foreground mb-3">Légende des propriétés</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
-              <div className="flex items-center space-x-2">
-                <span className="text-lg">🏠</span>
-                <span className="text-muted-foreground">Studio</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-lg">🏢</span>
-                <span className="text-muted-foreground">Appartement</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-lg">🏖️</span>
-                <span className="text-muted-foreground">Villa</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-lg">🏘️</span>
-                <span className="text-muted-foreground">Maison</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-lg">🛏️</span>
-                <span className="text-muted-foreground">Chambre</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                <span className="text-muted-foreground">Disponible</span>
-              </div>
-            </div>
+        {/* Property Stats */}
+        {!loading && (
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-primary">{filteredProperties.length}</div>
+                <div className="text-sm text-muted-foreground">Propriétés affichées</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-green-500">
+                  {filteredProperties.filter(p => p.status === 'Disponible').length}
+                </div>
+                <div className="text-sm text-muted-foreground">Disponibles</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-white/10 backdrop-blur-lg border-white/20">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-orange-500">
+                  {filteredProperties.length > 0 
+                    ? Math.round(filteredProperties.reduce((sum, p) => sum + (parseFloat(p.price) || 0), 0) / filteredProperties.length)
+                    : 0
+                  } TND
+                </div>
+                <div className="text-sm text-muted-foreground">Prix moyen</div>
+              </CardContent>
+            </Card>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
