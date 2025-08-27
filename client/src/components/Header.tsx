@@ -33,7 +33,6 @@ const Header = () => {
       const userData = localStorage.getItem("userData");
       const userType = localStorage.getItem("userType");
       
-      console.log("Header auth check:", { authStatus, userData: !!userData, userType });
       
       if (authStatus && userData && userType) {
         try {

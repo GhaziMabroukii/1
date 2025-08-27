@@ -10,6 +10,11 @@ import multer from "multer";
 import path from "path";
 import { processAIMessage } from "./ai-service";
 import { emailService } from "./email-service";
+import rateLimit from "express-rate-limit";
+import helmet from "helmet";
+import cors from "cors";
+import { body, validationResult } from "express-validator";
+import xss from "xss";
 
 // Import database connection
 import { db } from "./db";
@@ -76,6 +81,101 @@ function broadcastToUsers(userIds: number[], event: string, data: any) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  
+  // Security middleware - adjusted for development
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "https:", "*.dicebear.com"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://maps.googleapis.com"],
+        connectSrc: ["'self'", "ws:", "wss:", "https:"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'"],
+        frameSrc: ["'self'", "https://maps.googleapis.com"],
+      },
+    },
+    crossOriginEmbedderPolicy: false
+  }));
+  
+  app.use(cors({
+    origin: process.env.NODE_ENV === 'production' ? false : true,
+    credentials: true
+  }));
+  
+  // Rate limiting
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // limit each IP to 5 requests per windowMs
+    message: { error: "Too many authentication attempts, please try again later." },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  
+  const emailLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 3, // limit each IP to 3 email requests per hour
+    message: { error: "Too many email requests, please try again later." },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  
+  const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // limit each IP to 100 requests per windowMs
+    message: { error: "Too many requests, please try again later." },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  
+  // Apply rate limiting
+  app.use('/api/auth/login', authLimiter);
+  app.use('/api/auth/register', authLimiter);
+  app.use('/api/auth/verify-email', emailLimiter);
+  app.use('/api/auth/resend-verification', emailLimiter);
+  app.use('/api/', generalLimiter);
+  
+  // Input validation and sanitization middleware
+  const validateAndSanitize = (req: any, res: any, next: any) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: "Invalid input data", details: errors.array() });
+    }
+    
+    // Sanitize string inputs to prevent XSS
+    if (req.body) {
+      for (const key in req.body) {
+        if (typeof req.body[key] === 'string') {
+          req.body[key] = xss(req.body[key]);
+        }
+      }
+    }
+    
+    next();
+  };
+  
+  // Validation schemas for authentication
+  const loginValidation = [
+    body('email').isEmail().normalizeEmail().isLength({ max: 255 }).withMessage('Valid email required'),
+    body('password').isLength({ min: 1, max: 255 }).withMessage('Password required')
+  ];
+  
+  const registrationValidation = [
+    body('email').isEmail().normalizeEmail().isLength({ max: 255 }).withMessage('Valid email required'),
+    body('password').isLength({ min: 8, max: 255 }).matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/).withMessage('Password must contain at least 8 characters, including uppercase, lowercase, number and special character'),
+    body('firstName').trim().isLength({ min: 1, max: 100 }).withMessage('First name required'),
+    body('lastName').trim().isLength({ min: 1, max: 100 }).withMessage('Last name required'),
+    body('phone').isMobilePhone('any').withMessage('Valid phone number required'),
+    body('userType').isIn(['tenant', 'owner']).withMessage('User type must be tenant or owner')
+  ];
+  
+  const emailVerificationValidation = [
+    body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
+    body('code').isLength({ min: 6, max: 6 }).isNumeric().withMessage('6-digit verification code required')
+  ];
+  
   // Properties routes
   app.get("/api/properties", async (req, res) => {
     try {
@@ -2197,18 +2297,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Authentication routes with proper user type handling
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", loginValidation, validateAndSanitize, async (req, res) => {
     try {
-      const { username, password } = req.body;
+      const { email, password } = req.body;
       
-      if (!username || !password) {
-        return res.status(400).json({ error: "Username and password required" });
+      // Enhanced security: Find user by email instead of username
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        // Use same error message to prevent email enumeration
+        return res.status(401).json({ error: "Invalid credentials" });
       }
       
-      // Find user by username
-      const user = await storage.getUserByUsername(username);
-      if (!user) {
-        return res.status(401).json({ error: "Invalid credentials" });
+      // Check if email is verified
+      if (!user.emailVerified) {
+        return res.status(403).json({ 
+          error: "Email not verified",
+          requiresEmailVerification: true,
+          user: { email: user.email },
+          message: "Please verify your email before logging in."
+        });
       }
       
       // Verify password hash using bcrypt
@@ -2295,7 +2402,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Registration with email verification
-  app.post("/api/auth/register", async (req, res) => {
+  app.post("/api/auth/register", registrationValidation, validateAndSanitize, async (req, res) => {
     try {
       const { username, password, email, firstName, lastName, phone } = req.body;
       
@@ -2395,7 +2502,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Email verification endpoint
-  app.post("/api/auth/verify-email", async (req, res) => {
+  app.post("/api/auth/verify-email", emailVerificationValidation, validateAndSanitize, async (req, res) => {
     try {
       const { email, code } = req.body;
       
@@ -2431,25 +2538,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         emailVerificationExpiry: null,
       });
       
-      // Create session token for newly verified user
-      const sessionToken = `session_${user.id}_${user.userType}_${Date.now()}`;
-      
-      const responseUser = {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        phone: user.phone,
-        userType: user.userType,
-        emailVerified: true,
-      };
-      
       res.json({ 
-        user: responseUser,
-        token: sessionToken,
-        userType: user.userType,
-        message: "Email verified successfully! You can now access all features." 
+        message: "Email verified successfully! You can now log in to access all features.",
+        success: true
       });
     } catch (error) {
       console.error("Email verification error:", error);
