@@ -121,24 +121,6 @@ const Signup = () => {
         variant: "destructive",
       });
     }
-    localStorage.setItem("userEmail", formData.email);
-    localStorage.setItem("userType", formData.userType);
-    localStorage.setItem("userProfile", JSON.stringify(formData));
-    
-    // Special message for owners
-    if (formData.userType === "owner") {
-      toast({
-        title: "Compte créé - En attente de validation",
-        description: "Votre compte propriétaire est en attente de validation par un administrateur. L'activation définitive se fera après paiement.",
-      });
-    } else {
-      toast({
-        title: "Inscription réussie!",
-        description: "Votre compte a été créé avec succès.",
-      });
-    }
-    
-    navigate("/dashboard");
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {

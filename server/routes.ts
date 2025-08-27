@@ -2365,7 +2365,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Send verification email
-      const emailSent = await emailService.sendVerificationEmail(email, verificationCode, firstName);
+      const emailSent = await emailService.sendVerificationEmail(email, verificationCode, firstName, userType);
       
       if (!emailSent) {
         console.warn(`Failed to send verification email to ${email}, but user was created`);
@@ -2488,7 +2488,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Send verification email
-      const emailSent = await emailService.sendVerificationEmail(email, verificationCode, user.firstName);
+      const emailSent = await emailService.sendVerificationEmail(email, verificationCode, user.firstName, user.userType);
       
       if (!emailSent) {
         return res.status(500).json({ error: "Failed to send verification email" });

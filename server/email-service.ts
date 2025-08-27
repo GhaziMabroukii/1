@@ -28,7 +28,7 @@ class EmailService {
     });
   }
 
-  async sendVerificationEmail(to: string, verificationCode: string, firstName?: string): Promise<boolean> {
+  async sendVerificationEmail(to: string, verificationCode: string, firstName?: string, userType?: string): Promise<boolean> {
     if (!this.transporter) {
       console.log('Email service not available - using console verification code');
       console.log(`=== EMAIL VERIFICATION CODE FOR ${to} ===`);
@@ -43,7 +43,7 @@ class EmailService {
         from: `"Ekrili Platform" <${process.env.EMAIL_USER}>`,
         to: to,
         subject: 'Vérifiez votre adresse email - Ekrili',
-        html: this.getVerificationEmailTemplate(verificationCode, firstName || 'Utilisateur')
+        html: this.getVerificationEmailTemplate(verificationCode, firstName || 'Utilisateur', userType)
       };
 
       await this.transporter.sendMail(mailOptions);
@@ -63,7 +63,7 @@ class EmailService {
     }
   }
 
-  private getVerificationEmailTemplate(code: string, firstName: string): string {
+  private getVerificationEmailTemplate(code: string, firstName: string, userType?: string): string {
     return `
       <!DOCTYPE html>
       <html lang="fr">
@@ -89,7 +89,7 @@ class EmailService {
           </div>
           <div class="content">
             <h2>Bonjour ${firstName} !</h2>
-            <p>Merci de vous être inscrit sur Ekrili. Pour compléter votre inscription, veuillez vérifier votre adresse email en utilisant le code ci-dessous :</p>
+            <p>Merci de vous être inscrit sur Ekrili en tant que <strong>${this.getUserTypeText(userType)}</strong>. Pour compléter votre inscription, veuillez vérifier votre adresse email en utilisant le code ci-dessous :</p>
             
             <div class="code">${code}</div>
             
@@ -121,6 +121,19 @@ class EmailService {
     const expiry = new Date();
     expiry.setHours(expiry.getHours() + 24); // 24 hours from now
     return expiry;
+  }
+
+  private getUserTypeText(userType?: string): string {
+    switch (userType) {
+      case 'tenant':
+        return 'Locataire';
+      case 'owner':
+        return 'Propriétaire';
+      case 'student':
+        return 'Étudiant';
+      default:
+        return 'Utilisateur';
+    }
   }
 }
 
