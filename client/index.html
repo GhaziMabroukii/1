@@ -4,15 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <script>
-      // Global initMap function for Google Maps API callback
+      // Global initMap function for Google Maps API callback  
       function initMap() {
-        console.log('Google Maps API loaded - calling initMapCallback');
+        console.log('Google Maps API loaded via keyless script - calling initMapCallback');
+        window.googleMapsLoaded = true;
         if (window.initMapCallback) {
           window.initMapCallback();
         }
       }
+      
+      // Also set a flag when the script loads
+      window.googleMapsLoaded = false;
     </script>
-    <script src="https://cdn.jsdelivr.net/gh/somanchiu/Keyless-Google-Maps-API@v7.1/mapsJavaScriptAPI.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/somanchiu/Keyless-Google-Maps-API@v7.1/mapsJavaScriptAPI.js" async defer></script>
   </head>
   <body>
     <div id="root"></div>
