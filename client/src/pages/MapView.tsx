@@ -41,11 +41,17 @@ const MapView = () => {
   useEffect(() => {
     fetchProperties();
     
-    // Simple callback for keyless Google Maps API
+    // Define our map callback function
     window.initMapCallback = () => {
-      console.log("Keyless Google Maps API callback triggered");
+      console.log("Map callback triggered - checking conditions");
+      console.log("mapRef.current:", !!mapRef.current);
+      console.log("mapInstance.current:", !!mapInstance.current);
+      console.log("window.google:", !!window.google);
+      console.log("window.google.maps:", !!(window.google && window.google.maps));
+      
       if (mapRef.current && !mapInstance.current && window.google && window.google.maps) {
         try {
+          console.log("Creating Google Maps instance...");
           mapInstance.current = new window.google.maps.Map(mapRef.current, {
             zoom: 12,
             center: { lat: 36.8065, lng: 10.1815 },
@@ -55,65 +61,71 @@ const MapView = () => {
             streetViewControl: false,
             fullscreenControl: false
           });
-          console.log("Map initialized successfully");
+          console.log("✅ Map created successfully!");
           setMapError(false);
           setLoading(false);
           
-          // Add markers after a short delay
+          // Add markers after delay
           setTimeout(() => {
+            console.log("Adding markers to map...");
             updateMapMarkers();
-          }, 500);
+          }, 1000);
         } catch (error) {
-          console.error("Error creating map:", error);
+          console.error("❌ Error creating map:", error);
           setMapError(true);
           setLoading(false);
         }
+      } else {
+        console.log("⚠️ Not ready to create map yet");
+        if (!mapRef.current) console.log("- mapRef not ready");
+        if (mapInstance.current) console.log("- map already exists");
+        if (!window.google) console.log("- google not available");
+        if (window.google && !window.google.maps) console.log("- google.maps not available");
       }
     };
 
-    // Check if Google Maps is already loaded
+    // Check if API is already loaded
     if (window.google && window.google.maps) {
-      console.log("Google Maps already available");
-      window.initMapCallback();
-    } else if ((window as any).googleMapsLoaded) {
-      console.log("Google Maps flag set, initializing");
+      console.log("📍 Google Maps API already available, initializing immediately");
       window.initMapCallback();
     } else {
-      // Wait for keyless API to load
-      console.log("Waiting for keyless Google Maps API...");
-      const checkInterval = setInterval(() => {
-        if (window.google && window.google.maps) {
-          console.log("Google Maps now available via keyless API");
-          clearInterval(checkInterval);
-          window.initMapCallback();
-        } else if ((window as any).googleMapsLoaded) {
-          console.log("Google Maps loaded flag detected");
-          clearInterval(checkInterval);
-          window.initMapCallback();
-        }
-      }, 100);
+      // Wait for keyless API
+      console.log("⏳ Waiting for keyless Google Maps API to load...");
       
-      // Fallback timeout
-      setTimeout(() => {
-        if (!mapInstance.current) {
-          console.log("Timeout waiting for Google Maps, falling back to list view");
+      let attempts = 0;
+      const maxAttempts = 150; // 15 seconds
+      const checkInterval = setInterval(() => {
+        attempts++;
+        
+        if (window.google && window.google.maps) {
+          console.log(`✅ Google Maps API loaded after ${attempts} attempts`);
+          clearInterval(checkInterval);
+          window.initMapCallback();
+        } else if (attempts >= maxAttempts) {
+          console.log(`❌ Google Maps API failed to load after ${attempts} attempts`);
           clearInterval(checkInterval);
           setMapError(true);
           setLoading(false);
         }
-      }, 10000);
+        
+        // Debug every 50 attempts
+        if (attempts % 50 === 0) {
+          console.log(`🔍 Attempt ${attempts}: google=${!!window.google}, maps=${!!(window.google && window.google.maps)}`);
+        }
+      }, 100);
+      
+      // Store interval for cleanup
+      return () => {
+        clearInterval(checkInterval);
+        if (markersRef.current) {
+          markersRef.current.forEach(marker => {
+            if (marker && typeof marker.setMap === 'function') {
+              marker.setMap(null);
+            }
+          });
+        }
+      };
     }
-    
-    return () => {
-      // Cleanup
-      if (markersRef.current) {
-        markersRef.current.forEach(marker => {
-          if (marker && typeof marker.setMap === 'function') {
-            marker.setMap(null);
-          }
-        });
-      }
-    };
   }, []);
 
   const fetchProperties = async () => {
