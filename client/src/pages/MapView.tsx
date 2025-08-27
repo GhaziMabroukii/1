@@ -41,94 +41,68 @@ const MapView = () => {
   useEffect(() => {
     fetchProperties();
     
-    // Initialize Google Maps with keyless API
-    const initMapWhenReady = () => {
-      // Set up global callback for the keyless API
-      window.initMapCallback = () => {
-        console.log("Map callback triggered from keyless API");
-        if (mapRef.current && !mapInstance.current) {
-          try {
-            mapInstance.current = new window.google.maps.Map(mapRef.current, {
-              zoom: 12,
-              center: { lat: 36.8065, lng: 10.1815 },
-              mapTypeId: window.google.maps.MapTypeId.ROADMAP,
-              disableDefaultUI: false,
-              zoomControl: true,
-              streetViewControl: false,
-              fullscreenControl: false
-            });
-            console.log("Map initialized successfully with keyless API");
-            setMapError(false);
-            setLoading(false);
-            
-            // Wait a bit then add markers
-            setTimeout(() => {
-              console.log("Adding markers after delay, properties count:", filteredProperties.length);
-              updateMapMarkers();
-            }, 500);
-          } catch (error) {
-            console.error("Error creating map:", error);
-            setMapError(true);
-            setLoading(false);
-          }
+    // Simple callback for keyless Google Maps API
+    window.initMapCallback = () => {
+      console.log("Keyless Google Maps API callback triggered");
+      if (mapRef.current && !mapInstance.current && window.google && window.google.maps) {
+        try {
+          mapInstance.current = new window.google.maps.Map(mapRef.current, {
+            zoom: 12,
+            center: { lat: 36.8065, lng: 10.1815 },
+            mapTypeId: window.google.maps.MapTypeId.ROADMAP,
+            disableDefaultUI: false,
+            zoomControl: true,
+            streetViewControl: false,
+            fullscreenControl: false
+          });
+          console.log("Map initialized successfully");
+          setMapError(false);
+          setLoading(false);
+          
+          // Add markers after a short delay
+          setTimeout(() => {
+            updateMapMarkers();
+          }, 500);
+        } catch (error) {
+          console.error("Error creating map:", error);
+          setMapError(true);
+          setLoading(false);
         }
-      };
-
-      // Check if Google Maps is already loaded by keyless API
-      if (typeof window !== 'undefined' && window.google && window.google.maps && (window as any).googleMapsLoaded) {
-        console.log("Google Maps API already loaded by keyless script");
-        window.initMapCallback();
-        return;
       }
+    };
 
-      // Check if Google Maps API is available (loaded by keyless script)
-      if (typeof window !== 'undefined' && window.google && window.google.maps) {
-        console.log("Google Maps API available, initializing directly");
-        window.initMapCallback();
-        return;
-      }
-
-      // Wait for the keyless API to load Google Maps
-      console.log("Waiting for keyless API to load Google Maps...");
-      let attempts = 0;
-      const maxAttempts = 100; // 20 seconds with 200ms intervals
-      
+    // Check if Google Maps is already loaded
+    if (window.google && window.google.maps) {
+      console.log("Google Maps already available");
+      window.initMapCallback();
+    } else if ((window as any).googleMapsLoaded) {
+      console.log("Google Maps flag set, initializing");
+      window.initMapCallback();
+    } else {
+      // Wait for keyless API to load
+      console.log("Waiting for keyless Google Maps API...");
       const checkInterval = setInterval(() => {
-        attempts++;
-        
-        // Check if keyless API has loaded Google Maps
         if (window.google && window.google.maps) {
-          console.log("Google Maps loaded by keyless API after", attempts, "attempts");
+          console.log("Google Maps now available via keyless API");
           clearInterval(checkInterval);
           window.initMapCallback();
-        } 
-        // Also check our custom flag
-        else if ((window as any).googleMapsLoaded) {
-          console.log("Google Maps flagged as loaded by keyless script");
+        } else if ((window as any).googleMapsLoaded) {
+          console.log("Google Maps loaded flag detected");
           clearInterval(checkInterval);
-          // Wait a moment for API to be fully ready
-          setTimeout(() => {
-            if (window.google && window.google.maps) {
-              window.initMapCallback();
-            } else {
-              console.log("Flag set but API not ready, falling back to list view");
-              setMapError(true);
-              setLoading(false);
-            }
-          }, 1000);
+          window.initMapCallback();
         }
-        // Timeout after max attempts
-        else if (attempts >= maxAttempts) {
-          console.log("Google Maps failed to load via keyless API after", maxAttempts, "attempts");
+      }, 100);
+      
+      // Fallback timeout
+      setTimeout(() => {
+        if (!mapInstance.current) {
+          console.log("Timeout waiting for Google Maps, falling back to list view");
           clearInterval(checkInterval);
           setMapError(true);
           setLoading(false);
         }
-      }, 200);
-    };
-
-    // Start initialization
-    initMapWhenReady();
+      }, 10000);
+    }
     
     return () => {
       // Cleanup

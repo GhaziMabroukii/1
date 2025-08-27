@@ -4,23 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <script>
-      // Global initMap function for Google Maps API callback  
+      // Global initMap function for keyless Google Maps API callback
       function initMap() {
-        console.log('Google Maps API loaded via keyless script - calling initMapCallback');
+        console.log('Google Maps API loaded via keyless script');
         window.googleMapsLoaded = true;
+        // Trigger any waiting callbacks
         if (window.initMapCallback) {
           window.initMapCallback();
         }
       }
-      
-      // Also set a flag when the script loads
-      window.googleMapsLoaded = false;
     </script>
-    <script src="https://cdn.jsdelivr.net/gh/somanchiu/Keyless-Google-Maps-API@v7.1/mapsJavaScriptAPI.js" async defer></script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <!-- Keyless Google Maps API - must be at end of body -->
+    <script src="https://cdn.jsdelivr.net/gh/somanchiu/Keyless-Google-Maps-API@v7.1/mapsJavaScriptAPI.js" async defer></script>
     <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
     <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>
   </body>
