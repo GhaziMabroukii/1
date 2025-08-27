@@ -96,55 +96,80 @@ export default function PropertyDetails() {
     enabled: propertyId > 0 && currentUser?.userType === "tenant",
   });
 
-  // Initialize read-only location map
+  // Initialize read-only location map with optimization
   useEffect(() => {
-    if (property && property.latitude && property.longitude && locationMapRef.current && !locationMap) {
-      initializeLocationMap();
+    if (property?.latitude && property?.longitude && locationMapRef.current && !locationMap) {
+      const timeoutId = setTimeout(() => {
+        initializeLocationMap();
+      }, 100); // Small delay for smoother rendering
+      
+      return () => clearTimeout(timeoutId);
     }
-  }, [property, locationMap]);
+  }, [property?.latitude, property?.longitude, locationMap]);
 
   const initializeLocationMap = async () => {
     try {
-      // Wait for Google Maps to load
-      if (!(window as any).google || !(window as any).google.maps) {
-        setTimeout(() => initializeLocationMap(), 1000);
+      // Optimized Google Maps loading check
+      if (!window.google?.maps) {
+        setTimeout(initializeLocationMap, 300);
         return;
       }
 
-      const google = (window as any).google;
+      const google = window.google;
       const lat = parseFloat(property.latitude);
       const lng = parseFloat(property.longitude);
       
+      if (isNaN(lat) || isNaN(lng)) {
+        return;
+      }
+      
       const mapOptions = {
         center: { lat, lng },
-        zoom: 15,
+        zoom: 16,
         mapTypeId: google.maps.MapTypeId.ROADMAP,
-        disableDefaultUI: false,
+        disableDefaultUI: true,
         zoomControl: true,
-        mapTypeControl: true,
-        scaleControl: true,
         streetViewControl: true,
-        rotateControl: true,
-        fullscreenControl: true
+        fullscreenControl: false,
+        gestureHandling: 'cooperative',
+        backgroundColor: '#f8fafc',
+        styles: [
+          {
+            featureType: 'poi.business',
+            elementType: 'labels',
+            stylers: [{ visibility: 'off' }]
+          }
+        ]
       };
 
       const googleMap = new google.maps.Map(locationMapRef.current, mapOptions);
       
-      // Create marker for property location (non-draggable)
+      // Create optimized marker
       const propertyMarker = new google.maps.Marker({
         position: { lat, lng },
         map: googleMap,
         draggable: false,
         title: property.title,
+        optimized: true,
         icon: {
           url: 'data:image/svg+xml;base64,' + btoa(`
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="16" cy="16" r="12" fill="#ef4444" stroke="white" stroke-width="3"/>
+            <svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <filter id="shadow" x="0" y="0" width="150%" height="150%">
+                  <feDropShadow dx="1" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.3"/>
+                </filter>
+                <linearGradient id="grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" style="stop-color:#ef4444;stop-opacity:1" />
+                  <stop offset="100%" style="stop-color:#dc2626;stop-opacity:1" />
+                </linearGradient>
+              </defs>
+              <circle cx="16" cy="16" r="12" fill="url(#grad)" stroke="white" stroke-width="2" filter="url(#shadow)"/>
               <circle cx="16" cy="16" r="4" fill="white"/>
+              <polygon points="16,28 12,36 20,36" fill="url(#grad)" stroke="white" stroke-width="1" filter="url(#shadow)"/>
             </svg>
           `),
-          scaledSize: new google.maps.Size(32, 32),
-          anchor: new google.maps.Point(16, 16)
+          scaledSize: new google.maps.Size(32, 40),
+          anchor: new google.maps.Point(16, 36)
         }
       });
 

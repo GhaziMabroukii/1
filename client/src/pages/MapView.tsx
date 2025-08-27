@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ const MapView = () => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+  const infoWindowRef = useRef<any>(null);
   
   const [properties, setProperties] = useState<any[]>([]);
   const [filteredProperties, setFilteredProperties] = useState<any[]>([]);
@@ -36,18 +37,27 @@ const MapView = () => {
   
   const [, navigate] = useLocation();
 
+  // Tunisia areas for fallback coordinates
+  const tunisAreas = useMemo(() => [
+    { name: "Centre Ville", lat: 36.8065, lng: 10.1815 },
+    { name: "Bardo", lat: 36.8108, lng: 10.1372 },
+    { name: "Ariana", lat: 36.8625, lng: 10.1956 },
+    { name: "La Marsa", lat: 36.8785, lng: 10.3246 },
+    { name: "Sidi Bou Said", lat: 36.8687, lng: 10.3487 },
+    { name: "Carthage", lat: 36.8563, lng: 10.3310 },
+    { name: "Manouba", lat: 36.8103, lng: 10.0989 },
+    { name: "Ben Arous", lat: 36.7544, lng: 10.2277 }
+  ], []);
+
   useEffect(() => {
     fetchProperties();
     initializeGoogleMaps();
     
     return () => {
       // Cleanup
-      if (markersRef.current) {
-        markersRef.current.forEach(marker => {
-          if (marker && typeof marker.setMap === 'function') {
-            marker.setMap(null);
-          }
-        });
+      clearMarkers();
+      if (infoWindowRef.current) {
+        infoWindowRef.current.close();
       }
     };
   }, []);
@@ -63,17 +73,6 @@ const MapView = () => {
       
       const fetchedProperties = await response.json();
       
-      const tunisAreas = [
-        { name: "Centre Ville", lat: 36.8065, lng: 10.1815 },
-        { name: "Bardo", lat: 36.8108, lng: 10.1372 },
-        { name: "Ariana", lat: 36.8625, lng: 10.1956 },
-        { name: "La Marsa", lat: 36.8785, lng: 10.3246 },
-        { name: "Sidi Bou Said", lat: 36.8687, lng: 10.3487 },
-        { name: "Carthage", lat: 36.8563, lng: 10.3310 },
-        { name: "Manouba", lat: 36.8103, lng: 10.0989 },
-        { name: "Ben Arous", lat: 36.7544, lng: 10.2277 }
-      ];
-
       const propertiesWithCoordinates = fetchedProperties.map((property: any, index: number) => {
         const area = tunisAreas[index % tunisAreas.length];
         return {
@@ -98,136 +97,132 @@ const MapView = () => {
     }
   };
 
-  const initializeGoogleMaps = () => {
-    // Global initMap callback function
+  const initializeGoogleMaps = useCallback(() => {
     window.initMapCallback = () => {
-      console.log("Map callback triggered");
-      if (mapRef.current && !mapInstance.current) {
+      if (mapRef.current && !mapInstance.current && window.google?.maps) {
         try {
           mapInstance.current = new window.google.maps.Map(mapRef.current, {
             zoom: 12,
             center: { lat: 36.8065, lng: 10.1815 },
             mapTypeId: window.google.maps.MapTypeId.ROADMAP,
-            disableDefaultUI: false,
+            disableDefaultUI: true,
             zoomControl: true,
             streetViewControl: false,
-            fullscreenControl: false
+            fullscreenControl: true,
+            gestureHandling: 'cooperative',
+            backgroundColor: '#f8fafc',
+            mapTypeControlOptions: {
+              style: window.google.maps.MapTypeControlStyle.COMPACT,
+              position: window.google.maps.ControlPosition.TOP_RIGHT
+            }
           });
-          console.log("Map initialized successfully");
           
-          // Wait a bit then add markers
-          setTimeout(() => {
-            console.log("Adding markers after delay, properties count:", filteredProperties.length);
-            updateMapMarkers();
-          }, 500);
+          // Single shared info window for better performance
+          infoWindowRef.current = new window.google.maps.InfoWindow({
+            maxWidth: 300,
+            pixelOffset: new window.google.maps.Size(0, -10)
+          });
+          
         } catch (error) {
           console.error("Error creating map:", error);
         }
       }
     };
 
-    // Try to initialize immediately if Google is already loaded
-    if (window.google && window.google.maps) {
+    // Initialize immediately if Google is already loaded
+    if (window.google?.maps) {
       window.initMapCallback();
     }
-  };
+  }, []);
 
-  const updateMapMarkers = () => {
-    if (!mapInstance.current) {
-      console.log("Map instance not ready");
-      return;
-    }
-
-    if (!filteredProperties.length) {
-      console.log("No properties to display");
-      return;
-    }
-
-    console.log(`Adding ${filteredProperties.length} markers to map`);
-
-    // Clear existing markers
+  const clearMarkers = useCallback(() => {
     markersRef.current.forEach(marker => {
-      if (marker && typeof marker.setMap === 'function') {
+      if (marker?.setMap) {
         marker.setMap(null);
       }
     });
     markersRef.current = [];
+  }, []);
 
-    // Add new markers
-    filteredProperties.forEach((property, index) => {
-      console.log(`Creating marker ${index + 1} for property:`, property.title, property.coordinates);
-      
-      try {
-        const marker = new window.google.maps.Marker({
-          position: property.coordinates,
-          map: mapInstance.current,
-          title: property.title,
-          icon: createPropertyIcon(property)
-        });
+  const updateMapMarkers = useCallback(() => {
+    if (!mapInstance.current || !filteredProperties.length) {
+      return;
+    }
 
-        const infoWindow = new window.google.maps.InfoWindow({
-          content: `
-            <div style="padding: 12px; max-width: 280px; font-family: Arial, sans-serif;">
-              <h3 style="margin: 0 0 8px 0; color: #1f2937; font-size: 16px;">${property.title}</h3>
-              <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 13px;">📍 ${property.location}</p>
-              <p style="margin: 0 0 10px 0; font-weight: bold; color: #f59e0b; font-size: 18px;">${property.price} TND/${property.priceType || 'mois'}</p>
-              <div style="margin-bottom: 10px;">
-                <span style="background: ${property.status === 'Disponible' ? '#dcfce7' : '#fee2e2'}; color: ${property.status === 'Disponible' ? '#166534' : '#dc2626'}; padding: 3px 8px; border-radius: 4px; font-size: 12px;">
-                  ${property.status === 'Disponible' ? '✅ Disponible' : '🚫 ' + property.status}
-                </span>
-                ${property.furnished ? '<span style="background: #dbeafe; color: #1e40af; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-left: 4px;">🛋️ Meublé</span>' : '<span style="background: #f3f4f6; color: #374151; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-left: 4px;">🏠 Non meublé</span>'}
-              </div>
-              <button onclick="window.location.href='/property/${property.id}'" 
-                      style="width: 100%; margin-top: 8px; padding: 8px 12px; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
-                Voir les détails →
-              </button>
-            </div>
-          `
-        });
+    // Clear existing markers efficiently
+    clearMarkers();
 
-        marker.addListener('click', () => {
-          // Close other info windows
-          markersRef.current.forEach(m => {
-            if (m.infoWindow) {
-              m.infoWindow.close();
-            }
-          });
-          infoWindow.open(mapInstance.current, marker);
-        });
+    // Create bounds for optimal viewport
+    const bounds = new window.google.maps.LatLngBounds();
+    let hasValidCoordinates = false;
 
-        marker.infoWindow = infoWindow;
-        markersRef.current.push(marker);
-        console.log(`Marker ${index + 1} added successfully`);
-      } catch (error) {
-        console.error(`Error creating marker for property ${property.title}:`, error);
+    // Batch create markers for better performance
+    const newMarkers = filteredProperties.map((property) => {
+      if (!property.coordinates?.lat || !property.coordinates?.lng) {
+        return null;
       }
-    });
 
-    // Fit bounds to show all markers
-    if (filteredProperties.length > 0) {
-      try {
-        const bounds = new window.google.maps.LatLngBounds();
-        filteredProperties.forEach(property => {
-          bounds.extend(property.coordinates);
-        });
-        mapInstance.current.fitBounds(bounds, { padding: 50 });
-        
-        // Don't zoom too close for single property
-        if (filteredProperties.length === 1) {
-          setTimeout(() => {
-            if (mapInstance.current && mapInstance.current.getZoom() > 16) {
-              mapInstance.current.setZoom(16);
-            }
-          }, 500);
+      bounds.extend(property.coordinates);
+      hasValidCoordinates = true;
+
+      const marker = new window.google.maps.Marker({
+        position: property.coordinates,
+        map: mapInstance.current,
+        title: property.title,
+        icon: createPropertyIcon(property),
+        optimized: true, // Enable marker optimization
+        animation: null // Disable animations for better performance
+      });
+
+      // Use single shared info window
+      marker.addListener('click', () => {
+        if (infoWindowRef.current) {
+          infoWindowRef.current.setContent(createInfoWindowContent(property));
+          infoWindowRef.current.open(mapInstance.current, marker);
         }
-        console.log("Map bounds adjusted to fit all markers");
-      } catch (error) {
-        console.error("Error fitting bounds:", error);
+      });
+
+      return marker;
+    }).filter(Boolean);
+
+    markersRef.current = newMarkers;
+
+    // Fit bounds efficiently
+    if (hasValidCoordinates) {
+      mapInstance.current.fitBounds(bounds, { padding: 50 });
+      
+      // Prevent over-zooming for single properties
+      if (filteredProperties.length === 1) {
+        const listener = window.google.maps.event.addListenerOnce(mapInstance.current, 'bounds_changed', () => {
+          if (mapInstance.current.getZoom() > 16) {
+            mapInstance.current.setZoom(16);
+          }
+        });
       }
     }
-  };
+  }, [filteredProperties, clearMarkers]);
 
-  const createPropertyIcon = (property: any) => {
+  const createInfoWindowContent = useCallback((property: any) => {
+    return `
+      <div style="padding: 12px; max-width: 280px; font-family: 'Inter', Arial, sans-serif; line-height: 1.4;">
+        <h3 style="margin: 0 0 8px 0; color: #1f2937; font-size: 16px; font-weight: 600;">${property.title}</h3>
+        <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 13px;">📍 ${property.location}</p>
+        <p style="margin: 0 0 10px 0; font-weight: 700; color: #f59e0b; font-size: 18px;">${property.price} TND/${property.priceType || 'mois'}</p>
+        <div style="margin-bottom: 10px;">
+          <span style="background: ${property.status === 'Disponible' ? '#dcfce7' : '#fee2e2'}; color: ${property.status === 'Disponible' ? '#166534' : '#dc2626'}; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">
+            ${property.status === 'Disponible' ? '✅ Disponible' : '🚫 ' + property.status}
+          </span>
+          ${property.furnished ? '<span style="background: #dbeafe; color: #1e40af; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-left: 4px; font-weight: 500;">🛋️ Meublé</span>' : '<span style="background: #f3f4f6; color: #374151; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-left: 4px;">🏠 Non meublé</span>'}
+        </div>
+        <button onclick="window.location.href='/property/${property.id}'" 
+                style="width: 100%; margin-top: 8px; padding: 10px 12px; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: transform 0.2s;">
+          Voir les détails →
+        </button>
+      </div>
+    `;
+  }, []);
+
+  const createPropertyIcon = useCallback((property: any) => {
     const type = property.type?.toLowerCase() || 'apartment';
     const typeIcons: { [key: string]: string } = {
       'studio': '🏠',
@@ -243,53 +238,54 @@ const MapView = () => {
     };
     
     const icon = typeIcons[type] || '🏢';
-    // Use real status field from database
     const isAvailable = property.status === 'Disponible';
     const color = isAvailable ? '#10B981' : '#EF4444';
     const shadowColor = isAvailable ? '#065F46' : '#991B1B';
     
     return {
       url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
-        `<svg width="50" height="60" viewBox="0 0 50 60" xmlns="http://www.w3.org/2000/svg">
+        `<svg width="40" height="48" viewBox="0 0 40 48" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <filter id="shadow" x="0" y="0" width="200%" height="200%">
-              <feDropShadow dx="2" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.3"/>
+            <filter id="shadow" x="0" y="0" width="150%" height="150%">
+              <feDropShadow dx="1" dy="1" stdDeviation="2" flood-color="#000000" flood-opacity="0.3"/>
             </filter>
-            <radialGradient id="grad" cx="50%" cy="30%" r="60%">
+            <linearGradient id="grad" x1="0%" y1="0%" x2="0%" y2="100%">
               <stop offset="0%" style="stop-color:${color};stop-opacity:1" />
               <stop offset="100%" style="stop-color:${shadowColor};stop-opacity:1" />
-            </radialGradient>
+            </linearGradient>
           </defs>
-          <circle cx="25" cy="22" r="18" fill="url(#grad)" stroke="white" stroke-width="3" filter="url(#shadow)"/>
-          <text x="25" y="30" text-anchor="middle" font-size="16" fill="white" font-weight="bold">${icon}</text>
-          <polygon points="25,40 20,52 30,52" fill="url(#grad)" stroke="white" stroke-width="2" filter="url(#shadow)"/>
+          <circle cx="20" cy="18" r="15" fill="url(#grad)" stroke="white" stroke-width="2" filter="url(#shadow)"/>
+          <text x="20" y="25" text-anchor="middle" font-size="14" fill="white" font-weight="bold">${icon}</text>
+          <polygon points="20,33 16,43 24,43" fill="url(#grad)" stroke="white" stroke-width="1" filter="url(#shadow)"/>
         </svg>`
       )}`,
-      scaledSize: new window.google.maps.Size(50, 60),
-      anchor: new window.google.maps.Point(25, 52)
+      scaledSize: new window.google.maps.Size(40, 48),
+      anchor: new window.google.maps.Point(20, 43)
     };
-  };
+  }, []);
 
-  // Filter properties
-  useEffect(() => {
+  // Optimized filtering with useMemo
+  const filteredPropertiesData = useMemo(() => {
     let filtered = [...properties];
 
     if (searchQuery) {
+      const query = searchQuery.toLowerCase();
       filtered = filtered.filter(property => 
-        property.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        property.location?.toLowerCase().includes(searchQuery.toLowerCase())
+        property.title?.toLowerCase().includes(query) ||
+        property.location?.toLowerCase().includes(query) ||
+        property.address?.toLowerCase().includes(query)
       );
     }
 
-    if (propertyType && propertyType !== "all") {
+    if (propertyType !== "all") {
       filtered = filtered.filter(property => property.type === propertyType);
     }
 
-    if (rentalPeriod && rentalPeriod !== "all") {
+    if (rentalPeriod !== "all") {
       filtered = filtered.filter(property => property.priceType === rentalPeriod);
     }
 
-    if (maxPrice && maxPrice !== "all") {
+    if (maxPrice !== "all") {
       const price = parseInt(maxPrice);
       filtered = filtered.filter(property => parseFloat(property.price) <= price);
     }
@@ -298,36 +294,36 @@ const MapView = () => {
       filtered = filtered.filter(property => {
         const amenities = property.amenities || [];
         
-        // Check furnished status using real database field
         if (equipmentFilters.furnished && !property.furnished) return false;
         if (equipmentFilters.unfurnished && property.furnished) return false;
         
-        // Check parking in amenities array
-        const hasParking = amenities.includes('parking') || amenities.includes('Parking');
+        const hasParking = amenities.some((amenity: string) => 
+          amenity.toLowerCase().includes('parking')
+        );
         if (equipmentFilters.parking && !hasParking) return false;
         
         return true;
       });
     }
 
-    setFilteredProperties(filtered);
+    return filtered;
   }, [properties, searchQuery, propertyType, rentalPeriod, maxPrice, equipmentFilters]);
+
+  // Update filtered properties efficiently
+  useEffect(() => {
+    setFilteredProperties(filteredPropertiesData);
+  }, [filteredPropertiesData]);
 
   // Update markers when filtered properties change
   useEffect(() => {
-    if (mapInstance.current && filteredProperties.length > 0) {
-      console.log("Updating markers due to filteredProperties change:", filteredProperties.length);
-      updateMapMarkers();
+    if (mapInstance.current && !loading) {
+      const timeoutId = setTimeout(() => {
+        updateMapMarkers();
+      }, 100); // Small debounce for smoother performance
+      
+      return () => clearTimeout(timeoutId);
     }
-  }, [filteredProperties]);
-
-  // Ensure markers are updated after properties are loaded
-  useEffect(() => {
-    if (mapInstance.current && properties.length > 0 && !loading) {
-      console.log("Properties loaded, updating markers:", properties.length);
-      setTimeout(() => updateMapMarkers(), 500);
-    }
-  }, [properties, loading]);
+  }, [filteredProperties, loading, updateMapMarkers]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -411,49 +407,43 @@ const MapView = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tous prix</SelectItem>
-                  <SelectItem value="50">Jusqu'à 50 TND</SelectItem>
-                  <SelectItem value="100">Jusqu'à 100 TND</SelectItem>
-                  <SelectItem value="200">Jusqu'à 200 TND</SelectItem>
-                  <SelectItem value="500">Jusqu'à 500 TND</SelectItem>
-                  <SelectItem value="1000">Jusqu'à 1000 TND</SelectItem>
-                  <SelectItem value="1500">Jusqu'à 1500 TND</SelectItem>
-                  <SelectItem value="2000">Jusqu'à 2000 TND</SelectItem>
+                  <SelectItem value="500">≤ 500 TND</SelectItem>
+                  <SelectItem value="1000">≤ 1000 TND</SelectItem>
+                  <SelectItem value="2000">≤ 2000 TND</SelectItem>
+                  <SelectItem value="5000">≤ 5000 TND</SelectItem>
                 </SelectContent>
               </Select>
-
-              <div>
-                <label className="text-sm font-semibold mb-2 block">Équipements</label>
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="furnished" 
-                      checked={equipmentFilters.furnished}
-                      onCheckedChange={(checked) => 
-                        setEquipmentFilters(prev => ({ ...prev, furnished: checked === true }))
-                      }
-                    />
-                    <label htmlFor="furnished" className="text-sm">🛏️ Meublé</label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="unfurnished" 
-                      checked={equipmentFilters.unfurnished}
-                      onCheckedChange={(checked) => 
-                        setEquipmentFilters(prev => ({ ...prev, unfurnished: checked === true }))
-                      }
-                    />
-                    <label htmlFor="unfurnished" className="text-sm">🏠 Non meublé</label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="parking" 
-                      checked={equipmentFilters.parking}
-                      onCheckedChange={(checked) => 
-                        setEquipmentFilters(prev => ({ ...prev, parking: checked === true }))
-                      }
-                    />
-                    <label htmlFor="parking" className="text-sm">🚗 Parking</label>
-                  </div>
+              
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="furnished" 
+                    checked={equipmentFilters.furnished}
+                    onCheckedChange={(checked) => 
+                      setEquipmentFilters(prev => ({ ...prev, furnished: !!checked }))
+                    }
+                  />
+                  <label htmlFor="furnished" className="text-sm">🛋️ Meublé</label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="unfurnished" 
+                    checked={equipmentFilters.unfurnished}
+                    onCheckedChange={(checked) => 
+                      setEquipmentFilters(prev => ({ ...prev, unfurnished: !!checked }))
+                    }
+                  />
+                  <label htmlFor="unfurnished" className="text-sm">🏠 Non meublé</label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="parking" 
+                    checked={equipmentFilters.parking}
+                    onCheckedChange={(checked) => 
+                      setEquipmentFilters(prev => ({ ...prev, parking: !!checked }))
+                    }
+                  />
+                  <label htmlFor="parking" className="text-sm">🚗 Parking</label>
                 </div>
               </div>
             </div>
@@ -461,67 +451,45 @@ const MapView = () => {
         </div>
 
         {/* Map Container */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-lg border border-white/20 overflow-hidden">
-          <div className="relative">
-            <div 
-              ref={mapRef}
-              className="w-full h-96 lg:h-[600px] bg-gray-200"
-              style={{ minHeight: '500px' }}
-            />
-            {/* Map loading indicator */}
-            {(!mapInstance.current || loading) && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20 rounded-lg">
-                <div className="text-center text-foreground">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-primary mx-auto mb-4"></div>
-                  <p className="font-medium text-lg">Chargement de la carte...</p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    {loading ? 'Récupération des propriétés...' : 'Initialisation de Google Maps...'}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Propriétés: {filteredProperties.length} | Map: {mapInstance.current ? 'Ready' : 'Loading'}
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-6 text-center space-y-4">
-          <p className="text-sm text-muted-foreground">
-            🗺️ Cliquez sur les marqueurs pour voir les détails des propriétés
-          </p>
-          
-          {/* Legend */}
-          <div className="bg-white/5 backdrop-blur-sm rounded-lg p-4 border border-white/20">
-            <h3 className="text-sm font-semibold text-foreground mb-3">Légende des propriétés</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
-              <div className="flex items-center space-x-2">
-                <span className="text-lg">🏠</span>
-                <span className="text-muted-foreground">Studio</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-lg">🏢</span>
-                <span className="text-muted-foreground">Appartement</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-lg">🏖️</span>
-                <span className="text-muted-foreground">Villa</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-lg">🏘️</span>
-                <span className="text-muted-foreground">Maison</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-lg">🛏️</span>
-                <span className="text-muted-foreground">Chambre</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                <span className="text-muted-foreground">Disponible</span>
+        <div className="relative h-[70vh] min-h-[500px] rounded-xl overflow-hidden shadow-2xl border border-white/20">
+          {loading ? (
+            <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center z-10">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-gray-600 font-medium">Chargement de la carte...</p>
               </div>
             </div>
-          </div>
+          ) : (
+            <div 
+              ref={mapRef} 
+              className="w-full h-full"
+              style={{ minHeight: '500px' }}
+            />
+          )}
+          
+          {!loading && filteredProperties.length === 0 && (
+            <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center z-10">
+              <div className="text-center">
+                <MapPin className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600 font-medium">Aucune propriété trouvée</p>
+                <p className="text-gray-500 text-sm mt-2">Modifiez vos filtres pour voir plus de résultats</p>
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Results Summary */}
+        {!loading && (
+          <div className="mt-6 text-center">
+            <p className="text-muted-foreground">
+              {filteredProperties.length === 0 ? (
+                "Aucune propriété ne correspond à vos critères"
+              ) : (
+                `${filteredProperties.length} propriété${filteredProperties.length > 1 ? 's' : ''} affichée${filteredProperties.length > 1 ? 's' : ''} sur la carte`
+              )}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
