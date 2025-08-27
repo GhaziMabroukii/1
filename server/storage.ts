@@ -1417,6 +1417,10 @@ export class MemStorage implements IStorage {
     return this.users.find(user => user.email === email);
   }
 
+  async getUserByPhone(phone: string): Promise<User | undefined> {
+    return this.users.find(user => user.phone === phone);
+  }
+
   async createUser(insertUser: InsertUser): Promise<User> {
     const user: User = {
       id: this.getNextId(),

@@ -38,6 +38,8 @@ import OwnerTerminationWorkflow from "./pages/OwnerTerminationWorkflow";
 import TenantTerminationWorkflow from "./pages/TenantTerminationWorkflow";
 import ContractTermination from "./pages/ContractTermination";
 import EmailVerification from "./pages/EmailVerification";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
@@ -56,6 +58,8 @@ const App = () => {
             <Route path="/login" component={Login} />
             <Route path="/signup" component={Signup} />
             <Route path="/verify-email" component={EmailVerification} />
+            <Route path="/forgot-password" component={ForgotPassword} />
+            <Route path="/reset-password" component={ResetPassword} />
             <Route path="/dashboard" component={Dashboard} />
             <Route path="/search" component={Search} />
             <Route path="/property/:id" component={PropertyDetails} />

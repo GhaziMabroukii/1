@@ -171,6 +171,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     body('userType').isIn(['tenant', 'owner']).withMessage('User type must be tenant or owner')
   ];
   
+  const forgotPasswordValidation = [
+    body('email').isEmail().normalizeEmail().isLength({ max: 255 }).withMessage('Valid email required')
+  ];
+
+  const resetPasswordValidation = [
+    body('token').isLength({ min: 1 }).withMessage('Reset token required'),
+    body('newPassword').isLength({ min: 8, max: 255 }).matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/).withMessage('Password must contain at least 8 characters, including uppercase, lowercase, number and special character')
+  ];
+
   const emailVerificationValidation = [
     body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
     body('code').isLength({ min: 6, max: 6 }).isNumeric().withMessage('6-digit verification code required')
@@ -2429,6 +2438,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Session validation error:", error);
       res.status(401).json({ error: "Invalid session" });
+    }
+  });
+
+  // Forgot password - send reset email
+  app.post('/api/auth/forgot-password', forgotPasswordValidation, validateAndSanitize, async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        // Don't reveal if email exists for security
+        return res.json({ message: "Si cet email existe, un lien de réinitialisation a été envoyé." });
+      }
+      
+      // Generate reset token (valid for 1 hour)
+      const resetToken = `reset_${user.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const resetExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+      
+      // Store reset token (you might want to add this to user table or create a separate table)
+      await storage.updateUser(user.id, {
+        resetToken,
+        resetTokenExpiry: resetExpiry
+      } as any);
+      
+      // Send reset email
+      try {
+        await emailService.sendPasswordResetEmail(email, resetToken, user.firstName);
+        res.json({ message: "Un email de réinitialisation a été envoyé à votre adresse." });
+      } catch (emailError) {
+        console.error('Failed to send reset email:', emailError);
+        res.status(500).json({ error: "Impossible d'envoyer l'email de réinitialisation." });
+      }
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+  
+  // Reset password with token
+  app.post('/api/auth/reset-password', resetPasswordValidation, validateAndSanitize, async (req, res) => {
+    try {
+      const { token, newPassword } = req.body;
+      
+      // Parse token to get user ID
+      const tokenParts = token.split('_');
+      if (tokenParts.length < 4 || tokenParts[0] !== 'reset') {
+        return res.status(400).json({ error: "Token de réinitialisation invalide" });
+      }
+      
+      const userId = parseInt(tokenParts[1]);
+      const user = await storage.getUser(userId);
+      
+      if (!user || (user as any).resetToken !== token) {
+        return res.status(400).json({ error: "Token de réinitialisation invalide ou expiré" });
+      }
+      
+      // Check if token is expired
+      const resetExpiry = (user as any).resetTokenExpiry;
+      if (!resetExpiry || new Date() > new Date(resetExpiry)) {
+        return res.status(400).json({ error: "Token de réinitialisation expiré" });
+      }
+      
+      // Hash new password
+      const hashedPassword = await bcrypt.hash(newPassword, 12);
+      
+      // Update password and clear reset token
+      await storage.updateUser(user.id, {
+        password: hashedPassword,
+        resetToken: null,
+        resetTokenExpiry: null
+      } as any);
+      
+      res.json({ message: "Votre mot de passe a été réinitialisé avec succès." });
+    } catch (error) {
+      console.error("Reset password error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
     }
   });
 

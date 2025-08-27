@@ -63,6 +63,94 @@ class EmailService {
     }
   }
 
+  async sendPasswordResetEmail(to: string, resetToken: string, firstName?: string): Promise<boolean> {
+    if (!this.transporter) {
+      console.log('Email service not available - using console reset link');
+      console.log(`=== PASSWORD RESET LINK FOR ${to} ===`);
+      console.log(`Reset link: ${process.env.FRONTEND_URL || 'http://localhost:5000'}/reset-password?token=${resetToken}`);
+      console.log(`This link expires in 1 hour.`);
+      console.log('======================================');
+      return true;
+    }
+
+    try {
+      const mailOptions = {
+        from: `"Ekrili Platform" <${process.env.EMAIL_USER}>`,
+        to: to,
+        subject: 'Réinitialisez votre mot de passe - Ekrili',
+        html: this.getPasswordResetEmailTemplate(resetToken, firstName || 'Utilisateur')
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      console.log(`Password reset email sent to ${to}`);
+      return true;
+    } catch (error) {
+      console.error('Failed to send password reset email:', error);
+      return false;
+    }
+  }
+
+  private getPasswordResetEmailTemplate(resetToken: string, firstName: string): string {
+    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:5000'}/reset-password?token=${resetToken}`;
+    
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Réinitialisation de mot de passe - Ekrili</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-align: center; padding: 30px; border-radius: 10px 10px 0 0; }
+          .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+          .btn { display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 15px 30px; border-radius: 5px; margin: 20px 0; font-weight: bold; }
+          .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 5px; }
+          .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🔒 Réinitialisation de mot de passe</h1>
+            <p>Ekrili - Plateforme de location</p>
+          </div>
+          <div class="content">
+            <h2>Bonjour ${firstName},</h2>
+            <p>Vous avez demandé la réinitialisation de votre mot de passe pour votre compte Ekrili.</p>
+            
+            <p>Cliquez sur le bouton ci-dessous pour créer un nouveau mot de passe :</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${resetLink}" class="btn">Réinitialiser mon mot de passe</a>
+            </div>
+            
+            <div class="warning">
+              <strong>⚠️ Important :</strong>
+              <ul>
+                <li>Ce lien expire dans <strong>1 heure</strong></li>
+                <li>Si vous n'avez pas demandé cette réinitialisation, ignorez cet email</li>
+                <li>Ne partagez jamais ce lien avec quelqu'un d'autre</li>
+              </ul>
+            </div>
+            
+            <p>Si le bouton ne fonctionne pas, copiez et collez ce lien dans votre navigateur :</p>
+            <p style="word-break: break-all; background: #e9e9e9; padding: 10px; border-radius: 5px; font-family: monospace;">${resetLink}</p>
+            
+            <p>Si vous rencontrez des problèmes, contactez notre support.</p>
+            
+            <p>Cordialement,<br>L'équipe Ekrili</p>
+          </div>
+          <div class="footer">
+            <p>© 2024 Ekrili. Tous droits réservés.</p>
+            <p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
   private getVerificationEmailTemplate(code: string, firstName: string, userType?: string): string {
     return `
       <!DOCTYPE html>

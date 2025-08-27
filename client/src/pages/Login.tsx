@@ -124,12 +124,17 @@ const Login = () => {
                 "Se connecter"
               )}
             </Button>
-            <p className="text-sm text-muted-foreground text-center">
-              Pas encore de compte?{" "}
-              <Link to="/signup" className="text-primary hover:underline">
-                S'inscrire
+            <div className="text-center space-y-2">
+              <Link to="/forgot-password" className="text-sm text-primary hover:underline block">
+                Mot de passe oublié ?
               </Link>
-            </p>
+              <p className="text-sm text-muted-foreground">
+                Pas encore de compte?{" "}
+                <Link to="/signup" className="text-primary hover:underline">
+                  S'inscrire
+                </Link>
+              </p>
+            </div>
           </CardFooter>
         </form>
       </Card>
