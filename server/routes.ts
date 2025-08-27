@@ -160,8 +160,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Validation schemas for authentication
   const loginValidation = [
-    body('email').isEmail().normalizeEmail().isLength({ max: 255 }).withMessage('Valid email required'),
-    body('password').isLength({ min: 1, max: 255 }).withMessage('Password required')
+    body('email').optional().isEmail().normalizeEmail().isLength({ max: 255 }).withMessage('Valid email required'),
+    body('username').optional().isEmail().normalizeEmail().isLength({ max: 255 }).withMessage('Valid email required'),
+    body('password').isLength({ min: 1, max: 255 }).withMessage('Password required'),
+    // Custom validation to ensure at least one identifier is provided
+    body().custom((value, { req }) => {
+      if (!req.body.email && !req.body.username) {
+        throw new Error('Email or username is required');
+      }
+      return true;
+    })
   ];
   
   const registrationValidation = [
@@ -2341,10 +2349,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes with proper user type handling
   app.post("/api/auth/login", loginValidation, validateAndSanitize, async (req, res) => {
     try {
-      const { email, password } = req.body;
+      const { email, username, password } = req.body;
+      // Support both email and username fields for backward compatibility
+      const loginIdentifier = email || username;
       
-      // Enhanced security: Find user by email instead of username
-      const user = await storage.getUserByEmail(email);
+      // Enhanced security: Find user by email (supports both email and username fields)
+      const user = await storage.getUserByEmail(loginIdentifier);
       if (!user) {
         // Use same error message to prevent email enumeration
         return res.status(401).json({ error: "Invalid credentials" });
