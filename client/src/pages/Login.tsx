@@ -63,7 +63,7 @@ const Login = () => {
       console.error("Login error:", error);
       toast({
         title: "Erreur de connexion",
-        description: "Nom d'utilisateur ou mot de passe incorrect.",
+        description: "Identifiant ou mot de passe incorrect.",
         variant: "destructive",
       });
     } finally {
@@ -89,13 +89,13 @@ const Login = () => {
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Nom d'utilisateur</Label>
+              <Label htmlFor="username">Email, nom d'utilisateur ou téléphone</Label>
               <Input
                 id="username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="ahmed_malik"
+                placeholder="ahmed@example.com ou ahmed_malik ou +216 12 345 678"
                 required
                 disabled={isLoading}
               />

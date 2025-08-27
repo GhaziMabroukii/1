@@ -160,13 +160,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Validation schemas for authentication
   const loginValidation = [
-    body('email').optional().isEmail().normalizeEmail().isLength({ max: 255 }).withMessage('Valid email required'),
-    body('username').optional().isEmail().normalizeEmail().isLength({ max: 255 }).withMessage('Valid email required'),
+    body('email').optional().isLength({ max: 255 }).withMessage('Login identifier required'),
+    body('username').optional().isLength({ max: 255 }).withMessage('Login identifier required'),
     body('password').isLength({ min: 1, max: 255 }).withMessage('Password required'),
     // Custom validation to ensure at least one identifier is provided
     body().custom((value, { req }) => {
       if (!req.body.email && !req.body.username) {
-        throw new Error('Email or username is required');
+        throw new Error('Email, username, or phone number is required');
       }
       return true;
     })
@@ -2350,11 +2350,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/login", loginValidation, validateAndSanitize, async (req, res) => {
     try {
       const { email, username, password } = req.body;
-      // Support both email and username fields for backward compatibility
+      // Support email, username, or phone number login
       const loginIdentifier = email || username;
       
-      // Enhanced security: Find user by email (supports both email and username fields)
-      const user = await storage.getUserByEmail(loginIdentifier);
+      // Try to find user by email, username, or phone number
+      let user = await storage.getUserByEmail(loginIdentifier);
+      if (!user) {
+        user = await storage.getUserByUsername(loginIdentifier);
+      }
+      if (!user) {
+        user = await storage.getUserByPhone(loginIdentifier);
+      }
       if (!user) {
         // Use same error message to prevent email enumeration
         return res.status(401).json({ error: "Invalid credentials" });
