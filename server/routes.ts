@@ -168,7 +168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     body('firstName').trim().isLength({ min: 1, max: 100 }).withMessage('First name required'),
     body('lastName').trim().isLength({ min: 1, max: 100 }).withMessage('Last name required'),
     body('phone').isMobilePhone('any').withMessage('Valid phone number required'),
-    body('userType').isIn(['tenant', 'owner']).withMessage('User type must be tenant or owner')
+    body('userType').isIn(['tenant', 'owner', 'student']).withMessage('User type must be tenant, student or owner')
   ];
   
   const forgotPasswordValidation = [

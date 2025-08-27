@@ -90,6 +90,7 @@ const Signup = () => {
           firstName: formData.firstName,
           lastName: formData.lastName,
           phone: formData.phone,
+          userType: formData.userType === 'student' ? 'tenant' : formData.userType, // Map student to tenant
         }),
       });
 
