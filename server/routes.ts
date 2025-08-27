@@ -90,7 +90,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
         imgSrc: ["'self'", "data:", "https:", "*.dicebear.com"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://maps.googleapis.com"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://maps.googleapis.com", "https://cdn.jsdelivr.net"],
         connectSrc: ["'self'", "ws:", "wss:", "https:"],
         objectSrc: ["'none'"],
         mediaSrc: ["'self'"],
