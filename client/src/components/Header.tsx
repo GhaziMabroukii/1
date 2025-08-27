@@ -34,15 +34,6 @@ const Header = () => {
       const userType = localStorage.getItem("userType");
       
       console.log("Header auth check:", { authStatus, userData: !!userData, userType });
-      if (authStatus === "true") {
-        console.log("Header detailed check:", { 
-          authStatus, 
-          userDataExists: !!userData,
-          userDataValue: userData,
-          userType,
-          allLocalStorageKeys: Object.keys(localStorage)
-        });
-      }
       
       if (authStatus && userData && userType) {
         try {

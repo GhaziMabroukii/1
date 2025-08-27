@@ -58,35 +58,15 @@ export default function EmailVerification() {
       if (response.ok) {
         setIsVerified(true);
         
-        // Store authentication data
-        if (data.token) {
-          console.log("Storing auth data:", data);
-          localStorage.setItem("token", data.token);
-          localStorage.setItem("user", JSON.stringify(data.user));
-          localStorage.setItem("userData", JSON.stringify(data.user)); // Header looks for this
-          localStorage.setItem("userType", data.userType);
-          localStorage.setItem("isAuthenticated", "true");
-          
-          // Verify storage was successful
-          console.log("Verification: Stored userData:", localStorage.getItem("userData"));
-          console.log("Verification: Stored isAuthenticated:", localStorage.getItem("isAuthenticated"));
-          console.log("Verification: Stored userType:", localStorage.getItem("userType"));
-        }
-
         toast({
           title: "Email vérifié !",
-          description: data.message || "Votre email a été vérifié avec succès.",
+          description: "Votre email a été vérifié avec succès. Vous pouvez maintenant vous connecter.",
         });
 
-        // Force page refresh to update authentication state, then redirect
+        // Redirect to login page after verification
         setTimeout(() => {
-          // Double-check storage before redirect
-          console.log("Before redirect - localStorage check:");
-          console.log("isAuthenticated:", localStorage.getItem("isAuthenticated"));
-          console.log("userData:", localStorage.getItem("userData"));
-          console.log("userType:", localStorage.getItem("userType"));
-          window.location.href = "/dashboard";
-        }, 1500);
+          setLocation("/login");
+        }, 2000);
       } else {
         toast({
           title: "Erreur de vérification",
