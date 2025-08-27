@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, MapPin, Search, Filter } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowLeft, MapPin, Search, Filter, Eye, Heart, Euro } from "lucide-react";
 import { useLocation } from "wouter";
 
 declare global {
@@ -23,6 +24,7 @@ const MapView = () => {
   const [properties, setProperties] = useState<any[]>([]);
   const [filteredProperties, setFilteredProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mapError, setMapError] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [propertyType, setPropertyType] = useState("all");
@@ -38,9 +40,32 @@ const MapView = () => {
 
   useEffect(() => {
     fetchProperties();
-    initializeGoogleMaps();
+    
+    // Check if Google Maps is available
+    const checkGoogleMaps = () => {
+      if (typeof window !== 'undefined' && window.google && window.google.maps) {
+        initializeGoogleMaps();
+      } else {
+        // No Google Maps API, show fallback
+        console.log("Google Maps API not available, showing fallback view");
+        setMapError(true);
+        setLoading(false);
+      }
+    };
+
+    // Try to check immediately
+    checkGoogleMaps();
+    
+    // Also check after a delay in case the API is still loading
+    const timeout = setTimeout(() => {
+      if (!mapInstance.current) {
+        setMapError(true);
+        setLoading(false);
+      }
+    }, 3000);
     
     return () => {
+      clearTimeout(timeout);
       // Cleanup
       if (markersRef.current) {
         markersRef.current.forEach(marker => {
@@ -462,28 +487,129 @@ const MapView = () => {
 
         {/* Map Container */}
         <div className="bg-white/10 backdrop-blur-lg rounded-lg border border-white/20 overflow-hidden">
-          <div className="relative">
-            <div 
-              ref={mapRef}
-              className="w-full h-96 lg:h-[600px] bg-gray-200"
-              style={{ minHeight: '500px' }}
-            />
-            {/* Map loading indicator */}
-            {(!mapInstance.current || loading) && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20 rounded-lg">
-                <div className="text-center text-foreground">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-primary mx-auto mb-4"></div>
-                  <p className="font-medium text-lg">Chargement de la carte...</p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    {loading ? 'Récupération des propriétés...' : 'Initialisation de Google Maps...'}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Propriétés: {filteredProperties.length} | Map: {mapInstance.current ? 'Ready' : 'Loading'}
+          {mapError ? (
+            // Fallback grid view when maps are not available
+            <div className="p-6">
+              <div className="text-center mb-6">
+                <MapPin className="h-12 w-12 text-primary mx-auto mb-4" />
+                <h3 className="text-xl font-semibold mb-2">Vue liste des propriétés</h3>
+                <p className="text-muted-foreground">
+                  Affichage des propriétés par location
+                </p>
+              </div>
+              
+              {filteredProperties.length === 0 ? (
+                <div className="text-center py-12">
+                  <Search className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold mb-2">Aucune propriété trouvée</h3>
+                  <p className="text-muted-foreground">
+                    Essayez de modifier vos critères de recherche
                   </p>
                 </div>
-              </div>
-            )}
-          </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredProperties.map((property) => (
+                    <Card key={property.id} className="glass-card hover:scale-105 transition-transform cursor-pointer"
+                          onClick={() => navigate(`/property/${property.id}`)}>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <CardTitle className="text-lg line-clamp-1">{property.title}</CardTitle>
+                            <div className="flex items-center text-sm text-muted-foreground mt-1">
+                              <MapPin className="h-4 w-4 mr-1" />
+                              {property.location}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-bold text-primary">
+                              {property.price} TND
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              /{property.priceType || 'mois'}
+                            </div>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <div className="space-y-3">
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {property.description}
+                          </p>
+                          
+                          <div className="flex items-center justify-between text-sm">
+                            <div className="flex space-x-3">
+                              <span>🛏️ {property.bedrooms}</span>
+                              <span>🚿 {property.bathrooms}</span>
+                              <span>📐 {property.surface}m²</span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <div className="flex space-x-2">
+                              <span className={`text-xs px-2 py-1 rounded-full ${
+                                property.availability === 'Disponible' 
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                                  : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                              }`}>
+                                {property.availability}
+                              </span>
+                              {property.furnished && (
+                                <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                  Meublé
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center space-x-1 text-muted-foreground">
+                              <Eye className="h-4 w-4" />
+                              <span className="text-xs">{property.views || 0}</span>
+                            </div>
+                          </div>
+                          
+                          {property.amenities && property.amenities.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {property.amenities.slice(0, 3).map((amenity: string, index: number) => (
+                                <span key={index} className="text-xs px-2 py-1 bg-muted rounded-full">
+                                  {amenity}
+                                </span>
+                              ))}
+                              {property.amenities.length > 3 && (
+                                <span className="text-xs px-2 py-1 bg-muted rounded-full">
+                                  +{property.amenities.length - 3}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="relative">
+              <div 
+                ref={mapRef}
+                className="w-full h-96 lg:h-[600px] bg-gray-200"
+                style={{ minHeight: '500px' }}
+              />
+              {/* Map loading indicator */}
+              {(!mapInstance.current || loading) && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20 rounded-lg">
+                  <div className="text-center text-foreground">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-primary mx-auto mb-4"></div>
+                    <p className="font-medium text-lg">Chargement de la carte...</p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      {loading ? 'Récupération des propriétés...' : 'Initialisation de Google Maps...'}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Propriétés: {filteredProperties.length} | Map: {mapInstance.current ? 'Ready' : 'Loading'}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="mt-6 text-center space-y-4">
