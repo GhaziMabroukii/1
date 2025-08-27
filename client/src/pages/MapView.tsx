@@ -40,11 +40,6 @@ const MapView = () => {
     fetchProperties();
     initializeGoogleMaps();
     
-    // Add global navigation function for InfoWindow buttons
-    (window as any).navigateToProperty = (propertyId: number) => {
-      navigate(`/property/${propertyId}`);
-    };
-    
     return () => {
       // Cleanup
       if (markersRef.current) {
@@ -54,10 +49,8 @@ const MapView = () => {
           }
         });
       }
-      // Clean up global function
-      delete (window as any).navigateToProperty;
     };
-  }, [navigate]);
+  }, []);
 
   const fetchProperties = async () => {
     try {
@@ -184,7 +177,7 @@ const MapView = () => {
                 </span>
                 ${property.furnished ? '<span style="background: #dbeafe; color: #1e40af; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-left: 4px;">🛋️ Meublé</span>' : '<span style="background: #f3f4f6; color: #374151; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-left: 4px;">🏠 Non meublé</span>'}
               </div>
-              <button onclick="window.navigateToProperty(${property.id})" 
+              <button id="details-btn-${property.id}" 
                       style="width: 100%; margin-top: 8px; padding: 8px 12px; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
                 Voir les détails →
               </button>
@@ -200,6 +193,17 @@ const MapView = () => {
             }
           });
           infoWindow.open(mapInstance.current, marker);
+          
+          // Add click listener to the button after InfoWindow opens
+          setTimeout(() => {
+            const button = document.getElementById(`details-btn-${property.id}`);
+            if (button) {
+              button.addEventListener('click', () => {
+                console.log(`Navigating to property ${property.id}`);
+                navigate(`/property/${property.id}`);
+              });
+            }
+          }, 100);
         });
 
         marker.infoWindow = infoWindow;
