@@ -40,18 +40,22 @@ const MapView = () => {
 
   useEffect(() => {
     fetchProperties();
+  }, []);
+
+  // Separate effect for map initialization after DOM is ready
+  useEffect(() => {
+    // Don't initialize if we already have a map
+    if (mapInstance.current) return;
     
-    // Define our map callback function
-    window.initMapCallback = () => {
-      console.log("Map callback triggered - checking conditions");
+    const initializeMap = () => {
+      console.log("🗺️ Initializing map - checking readiness");
       console.log("mapRef.current:", !!mapRef.current);
-      console.log("mapInstance.current:", !!mapInstance.current);
       console.log("window.google:", !!window.google);
       console.log("window.google.maps:", !!(window.google && window.google.maps));
       
-      if (mapRef.current && !mapInstance.current && window.google && window.google.maps) {
+      if (mapRef.current && window.google && window.google.maps && !mapInstance.current) {
         try {
-          console.log("Creating Google Maps instance...");
+          console.log("✨ Creating Google Maps instance...");
           mapInstance.current = new window.google.maps.Map(mapRef.current, {
             zoom: 12,
             center: { lat: 36.8065, lng: 10.1815 },
@@ -67,40 +71,44 @@ const MapView = () => {
           
           // Add markers after delay
           setTimeout(() => {
-            console.log("Adding markers to map...");
+            console.log("🎯 Adding markers to map...");
             updateMapMarkers();
-          }, 1000);
+          }, 500);
         } catch (error) {
           console.error("❌ Error creating map:", error);
           setMapError(true);
           setLoading(false);
         }
       } else {
-        console.log("⚠️ Not ready to create map yet");
-        if (!mapRef.current) console.log("- mapRef not ready");
-        if (mapInstance.current) console.log("- map already exists");
-        if (!window.google) console.log("- google not available");
-        if (window.google && !window.google.maps) console.log("- google.maps not available");
+        console.log("⏳ Map not ready yet, waiting...");
+        if (!mapRef.current) console.log("- DOM ref not ready");
+        if (!window.google) console.log("- Google API not loaded");
+        if (window.google && !window.google.maps) console.log("- Google Maps API not ready");
+        if (mapInstance.current) console.log("- Map already exists");
       }
     };
 
-    // Check if API is already loaded
+    // Global callback for when Google Maps API loads
+    window.initMapCallback = initializeMap;
+
+    // Check if Google Maps API is already available
     if (window.google && window.google.maps) {
-      console.log("📍 Google Maps API already available, initializing immediately");
-      window.initMapCallback();
+      console.log("📍 Google Maps API already available");
+      // Small delay to ensure DOM is ready
+      setTimeout(initializeMap, 100);
     } else {
-      // Wait for keyless API
-      console.log("⏳ Waiting for keyless Google Maps API to load...");
+      // Wait for Google Maps API to load
+      console.log("⏳ Waiting for Google Maps API...");
       
       let attempts = 0;
-      const maxAttempts = 150; // 15 seconds
+      const maxAttempts = 100; // 10 seconds
       const checkInterval = setInterval(() => {
         attempts++;
         
         if (window.google && window.google.maps) {
           console.log(`✅ Google Maps API loaded after ${attempts} attempts`);
           clearInterval(checkInterval);
-          window.initMapCallback();
+          setTimeout(initializeMap, 100); // Small delay for DOM readiness
         } else if (attempts >= maxAttempts) {
           console.log(`❌ Google Maps API failed to load after ${attempts} attempts`);
           clearInterval(checkInterval);
@@ -108,13 +116,13 @@ const MapView = () => {
           setLoading(false);
         }
         
-        // Debug every 50 attempts
-        if (attempts % 50 === 0) {
+        // Debug every 25 attempts
+        if (attempts % 25 === 0) {
           console.log(`🔍 Attempt ${attempts}: google=${!!window.google}, maps=${!!(window.google && window.google.maps)}`);
         }
       }, 100);
       
-      // Store interval for cleanup
+      // Cleanup function
       return () => {
         clearInterval(checkInterval);
         if (markersRef.current) {
@@ -126,7 +134,7 @@ const MapView = () => {
         }
       };
     }
-  }, []);
+  }, []); // Only run once
 
   const fetchProperties = async () => {
     try {
