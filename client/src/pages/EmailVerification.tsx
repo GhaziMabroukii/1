@@ -60,11 +60,17 @@ export default function EmailVerification() {
         
         // Store authentication data
         if (data.token) {
+          console.log("Storing auth data:", data);
           localStorage.setItem("token", data.token);
           localStorage.setItem("user", JSON.stringify(data.user));
           localStorage.setItem("userData", JSON.stringify(data.user)); // Header looks for this
           localStorage.setItem("userType", data.userType);
           localStorage.setItem("isAuthenticated", "true");
+          
+          // Verify storage was successful
+          console.log("Verification: Stored userData:", localStorage.getItem("userData"));
+          console.log("Verification: Stored isAuthenticated:", localStorage.getItem("isAuthenticated"));
+          console.log("Verification: Stored userType:", localStorage.getItem("userType"));
         }
 
         toast({
