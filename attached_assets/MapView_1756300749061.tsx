@@ -337,150 +337,122 @@ const MapView = () => {
         <div className="flex items-center mb-6">
           <Button 
             variant="ghost" 
-            size="sm" 
             onClick={() => navigate("/search")}
             className="mr-4"
-            data-testid="button-back-to-search"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Retour à la recherche
+            Retour à la liste
           </Button>
-          <div className="flex items-center">
-            <MapPin className="h-6 w-6 text-primary mr-2" />
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-              Vue Carte - {filteredProperties.length} propriétés
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold gradient-text flex items-center space-x-3">
+              <MapPin className="h-8 w-8 text-primary" />
+              <span>Carte Interactive</span>
             </h1>
+            <p className="text-muted-foreground mt-2">
+              {loading ? 'Chargement...' : `${filteredProperties.length} propriété(s) trouvée(s)`}
+            </p>
           </div>
         </div>
 
         {/* Search and Filters */}
-        <div className="mb-6 space-y-4">
-          {/* Search Bar */}
-          <div className="flex items-center space-x-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+        <div className="bg-white/10 backdrop-blur-lg rounded-lg border border-white/20 p-4 mb-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                type="text"
-                placeholder="Rechercher par titre ou localisation..."
+                placeholder="Rechercher par lieu, type de bien..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
-                data-testid="input-search-map"
               />
             </div>
-            <Button
+            <Button 
               variant="outline"
               onClick={() => setShowFilters(!showFilters)}
-              data-testid="button-toggle-filters"
             >
               <Filter className="h-4 w-4 mr-2" />
               Filtres
             </Button>
           </div>
-
-          {/* Filters */}
+          
           {showFilters && (
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Property Type Filter */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">Type de bien</label>
-                  <Select value={propertyType} onValueChange={setPropertyType}>
-                    <SelectTrigger data-testid="select-property-type">
-                      <SelectValue placeholder="Tous les types" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tous les types</SelectItem>
-                      <SelectItem value="studio">Studio</SelectItem>
-                      <SelectItem value="apartment">Appartement</SelectItem>
-                      <SelectItem value="villa">Villa</SelectItem>
-                      <SelectItem value="maison">Maison</SelectItem>
-                      <SelectItem value="chambre">Chambre</SelectItem>
-                      <SelectItem value="bureau">Bureau</SelectItem>
-                      <SelectItem value="magasin">Magasin</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Select value={propertyType} onValueChange={setPropertyType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Type de bien" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous types</SelectItem>
+                  <SelectItem value="studio">Studio</SelectItem>
+                  <SelectItem value="apartment">Appartement</SelectItem>
+                  <SelectItem value="villa">Villa</SelectItem>
+                  <SelectItem value="maison">Maison</SelectItem>
+                  <SelectItem value="maison_ete">☀️ Maison d'été</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select value={rentalPeriod} onValueChange={setRentalPeriod}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Période de location" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes périodes</SelectItem>
+                  <SelectItem value="jour">🌅 Par jour</SelectItem>
+                  <SelectItem value="nuit">🌙 Par nuit</SelectItem>
+                  <SelectItem value="semaine">📅 Par semaine</SelectItem>
+                  <SelectItem value="mois">📊 Par mois</SelectItem>
+                  <SelectItem value="annee">🗓️ Par année</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select value={maxPrice} onValueChange={setMaxPrice}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Prix max" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous prix</SelectItem>
+                  <SelectItem value="50">Jusqu'à 50 TND</SelectItem>
+                  <SelectItem value="100">Jusqu'à 100 TND</SelectItem>
+                  <SelectItem value="200">Jusqu'à 200 TND</SelectItem>
+                  <SelectItem value="500">Jusqu'à 500 TND</SelectItem>
+                  <SelectItem value="1000">Jusqu'à 1000 TND</SelectItem>
+                  <SelectItem value="1500">Jusqu'à 1500 TND</SelectItem>
+                  <SelectItem value="2000">Jusqu'à 2000 TND</SelectItem>
+                </SelectContent>
+              </Select>
 
-                {/* Max Price Filter */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">Prix maximum</label>
-                  <Select value={maxPrice} onValueChange={setMaxPrice}>
-                    <SelectTrigger data-testid="select-max-price">
-                      <SelectValue placeholder="Tous les prix" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tous les prix</SelectItem>
-                      <SelectItem value="500">500 TND</SelectItem>
-                      <SelectItem value="1000">1000 TND</SelectItem>
-                      <SelectItem value="1500">1500 TND</SelectItem>
-                      <SelectItem value="2000">2000 TND</SelectItem>
-                      <SelectItem value="3000">3000 TND</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Rental Period Filter */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">Période de location</label>
-                  <Select value={rentalPeriod} onValueChange={setRentalPeriod}>
-                    <SelectTrigger data-testid="select-rental-period">
-                      <SelectValue placeholder="Toutes les périodes" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Toutes les périodes</SelectItem>
-                      <SelectItem value="mois">Mensuel</SelectItem>
-                      <SelectItem value="semaine">Hebdomadaire</SelectItem>
-                      <SelectItem value="jour">Journalier</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Equipment Filters */}
               <div>
-                <label className="block text-sm font-medium mb-3">Équipements</label>
-                <div className="flex flex-wrap gap-4">
+                <label className="text-sm font-semibold mb-2 block">Équipements</label>
+                <div className="space-y-2">
                   <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="furnished"
+                    <Checkbox 
+                      id="furnished" 
                       checked={equipmentFilters.furnished}
                       onCheckedChange={(checked) => 
-                        setEquipmentFilters(prev => ({ 
-                          ...prev, 
-                          furnished: checked as boolean,
-                          unfurnished: checked ? false : prev.unfurnished 
-                        }))
+                        setEquipmentFilters(prev => ({ ...prev, furnished: checked === true }))
                       }
-                      data-testid="checkbox-furnished"
                     />
-                    <label htmlFor="furnished" className="text-sm">Meublé</label>
+                    <label htmlFor="furnished" className="text-sm">🛏️ Meublé</label>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="unfurnished"
+                    <Checkbox 
+                      id="unfurnished" 
                       checked={equipmentFilters.unfurnished}
                       onCheckedChange={(checked) => 
-                        setEquipmentFilters(prev => ({ 
-                          ...prev, 
-                          unfurnished: checked as boolean,
-                          furnished: checked ? false : prev.furnished 
-                        }))
+                        setEquipmentFilters(prev => ({ ...prev, unfurnished: checked === true }))
                       }
-                      data-testid="checkbox-unfurnished"
                     />
-                    <label htmlFor="unfurnished" className="text-sm">Non meublé</label>
+                    <label htmlFor="unfurnished" className="text-sm">🏠 Non meublé</label>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="parking"
+                    <Checkbox 
+                      id="parking" 
                       checked={equipmentFilters.parking}
                       onCheckedChange={(checked) => 
-                        setEquipmentFilters(prev => ({ ...prev, parking: checked as boolean }))
+                        setEquipmentFilters(prev => ({ ...prev, parking: checked === true }))
                       }
-                      data-testid="checkbox-parking"
                     />
-                    <label htmlFor="parking" className="text-sm">Parking</label>
+                    <label htmlFor="parking" className="text-sm">🚗 Parking</label>
                   </div>
                 </div>
               </div>
@@ -489,29 +461,66 @@ const MapView = () => {
         </div>
 
         {/* Map Container */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border overflow-hidden">
-          {loading ? (
-            <div className="h-[600px] flex items-center justify-center">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                <p className="text-muted-foreground">Chargement de la carte...</p>
-              </div>
-            </div>
-          ) : (
+        <div className="bg-white/10 backdrop-blur-lg rounded-lg border border-white/20 overflow-hidden">
+          <div className="relative">
             <div 
-              ref={mapRef} 
-              className="h-[600px] w-full"
-              data-testid="map-container"
+              ref={mapRef}
+              className="w-full h-96 lg:h-[600px] bg-gray-200"
+              style={{ minHeight: '500px' }}
             />
-          )}
+            {/* Map loading indicator */}
+            {(!mapInstance.current || loading) && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20 rounded-lg">
+                <div className="text-center text-foreground">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-primary mx-auto mb-4"></div>
+                  <p className="font-medium text-lg">Chargement de la carte...</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {loading ? 'Récupération des propriétés...' : 'Initialisation de Google Maps...'}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Propriétés: {filteredProperties.length} | Map: {mapInstance.current ? 'Ready' : 'Loading'}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Properties Count */}
-        <div className="mt-4 text-center text-muted-foreground">
-          <p data-testid="text-properties-count">
-            {filteredProperties.length} propriété{filteredProperties.length !== 1 ? 's' : ''} trouvée{filteredProperties.length !== 1 ? 's' : ''}
-            {filteredProperties.length !== properties.length && ` sur ${properties.length} au total`}
+        <div className="mt-6 text-center space-y-4">
+          <p className="text-sm text-muted-foreground">
+            🗺️ Cliquez sur les marqueurs pour voir les détails des propriétés
           </p>
+          
+          {/* Legend */}
+          <div className="bg-white/5 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+            <h3 className="text-sm font-semibold text-foreground mb-3">Légende des propriétés</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+              <div className="flex items-center space-x-2">
+                <span className="text-lg">🏠</span>
+                <span className="text-muted-foreground">Studio</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-lg">🏢</span>
+                <span className="text-muted-foreground">Appartement</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-lg">🏖️</span>
+                <span className="text-muted-foreground">Villa</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-lg">🏘️</span>
+                <span className="text-muted-foreground">Maison</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-lg">🛏️</span>
+                <span className="text-muted-foreground">Chambre</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <span className="text-muted-foreground">Disponible</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
