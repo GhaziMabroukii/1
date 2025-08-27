@@ -62,6 +62,7 @@ export default function EmailVerification() {
         if (data.token) {
           localStorage.setItem("token", data.token);
           localStorage.setItem("user", JSON.stringify(data.user));
+          localStorage.setItem("userData", JSON.stringify(data.user)); // Header looks for this
           localStorage.setItem("userType", data.userType);
           localStorage.setItem("isAuthenticated", "true");
         }
