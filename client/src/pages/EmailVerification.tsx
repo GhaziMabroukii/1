@@ -72,9 +72,9 @@ export default function EmailVerification() {
           description: data.message || "Votre email a été vérifié avec succès.",
         });
 
-        // Redirect to dashboard immediately after successful verification
+        // Force page refresh to update authentication state, then redirect
         setTimeout(() => {
-          setLocation("/dashboard");
+          window.location.href = "/dashboard";
         }, 1500);
       } else {
         toast({
