@@ -158,42 +158,58 @@ const MapView = () => {
     }
   }, []); // Only run once
 
-  // Third effect: Watch for mapRef to become ready
+  // Direct polling for DOM ref + Google Maps API
   useEffect(() => {
-    if (!mapRef.current || mapInstance.current) return;
+    if (mapInstance.current) return;
     
-    console.log("🎯 mapRef is now available, checking if we can create map...");
+    let attempts = 0;
+    const maxAttempts = 100; // 10 seconds total
     
-    if (window.google && window.google.maps && !mapInstance.current) {
-      console.log("🚀 Both mapRef and Google Maps ready - creating map now!");
+    const pollForMapReady = () => {
+      attempts++;
+      console.log(`🔍 Poll attempt ${attempts}: mapRef=${!!mapRef.current}, google=${!!window.google}, maps=${!!(window.google && window.google.maps)}`);
       
-      try {
-        mapInstance.current = new window.google.maps.Map(mapRef.current, {
-          zoom: 12,
-          center: { lat: 36.8065, lng: 10.1815 },
-          mapTypeId: window.google.maps.MapTypeId.ROADMAP,
-          disableDefaultUI: false,
-          zoomControl: true,
-          streetViewControl: false,
-          fullscreenControl: false
-        });
+      if (mapRef.current && window.google && window.google.maps && !mapInstance.current) {
+        console.log("🎯 BOTH DOM and Google Maps ready - creating map!");
         
-        console.log("✅ Map successfully created from mapRef effect!");
-        setMapError(false);
-        setLoading(false);
-        
-        // Add markers
-        setTimeout(() => {
-          console.log("🎯 Adding markers from mapRef effect...");
-          updateMapMarkers();
-        }, 500);
-      } catch (error) {
-        console.error("❌ Error in mapRef effect:", error);
+        try {
+          mapInstance.current = new window.google.maps.Map(mapRef.current, {
+            zoom: 12,
+            center: { lat: 36.8065, lng: 10.1815 },
+            mapTypeId: window.google.maps.MapTypeId.ROADMAP,
+            disableDefaultUI: false,
+            zoomControl: true,
+            streetViewControl: false,
+            fullscreenControl: false
+          });
+          
+          console.log("✅ Map successfully created!");
+          setMapError(false);
+          setLoading(false);
+          
+          // Add markers
+          setTimeout(() => {
+            console.log("🎯 Adding markers...");
+            updateMapMarkers();
+          }, 500);
+        } catch (error) {
+          console.error("❌ Error creating map:", error);
+          setMapError(true);
+          setLoading(false);
+        }
+      } else if (attempts >= maxAttempts) {
+        console.log("❌ Polling timeout - giving up");
         setMapError(true);
         setLoading(false);
+      } else {
+        // Continue polling
+        setTimeout(pollForMapReady, 100);
       }
-    }
-  }, [mapRef.current]); // Watch for mapRef changes
+    };
+    
+    // Start polling after a short delay
+    setTimeout(pollForMapReady, 200);
+  }, []); // Only run once
 
   const fetchProperties = async () => {
     try {
