@@ -2296,6 +2296,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Validation endpoints for real-time checking
+  app.get('/api/auth/check-email', async (req: any, res: any) => {
+    try {
+      const email = req.query.email as string;
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+      
+      const existingUser = await storage.getUserByEmail(email);
+      res.json({ available: !existingUser });
+    } catch (error) {
+      console.error("Email check error:", error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  app.get('/api/auth/check-phone', async (req: any, res: any) => {
+    try {
+      const phone = req.query.phone as string;
+      if (!phone) {
+        return res.status(400).json({ error: "Phone is required" });
+      }
+      
+      const existingUser = await storage.getUserByPhone(phone);
+      res.json({ available: !existingUser });
+    } catch (error) {
+      console.error("Phone check error:", error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
   // Authentication routes with proper user type handling
   app.post("/api/auth/login", loginValidation, validateAndSanitize, async (req, res) => {
     try {

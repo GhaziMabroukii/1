@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { MapPin, GraduationCap, Users, Building, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import ValidationCheckers from "@/components/ValidationCheckers";
 
 const Signup = () => {
   const [formData, setFormData] = useState({
@@ -37,6 +38,11 @@ const Signup = () => {
   });
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [selectedGender, setSelectedGender] = useState<"male" | "female" | null>(null);
+  const [validationStatus, setValidationStatus] = useState({
+    email: false,
+    phone: false,
+    password: false
+  });
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
@@ -300,6 +306,7 @@ const Signup = () => {
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 required
+                className={formData.email ? (validationStatus.email ? 'border-green-500' : 'border-red-500') : ''}
               />
             </div>
 
@@ -311,6 +318,7 @@ const Signup = () => {
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 placeholder="+216 XX XXX XXX"
                 required
+                className={formData.phone ? (validationStatus.phone ? 'border-green-500' : 'border-red-500') : ''}
               />
             </div>
 
@@ -402,6 +410,14 @@ const Signup = () => {
               </div>
             )}
 
+            {/* Validation Checkers */}
+            <ValidationCheckers
+              email={formData.email}
+              phone={formData.phone}
+              password={formData.password}
+              onValidationChange={setValidationStatus}
+            />
+
             {/* Mots de passe */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -412,6 +428,7 @@ const Signup = () => {
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required
+                  className={formData.password ? (validationStatus.password ? 'border-green-500' : 'border-red-500') : ''}
                 />
               </div>
               <div className="space-y-2">
@@ -422,7 +439,11 @@ const Signup = () => {
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                   required
+                  className={formData.confirmPassword && formData.password !== formData.confirmPassword ? 'border-red-500' : ''}
                 />
+                {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                  <p className="text-sm text-red-600">Les mots de passe ne correspondent pas</p>
+                )}
               </div>
             </div>
             {/* Terms and Conditions */}
@@ -444,7 +465,14 @@ const Signup = () => {
             <Button 
               type="submit" 
               className="w-full" 
-              disabled={!formData.userType || !formData.acceptTerms}
+              disabled={
+                !formData.userType || 
+                !formData.acceptTerms || 
+                !validationStatus.email || 
+                !validationStatus.phone || 
+                !validationStatus.password ||
+                formData.password !== formData.confirmPassword
+              }
             >
               Créer mon compte
             </Button>
