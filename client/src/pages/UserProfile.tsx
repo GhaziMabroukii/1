@@ -4,6 +4,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Header from "@/components/Header";
 import { UserBadges } from "@/components/BadgeSystem";
 import { VerificationModal } from "@/components/VerificationModal";
+import { useOnboarding } from "@/hooks/useOnboarding";
+import OnboardingTour from "@/components/OnboardingTour";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,7 +30,8 @@ import {
   TrendingUp,
   Clock,
   FileText,
-  AlertTriangle
+  AlertTriangle,
+  HelpCircle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -48,6 +51,10 @@ const UserProfile = () => {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Onboarding system
+  const { startOnboarding, completeOnboarding, skipOnboarding } = useOnboarding();
+  const [showOnboardingTour, setShowOnboardingTour] = useState(false);
 
   // Get current user ID
   const currentUserId = Number(localStorage.getItem("userId"));
@@ -691,6 +698,30 @@ const UserProfile = () => {
               </CardContent>
             </Card>
 
+            {/* Help & Support */}
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <HelpCircle className="h-5 w-5" />
+                  <span>Aide & Support</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => setShowOnboardingTour(true)}
+                  data-testid="start-onboarding-tour"
+                >
+                  <HelpCircle className="h-4 w-4 mr-2" />
+                  Relancer le guide d'accueil
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Redécouvrez les fonctionnalités principales d'Ekrili avec notre visite guidée interactive.
+                </p>
+              </CardContent>
+            </Card>
+
             {/* Stats */}
             {userProfile.userType === "owner" && (
               <Card className="glass-card">
@@ -838,6 +869,27 @@ const UserProfile = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Onboarding Tour */}
+      {showOnboardingTour && (
+        <OnboardingTour
+          userType={userProfile.userType as 'tenant' | 'owner'}
+          onComplete={() => {
+            setShowOnboardingTour(false);
+            toast({
+              title: "Visite guidée terminée!",
+              description: "Vous connaissez maintenant toutes les fonctionnalités d'Ekrili.",
+            });
+          }}
+          onSkip={() => {
+            setShowOnboardingTour(false);
+            toast({
+              title: "Visite guidée ignorée",
+              description: "Vous pouvez la relancer à tout moment depuis votre profil.",
+            });
+          }}
+        />
       )}
     </div>
   );

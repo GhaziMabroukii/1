@@ -118,10 +118,10 @@ const Header = () => {
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center space-x-6">
-            <Link to="/search" className="text-foreground hover:text-primary transition-colors font-medium">
+            <Link to="/search" className="text-foreground hover:text-primary transition-colors font-medium" data-testid="search-input">
               Découvrir
             </Link>
-            <Link to="/map" className="text-foreground hover:text-primary transition-colors font-medium flex items-center gap-1">
+            <Link to="/map" className="text-foreground hover:text-primary transition-colors font-medium flex items-center gap-1" data-testid="map-view-button">
               🗺️ Carte
             </Link>
             <Link to="/search?filter=student" className="text-foreground hover:text-primary transition-colors font-medium">
@@ -182,6 +182,7 @@ const Header = () => {
                     variant="ghost" 
                     size="icon" 
                     onClick={() => navigate("/favorites")}
+                    data-testid="favorites-link"
                   >
                     <Heart className="h-4 w-4 sm:h-5 sm:w-5" />
                   </Button>
@@ -190,6 +191,7 @@ const Header = () => {
                     variant="ghost" 
                     size="icon" 
                     onClick={() => navigate("/messages")}
+                    data-testid="messages-link"
                   >
                     <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -236,7 +238,7 @@ const Header = () => {
                     </p>
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate("/dashboard")}>
+                  <DropdownMenuItem onClick={() => navigate("/dashboard")} data-testid="dashboard-link">
                     <Home className="mr-2 h-4 w-4" />
                     Dashboard
                   </DropdownMenuItem>
@@ -244,31 +246,31 @@ const Header = () => {
                     <Search className="mr-2 h-4 w-4" />
                     Rechercher
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/messages")}>
+                  <DropdownMenuItem onClick={() => navigate("/messages")} data-testid="messages-link">
                     <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
                     Messages
                   </DropdownMenuItem>
-                   <DropdownMenuItem onClick={() => navigate("/favorites")}>
+                   <DropdownMenuItem onClick={() => navigate("/favorites")} data-testid="favorites-link">
                      <Heart className="mr-2 h-4 w-4" />
                      Favoris
                    </DropdownMenuItem>
-                   <DropdownMenuItem onClick={() => navigate("/offers")}>
+                   <DropdownMenuItem onClick={() => navigate("/offers")} data-testid="offers-link">
                      <FileText className="mr-2 h-4 w-4" />
                      {userType === "owner" ? "Mes offres reçues" : "Mes offres envoyées"}
                    </DropdownMenuItem>
                    {userType === "owner" && (
                      <>
-                       <DropdownMenuItem onClick={() => navigate("/add-property")}>
+                       <DropdownMenuItem onClick={() => navigate("/add-property")} data-testid="add-property-button">
                          <Home className="mr-2 h-4 w-4" />
                          Louer mon bien
                        </DropdownMenuItem>
-                       <DropdownMenuItem onClick={() => navigate("/manage-properties")}>
+                       <DropdownMenuItem onClick={() => navigate("/manage-properties")} data-testid="manage-properties-link">
                          <Settings className="mr-2 h-4 w-4" />
                          Gérer mes biens
                        </DropdownMenuItem>
-                       <DropdownMenuItem onClick={() => navigate("/contracts")}>
+                       <DropdownMenuItem onClick={() => navigate("/contracts")} data-testid="contracts-link">
                          <FileText className="mr-2 h-4 w-4" />
                          Contrats
                        </DropdownMenuItem>
@@ -280,7 +282,7 @@ const Header = () => {
                    )}
                    {userType === "tenant" && (
                      <>
-                       <DropdownMenuItem onClick={() => navigate("/contracts")}>
+                       <DropdownMenuItem onClick={() => navigate("/contracts")} data-testid="contracts-link">
                          <FileText className="mr-2 h-4 w-4" />
                          Mes contrats
                        </DropdownMenuItem>
@@ -294,7 +296,7 @@ const Header = () => {
                      <Bell className="mr-2 h-4 w-4" />
                      Notifications
                    </DropdownMenuItem>
-                   <DropdownMenuItem onClick={() => navigate("/profile")}>
+                   <DropdownMenuItem onClick={() => navigate("/profile")} data-testid="profile-link">
                      <User className="mr-2 h-4 w-4" />
                      Mon profil
                    </DropdownMenuItem>

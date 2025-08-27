@@ -4,6 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Router, Route, Switch } from "wouter";
 import { useGlobalWebSocket } from "./hooks/useWebSocket";
+import { useOnboarding } from "./hooks/useOnboarding";
+import OnboardingTour from "./components/OnboardingTour";
 import AIAssistantWrapper from "./components/AIAssistantWrapper";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -46,12 +48,25 @@ const queryClient = new QueryClient();
 const App = () => {
   // Initialize global WebSocket connection for real-time updates
   useGlobalWebSocket();
+  
+  // Initialize onboarding system
+  const { shouldShowOnboarding, completeOnboarding, skipOnboarding } = useOnboarding();
+  
+  // Get user type from localStorage
+  const userType = localStorage.getItem('userType') as 'tenant' | 'owner' || 'tenant';
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
+        {shouldShowOnboarding && (
+          <OnboardingTour
+            userType={userType}
+            onComplete={completeOnboarding}
+            onSkip={skipOnboarding}
+          />
+        )}
         <Router>
           <Switch>
             <Route path="/" component={Index} />
