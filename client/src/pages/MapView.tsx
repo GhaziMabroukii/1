@@ -505,15 +505,102 @@ const MapView = () => {
 
         {/* Map Container */}
         <div className="bg-white/10 backdrop-blur-lg rounded-lg border border-white/20 overflow-hidden">
-          {mapError ? (
-            // Fallback grid view when maps are not available
+          {loading && !mapError ? (
+            // Loading state
+            <div className="h-96 flex items-center justify-center">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <h3 className="text-lg font-semibold mb-2">Chargement de la carte...</h3>
+                <p className="text-muted-foreground">Initialisation de Google Maps...</p>
+                <div className="mt-4 text-sm text-muted-foreground">
+                  Propriétés: {properties.length} | Map: {mapInstance.current ? 'Ready' : 'Loading'}
+                </div>
+              </div>
+            </div>
+          ) : mapError ? (
+            // Fallback interactive map view using CSS/SVG when Google Maps fails
             <div className="p-6">
               <div className="text-center mb-6">
                 <MapPin className="h-12 w-12 text-primary mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">Vue liste des propriétés</h3>
+                <h3 className="text-xl font-semibold mb-2">Carte Interactive - Tunis</h3>
                 <p className="text-muted-foreground">
-                  Affichage des propriétés par location
+                  Localisation des propriétés en Tunisie
                 </p>
+              </div>
+              
+              {/* Simple SVG Map of Tunisia with property markers */}
+              <div className="bg-gradient-to-br from-blue-50 to-green-50 dark:from-blue-950 dark:to-green-950 rounded-lg p-4 mb-6">
+                <div className="relative w-full h-96 bg-blue-100 dark:bg-blue-900 rounded-lg overflow-hidden">
+                  {/* SVG Tunisia outline */}
+                  <svg viewBox="0 0 400 300" className="w-full h-full">
+                    {/* Tunisia simplified outline */}
+                    <path
+                      d="M120 80 L160 60 L200 70 L240 80 L280 100 L300 140 L290 180 L280 220 L250 250 L200 270 L150 260 L120 240 L100 200 L110 160 L120 120 Z"
+                      fill="rgba(34, 197, 94, 0.3)"
+                      stroke="rgba(34, 197, 94, 0.8)"
+                      strokeWidth="2"
+                    />
+                    
+                    {/* Property markers */}
+                    {filteredProperties.map((property, index) => {
+                      // Map property locations to SVG coordinates
+                      const locations: { [key: string]: { x: number; y: number } } = {
+                        'Centre Ville': { x: 200, y: 150 },
+                        'Bardo': { x: 190, y: 140 },
+                        'Ariana': { x: 210, y: 130 },
+                        'La Marsa': { x: 220, y: 120 },
+                        'Sidi Bou Said': { x: 230, y: 115 },
+                        'Carthage': { x: 225, y: 125 },
+                        'Manouba': { x: 180, y: 145 },
+                        'Ben Arous': { x: 200, y: 170 }
+                      };
+                      
+                      const location = locations[property.location] || locations['Centre Ville'];
+                      const offset = index * 8; // Spread markers slightly
+                      
+                      return (
+                        <g key={property.id}>
+                          {/* Marker circle */}
+                          <circle
+                            cx={location.x + (offset % 20) - 10}
+                            cy={location.y + Math.floor(offset / 20) * 8}
+                            r="8"
+                            fill={property.status === 'Disponible' ? '#10B981' : '#EF4444'}
+                            stroke="white"
+                            strokeWidth="2"
+                            className="cursor-pointer hover:r-10 transition-all"
+                            onClick={() => navigate(`/property/${property.id}`)}
+                          />
+                          {/* Property type emoji */}
+                          <text
+                            x={location.x + (offset % 20) - 10}
+                            y={location.y + Math.floor(offset / 20) * 8 + 3}
+                            textAnchor="middle"
+                            fontSize="10"
+                            className="cursor-pointer pointer-events-none"
+                          >
+                            {property.type === 'studio' ? '🏠' : property.type === 'apartment' ? '🏢' : '🏡'}
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </svg>
+                  
+                  {/* Location labels */}
+                  <div className="absolute top-2 left-2 bg-white/90 dark:bg-black/90 rounded p-2 text-xs">
+                    <div className="font-semibold mb-1">Zones de Tunis:</div>
+                    <div className="space-y-1">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <span>Disponible</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                        <span>Occupé</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
               
               {filteredProperties.length === 0 ? (
