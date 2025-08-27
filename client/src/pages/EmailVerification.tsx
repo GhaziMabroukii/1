@@ -80,6 +80,11 @@ export default function EmailVerification() {
 
         // Force page refresh to update authentication state, then redirect
         setTimeout(() => {
+          // Double-check storage before redirect
+          console.log("Before redirect - localStorage check:");
+          console.log("isAuthenticated:", localStorage.getItem("isAuthenticated"));
+          console.log("userData:", localStorage.getItem("userData"));
+          console.log("userType:", localStorage.getItem("userType"));
           window.location.href = "/dashboard";
         }, 1500);
       } else {
