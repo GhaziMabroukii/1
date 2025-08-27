@@ -12,6 +12,7 @@ import {
 // Database is only available in production
 let db: any = null;
 import { eq, desc, and, lt, or, isNull, sql } from "drizzle-orm";
+import bcrypt from "bcrypt";
 
 export interface IStorage {
   // User operations
@@ -945,8 +946,13 @@ export class MemStorage implements IStorage {
       return;
     }
     
-    // Create test users with hashed passwords (bcrypt hash of 'password123') - DEVELOPMENT ONLY
-    const hashedPassword = '$2b$10$9409EDjn9m.1RE0NkAnNSuq9s1iLjXGQChlbq1H5S7lq.uXC9am7K';
+    // Get test password hash from environment variable, fallback to generating one
+    let hashedPassword = process.env.TEST_USER_PASSWORD_HASH;
+    if (!hashedPassword) {
+      // For development, generate a hash for 'password123'
+      hashedPassword = bcrypt.hashSync('password123', 10);
+      console.log('Generated test user password hash for development');
+    }
     
     this.users = [
       {
@@ -962,9 +968,9 @@ export class MemStorage implements IStorage {
         documentNumber: "12345678",
         bio: "Locataire sérieux et respectueux",
         // Add missing required fields
-        isVerified: false,
-        verificationScore: 0,
-        emailVerified: false,
+        isVerified: true,
+        verificationScore: 100,
+        emailVerified: true,
         emailVerificationCode: null,
         phoneVerified: false,
         phoneVerificationCode: null,
@@ -998,9 +1004,9 @@ export class MemStorage implements IStorage {
         documentNumber: "87654321",
         bio: "Propriétaire attentif et disponible",
         // Add missing required fields
-        isVerified: false,
-        verificationScore: 0,
-        emailVerified: false,
+        isVerified: true,
+        verificationScore: 100,
+        emailVerified: true,
         emailVerificationCode: null,
         phoneVerified: false,
         phoneVerificationCode: null,
