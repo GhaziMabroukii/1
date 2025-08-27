@@ -63,6 +63,7 @@ export default function EmailVerification() {
           localStorage.setItem("token", data.token);
           localStorage.setItem("user", JSON.stringify(data.user));
           localStorage.setItem("userType", data.userType);
+          localStorage.setItem("isAuthenticated", "true");
         }
 
         toast({
@@ -70,10 +71,10 @@ export default function EmailVerification() {
           description: data.message || "Votre email a été vérifié avec succès.",
         });
 
-        // Redirect to dashboard after a short delay
+        // Redirect to dashboard immediately after successful verification
         setTimeout(() => {
           setLocation("/dashboard");
-        }, 2000);
+        }, 1500);
       } else {
         toast({
           title: "Erreur de vérification",
