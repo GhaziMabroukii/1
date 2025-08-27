@@ -77,6 +77,23 @@ const Signup = () => {
       return;
     }
 
+    if (!formData.userType) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez sélectionner votre type d'utilisateur.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log("Form data before sending:", {
+      userType: formData.userType,
+      email: formData.email,
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      phone: formData.phone
+    });
+
     try {
       const response = await fetch("/api/auth/register", {
         method: "POST",
@@ -90,7 +107,7 @@ const Signup = () => {
           firstName: formData.firstName,
           lastName: formData.lastName,
           phone: formData.phone,
-          userType: formData.userType === 'student' ? 'tenant' : formData.userType, // Map student to tenant
+          userType: formData.userType, // Send userType as selected
         }),
       });
 
