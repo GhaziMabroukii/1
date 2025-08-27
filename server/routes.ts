@@ -141,6 +141,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const validateAndSanitize = (req: any, res: any, next: any) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log("Validation errors:", errors.array());
+      console.log("Request body:", req.body);
       return res.status(400).json({ error: "Invalid input data", details: errors.array() });
     }
     

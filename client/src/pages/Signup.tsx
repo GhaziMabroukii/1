@@ -114,9 +114,11 @@ const Signup = () => {
           navigate("/dashboard");
         }
       } else {
+        console.error("Registration validation errors:", data.details);
+        const errorMessages = data.details ? data.details.map((err: any) => err.msg).join(", ") : "Une erreur s'est produite";
         toast({
           title: "Erreur d'inscription",
-          description: data.error || "Une erreur s'est produite lors de l'inscription.",
+          description: `${data.error}: ${errorMessages}`,
           variant: "destructive",
         });
       }
