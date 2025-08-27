@@ -85,6 +85,28 @@ const MapView = () => {
         if (!window.google) console.log("- Google API not loaded");
         if (window.google && !window.google.maps) console.log("- Google Maps API not ready");
         if (mapInstance.current) console.log("- Map already exists");
+        
+        // If Google Maps is ready but DOM ref is not, wait for DOM ref
+        if (window.google && window.google.maps && !mapRef.current && !mapInstance.current) {
+          console.log("🔄 Waiting for DOM ref to be ready...");
+          let domAttempts = 0;
+          const maxDomAttempts = 50; // 5 seconds
+          const domCheckInterval = setInterval(() => {
+            domAttempts++;
+            console.log(`⏳ DOM check attempt ${domAttempts}, mapRef ready: ${!!mapRef.current}`);
+            
+            if (mapRef.current) {
+              console.log("✅ DOM ref is now ready, initializing map!");
+              clearInterval(domCheckInterval);
+              initializeMap(); // Recursive call now that DOM is ready
+            } else if (domAttempts >= maxDomAttempts) {
+              console.log("❌ DOM ref failed to become ready");
+              clearInterval(domCheckInterval);
+              setMapError(true);
+              setLoading(false);
+            }
+          }, 100);
+        }
       }
     };
 
@@ -135,6 +157,43 @@ const MapView = () => {
       };
     }
   }, []); // Only run once
+
+  // Third effect: Watch for mapRef to become ready
+  useEffect(() => {
+    if (!mapRef.current || mapInstance.current) return;
+    
+    console.log("🎯 mapRef is now available, checking if we can create map...");
+    
+    if (window.google && window.google.maps && !mapInstance.current) {
+      console.log("🚀 Both mapRef and Google Maps ready - creating map now!");
+      
+      try {
+        mapInstance.current = new window.google.maps.Map(mapRef.current, {
+          zoom: 12,
+          center: { lat: 36.8065, lng: 10.1815 },
+          mapTypeId: window.google.maps.MapTypeId.ROADMAP,
+          disableDefaultUI: false,
+          zoomControl: true,
+          streetViewControl: false,
+          fullscreenControl: false
+        });
+        
+        console.log("✅ Map successfully created from mapRef effect!");
+        setMapError(false);
+        setLoading(false);
+        
+        // Add markers
+        setTimeout(() => {
+          console.log("🎯 Adding markers from mapRef effect...");
+          updateMapMarkers();
+        }, 500);
+      } catch (error) {
+        console.error("❌ Error in mapRef effect:", error);
+        setMapError(true);
+        setLoading(false);
+      }
+    }
+  }, [mapRef.current]); // Watch for mapRef changes
 
   const fetchProperties = async () => {
     try {
