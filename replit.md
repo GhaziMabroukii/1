@@ -7,20 +7,22 @@ Ekrili is a modern property rental platform for the Tunisian market, focusing on
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
+- **August 28, 2025**: 🚀 **MAJOR UPDATE: Advanced Social Profile System**
+  - **Revolutionary Profile System**: Complete social networking features with public profiles, badge systems, and activity tracking
+  - **Smart Badge System**: Intelligent badge awarding based on user behavior, discipline scores, and achievements (Common, Rare, Epic, Legendary)
+  - **Discipline & Trust Scoring**: Advanced algorithms for user reputation management (0-100 discipline score, dynamic trust scoring)
+  - **Social Activity Tracking**: Comprehensive user activity monitoring with posts, comments, likes, and sharing
+  - **Profile Views & Analytics**: Real-time profile view tracking with detailed analytics and visitor insights
+  - **Social Media Integration**: Seamless linking to Facebook, Instagram, LinkedIn, Twitter, and personal websites
+  - **Achievement System**: 15+ dynamic badges including verification, activity, achievement, and social categories
+  - **Public Profile Pages**: Dedicated social profile pages with tabs for posts, activity, and statistics
+  - **Enhanced User Experience**: Glass-morphism design with Tunisian cultural elements and responsive layouts
 - **August 27, 2025**: Successfully completed migration from Replit Agent to standard Replit environment
 - **Security Fixes**: Replaced hardcoded credentials with environment variables for enhanced security
 - **Authentication Fixed**: Test users now have email verification enabled (emailVerified: true)
 - **Dependencies Updated**: Resolved npm audit vulnerabilities through package updates
 - **Email Service Configured**: Gmail SMTP integration with real email delivery capability
 - **Migration Verification**: All core functionality tested and working properly
-- **January 26, 2025**: Added comprehensive email verification system for user registration
-- **Email Security**: Free Gmail SMTP integration with console fallback for development
-- **Registration Flow**: Users must verify email before accessing full platform features
-- **January 20, 2025**: Successfully migrated Ekrili from Replit Agent to standard Replit environment
-- **Migration completed**: All functionality working with real user authentication
-- **Test users created**: Both tenant and owner accounts with real credentials (no mock data)
-- **Auto-initialization**: Test users are automatically created on server startup in development mode
-- **Authentication verified**: Login system working for both user types with proper password hashing
 
 ## System Architecture
 ### Frontend
@@ -58,6 +60,13 @@ Preferred communication style: Simple, everyday language.
 - **Components**: Consistent design across all elements
 
 ### Key Features
+- **Advanced Social Profile System**: 
+  - **Public Profiles**: Comprehensive user profiles with social media links, activity feeds, and achievement showcases
+  - **Smart Badge System**: Dynamic badge awarding with 4 rarity levels (Common, Rare, Epic, Legendary) across verification, activity, achievement, and social categories
+  - **Discipline & Trust Scoring**: Real-time reputation management with discipline scores (0-100) and calculated trust scores
+  - **Activity Tracking**: Complete user activity monitoring including posts, profile views, messages, and platform interactions
+  - **Social Integration**: Native support for Facebook, Instagram, LinkedIn, Twitter, and personal website links
+  - **Performance Analytics**: Detailed user statistics including response rates, satisfaction scores, and growth metrics
 - **Property Management**: CRUD operations, image upload, amenities, availability.
 - **Search System**: Advanced filtering by geolocation, price, category.
 - **Messaging**: Real-time chat with history and file sharing.

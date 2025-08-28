@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import UserAvatar from "./UserAvatar";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import UserBadge from "./UserBadge";
+import { AdvancedBadgeSystem } from "./AdvancedBadgeSystem";
 import { 
   User, 
   MapPin, 
@@ -115,7 +116,16 @@ export default function UserProfile({ userId, onClose, showContactInfo = false }
                   )}
                 </div>
                 <p className="text-muted-foreground capitalize">{profile.userType}</p>
-                <UserBadge user={profile} showAll={true} size="md" />
+                <AdvancedBadgeSystem user={profile} showAll={false} limit={3} />
+                <div className="mt-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => navigate(`/profile/${userId}`)}
+                  >
+                    Voir profil social complet
+                  </Button>
+                </div>
               </div>
             </div>
             {onClose && (

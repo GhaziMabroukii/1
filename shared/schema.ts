@@ -49,6 +49,21 @@ export const users = pgTable("users", {
   rating: decimal("rating", { precision: 3, scale: 2 }).default("0"), // User rating
   contractsCount: integer("contracts_count").default(0),
   
+  // Social profile enhancements
+  disciplineScore: integer("discipline_score").default(100), // 0-100, starts at 100
+  profileViews: integer("profile_views").default(0),
+  socialLinks: jsonb("social_links"), // {facebook, instagram, linkedin, twitter, website}
+  isPublicProfile: boolean("is_public_profile").default(true),
+  lastActiveAt: timestamp("last_active_at").defaultNow(),
+  trustScore: integer("trust_score").default(0), // Calculated trust score
+  
+  // Achievement counters
+  totalLogins: integer("total_logins").default(0),
+  totalMessages: integer("total_messages").default(0),
+  totalOffers: integer("total_offers").default(0),
+  completedContracts: integer("completed_contracts").default(0),
+  averageRating: decimal("average_rating", { precision: 3, scale: 2 }).default("0"),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -525,3 +540,135 @@ export type ReviewLike = typeof reviewLikes.$inferSelect;
 export type InsertReviewLike = z.infer<typeof insertReviewLikeSchema>;
 export type PriceNegotiation = typeof priceNegotiations.$inferSelect;
 export type InsertPriceNegotiation = z.infer<typeof insertPriceNegotiationSchema>;
+
+// === SOCIAL PROFILE SYSTEM TABLES ===
+
+// User Posts/Activities for social profile
+export const userPosts = pgTable("user_posts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  type: text("type").notNull(), // "property_listing", "contract_signed", "review", "achievement", "custom"
+  title: text("title").notNull(),
+  content: text("content"),
+  media: text("media").array(), // Images/videos attached
+  relatedPropertyId: integer("related_property_id").references(() => properties.id),
+  relatedContractId: integer("related_contract_id").references(() => contracts.id),
+  visibility: text("visibility").notNull().default("public"), // "public", "friends", "private"
+  likes: integer("likes").default(0),
+  comments: integer("comments").default(0),
+  shares: integer("shares").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// User Activity Tracking
+export const userActivities = pgTable("user_activities", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  action: text("action").notNull(), // "login", "view_property", "send_message", "create_offer", etc.
+  target: text("target"), // What was acted upon
+  targetId: integer("target_id"), // ID of the target
+  metadata: jsonb("metadata"), // Additional context
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Profile Views Tracking
+export const profileViews = pgTable("profile_views", {
+  id: serial("id").primaryKey(),
+  profileUserId: integer("profile_user_id").notNull().references(() => users.id),
+  viewerUserId: integer("viewer_user_id").references(() => users.id), // Null for anonymous views
+  viewerIp: text("viewer_ip"),
+  referrer: text("referrer"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Advanced Badge System
+export const userBadges = pgTable("user_badges", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  badgeId: text("badge_id").notNull(), // Unique badge identifier
+  badgeName: text("badge_name").notNull(),
+  badgeDescription: text("badge_description"),
+  badgeIcon: text("badge_icon"), // Emoji or icon name
+  badgeColor: text("badge_color").default("#3B82F6"), // Badge color
+  rarity: text("rarity").notNull().default("common"), // "common", "rare", "epic", "legendary"
+  earnedAt: timestamp("earned_at").defaultNow(),
+  category: text("category").notNull(), // "verification", "activity", "achievement", "social"
+  points: integer("points").default(0), // Points value of badge
+});
+
+// Post Comments for social interaction
+export const postComments = pgTable("post_comments", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id").notNull().references(() => userPosts.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  parentCommentId: integer("parent_comment_id"), // Self-reference for nested comments
+  likes: integer("likes").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Post Likes
+export const postLikes = pgTable("post_likes", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id").notNull().references(() => userPosts.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniquePostLike: unique().on(table.postId, table.userId),
+}));
+
+// Social Schemas
+export const insertUserPostSchema = createInsertSchema(userPosts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  likes: true,
+  comments: true,
+  shares: true,
+});
+
+export const insertUserActivitySchema = createInsertSchema(userActivities).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertProfileViewSchema = createInsertSchema(profileViews).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertUserBadgeSchema = createInsertSchema(userBadges).omit({
+  id: true,
+  earnedAt: true,
+});
+
+export const insertPostCommentSchema = createInsertSchema(postComments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  likes: true,
+});
+
+export const insertPostLikeSchema = createInsertSchema(postLikes).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Social Types
+export type UserPost = typeof userPosts.$inferSelect;
+export type InsertUserPost = z.infer<typeof insertUserPostSchema>;
+export type UserActivity = typeof userActivities.$inferSelect;
+export type InsertUserActivity = z.infer<typeof insertUserActivitySchema>;
+export type ProfileView = typeof profileViews.$inferSelect;
+export type InsertProfileView = z.infer<typeof insertProfileViewSchema>;
+export type UserBadge = typeof userBadges.$inferSelect;
+export type InsertUserBadge = z.infer<typeof insertUserBadgeSchema>;
+export type PostComment = typeof postComments.$inferSelect;
+export type InsertPostComment = z.infer<typeof insertPostCommentSchema>;
+export type PostLike = typeof postLikes.$inferSelect;
+export type InsertPostLike = z.infer<typeof insertPostLikeSchema>;

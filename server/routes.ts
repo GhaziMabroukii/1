@@ -4075,6 +4075,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // === SOCIAL PROFILE SYSTEM ROUTES ===
+  
+  // Get public profile data
+  app.get("/api/social/profile/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Don't expose sensitive information in public profile
+      const publicProfile = {
+        id: user.id,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        userType: user.userType,
+        profilePicture: user.profilePicture,
+        bio: user.bio,
+        isVerified: user.isVerified,
+        emailVerified: user.emailVerified,
+        phoneVerified: user.phoneVerified,
+        documentVerified: user.documentVerified,
+        disciplineScore: user.disciplineScore || 100,
+        profileViews: user.profileViews || 0,
+        trustScore: user.trustScore || 0,
+        socialLinks: user.socialLinks,
+        isPublicProfile: user.isPublicProfile !== false,
+        totalLogins: user.totalLogins || 0,
+        totalMessages: user.totalMessages || 0,
+        totalOffers: user.totalOffers || 0,
+        completedContracts: user.completedContracts || 0,
+        contractsCount: user.contractsCount || 0,
+        rating: user.rating || 0,
+        averageRating: user.averageRating || 0,
+        responseTime: user.responseTime,
+        createdAt: user.createdAt,
+        lastActiveAt: user.lastActiveAt || user.createdAt,
+      };
+      
+      res.json(publicProfile);
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      res.status(500).json({ error: "Failed to fetch user profile" });
+    }
+  });
+
+  // Get user posts
+  app.get("/api/social/posts/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const limit = parseInt(req.query.limit as string) || 20;
+      
+      const posts = await storage.getUserPosts(userId, limit);
+      res.json(posts);
+    } catch (error) {
+      console.error("Error fetching user posts:", error);
+      res.status(500).json({ error: "Failed to fetch user posts" });
+    }
+  });
+
+  // Get user badges
+  app.get("/api/social/badges/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const badges = await storage.getUserBadges(userId);
+      res.json(badges);
+    } catch (error) {
+      console.error("Error fetching user badges:", error);
+      res.status(500).json({ error: "Failed to fetch user badges" });
+    }
+  });
+
+  // Get user activities
+  app.get("/api/social/activities/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const limit = parseInt(req.query.limit as string) || 50;
+      
+      const activities = await storage.getUserActivities(userId, limit);
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching user activities:", error);
+      res.status(500).json({ error: "Failed to fetch user activities" });
+    }
+  });
+
+  // Record profile view
+  app.post("/api/social/profile-view", async (req, res) => {
+    try {
+      const { profileUserId, viewerUserId } = req.body;
+      
+      const view = await storage.recordProfileView({
+        profileUserId,
+        viewerUserId: viewerUserId || null,
+        viewerIp: req.ip,
+        referrer: req.get('Referrer') || null
+      });
+      
+      // Update profile views count
+      const user = await storage.getUser(profileUserId);
+      if (user) {
+        await storage.updateUser(profileUserId, {
+          profileViews: (user.profileViews || 0) + 1
+        });
+      }
+      
+      res.status(201).json(view);
+    } catch (error) {
+      console.error("Error recording profile view:", error);
+      res.status(500).json({ error: "Failed to record profile view" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // WebSocket server setup with authentication and real-time events

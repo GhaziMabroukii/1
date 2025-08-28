@@ -1,13 +1,16 @@
 import { 
   users, properties, offers, contracts, notifications, conversations, messages, userBlocks, userSessions, userFavorites, reviews,
-  propertyLikes, reviewLikes, priceNegotiations,
+  propertyLikes, reviewLikes, priceNegotiations, userPosts, userActivities, profileViews, userBadges, postComments, postLikes,
   type User, type InsertUser, type Property, type InsertProperty,
   type Offer, type InsertOffer, type Contract, type InsertContract,
   type Notification, type InsertNotification, type Message, type InsertMessage,
   type UserBlock, type InsertUserBlock, type UserSession, type InsertUserSession,
   type UserFavorite, type InsertUserFavorite, type Review, type InsertReview,
   type PropertyLike, type InsertPropertyLike, type ReviewLike, type InsertReviewLike,
-  type PriceNegotiation, type InsertPriceNegotiation
+  type PriceNegotiation, type InsertPriceNegotiation, type UserPost, type InsertUserPost,
+  type UserActivity, type InsertUserActivity, type ProfileView, type InsertProfileView,
+  type UserBadge, type InsertUserBadge, type PostComment, type InsertPostComment,
+  type PostLike, type InsertPostLike
 } from "@shared/schema";
 // Database is only available in production
 let db: any = null;
@@ -127,6 +130,38 @@ export interface IStorage {
   // Enhanced search with cities
   searchProperties(filters: any): Promise<any[]>;
   getTunisianCities(): string[];
+  
+  // === SOCIAL PROFILE SYSTEM ===
+  // User Posts
+  getUserPosts(userId: number, limit?: number): Promise<UserPost[]>;
+  createUserPost(post: InsertUserPost): Promise<UserPost>;
+  updateUserPost(id: number, updates: Partial<UserPost>): Promise<UserPost | undefined>;
+  deleteUserPost(id: number): Promise<boolean>;
+  likePost(postId: number, userId: number): Promise<boolean>;
+  unlikePost(postId: number, userId: number): Promise<boolean>;
+  
+  // User Activities
+  trackUserActivity(activity: InsertUserActivity): Promise<UserActivity>;
+  getUserActivities(userId: number, limit?: number): Promise<UserActivity[]>;
+  
+  // Profile Views
+  recordProfileView(view: InsertProfileView): Promise<ProfileView>;
+  getProfileViews(userId: number, limit?: number): Promise<ProfileView[]>;
+  getProfileViewsCount(userId: number): Promise<number>;
+  
+  // User Badges
+  getUserBadges(userId: number): Promise<UserBadge[]>;
+  awardBadge(userId: number, badge: InsertUserBadge): Promise<UserBadge>;
+  checkAndAwardBadges(userId: number): Promise<UserBadge[]>;
+  
+  // Post Comments
+  getPostComments(postId: number): Promise<PostComment[]>;
+  createPostComment(comment: InsertPostComment): Promise<PostComment>;
+  
+  // Social Statistics
+  updateUserSocialStats(userId: number): Promise<void>;
+  calculateDisciplineScore(userId: number): Promise<number>;
+  calculateTrustScore(userId: number): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2308,6 +2343,133 @@ export class MemStorage implements IStorage {
     };
 
     return this.priceNegotiations[index];
+  }
+
+  getTunisianCities(): string[] {
+    return [
+      'Tunis', 'Sfax', 'Sousse', 'Kairouan', 'Bizerte', 'Gabès', 'Ariana',
+      'Gafsa', 'Monastir', 'Ben Arous', 'Kasserine', 'Médenine', 'Nabeul',
+      'Tataouine', 'Béja', 'Jendouba', 'Mahdia', 'Sidi Bouzid', 'Zaghouan',
+      'Siliana', 'Le Kef', 'Tozeur', 'Manouba', 'Kebili'
+    ];
+  }
+
+  // === SOCIAL PROFILE SYSTEM IMPLEMENTATION ===
+  
+  // User Posts - placeholder implementations for memory storage
+  async getUserPosts(userId: number, limit: number = 20): Promise<UserPost[]> {
+    // In memory storage - would be implemented differently in database
+    return [];
+  }
+
+  async createUserPost(post: InsertUserPost): Promise<UserPost> {
+    const newPost = {
+      id: Date.now(),
+      ...post,
+      likes: 0,
+      comments: 0,
+      shares: 0,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as UserPost;
+    return newPost;
+  }
+
+  async updateUserPost(id: number, updates: Partial<UserPost>): Promise<UserPost | undefined> {
+    return undefined;
+  }
+
+  async deleteUserPost(id: number): Promise<boolean> {
+    return true;
+  }
+
+  async likePost(postId: number, userId: number): Promise<boolean> {
+    return true;
+  }
+
+  async unlikePost(postId: number, userId: number): Promise<boolean> {
+    return true;
+  }
+
+  // User Activities
+  async trackUserActivity(activity: InsertUserActivity): Promise<UserActivity> {
+    const newActivity = {
+      id: Date.now(),
+      ...activity,
+      createdAt: new Date(),
+    } as UserActivity;
+    return newActivity;
+  }
+
+  async getUserActivities(userId: number, limit: number = 50): Promise<UserActivity[]> {
+    return [];
+  }
+
+  // Profile Views
+  async recordProfileView(view: InsertProfileView): Promise<ProfileView> {
+    const newView = {
+      id: Date.now(),
+      ...view,
+      createdAt: new Date(),
+    } as ProfileView;
+    return newView;
+  }
+
+  async getProfileViews(userId: number, limit: number = 100): Promise<ProfileView[]> {
+    return [];
+  }
+
+  async getProfileViewsCount(userId: number): Promise<number> {
+    return 0;
+  }
+
+  // User Badges
+  async getUserBadges(userId: number): Promise<UserBadge[]> {
+    return [];
+  }
+
+  async awardBadge(userId: number, badge: InsertUserBadge): Promise<UserBadge> {
+    const newBadge = {
+      id: Date.now(),
+      userId,
+      ...badge,
+      earnedAt: new Date(),
+    } as UserBadge;
+    return newBadge;
+  }
+
+  async checkAndAwardBadges(userId: number): Promise<UserBadge[]> {
+    return [];
+  }
+
+  // Post Comments
+  async getPostComments(postId: number): Promise<PostComment[]> {
+    return [];
+  }
+
+  async createPostComment(comment: InsertPostComment): Promise<PostComment> {
+    const newComment = {
+      id: Date.now(),
+      ...comment,
+      likes: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as PostComment;
+    return newComment;
+  }
+
+  // Social Statistics
+  async updateUserSocialStats(userId: number): Promise<void> {
+    // Update user's social statistics
+  }
+
+  async calculateDisciplineScore(userId: number): Promise<number> {
+    return 100; // Default score
+  }
+
+  async calculateTrustScore(userId: number): Promise<number> {
+    return 0; // Calculated based on various factors
   }
 }
 

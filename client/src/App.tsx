@@ -42,6 +42,7 @@ import ContractTermination from "./pages/ContractTermination";
 import EmailVerification from "./pages/EmailVerification";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import SocialProfilePage from "./pages/SocialProfilePage";
 
 const queryClient = new QueryClient();
 
@@ -89,6 +90,7 @@ const App = () => {
             <Route path="/contract/:id/versions" component={ContractVersions} />
             <Route path="/contract/:contractId/version/:versionId" component={ContractVersionView} />
             <Route path="/profile" component={UserProfile} />
+            <Route path="/profile/:userId" component={SocialProfilePage} />
             <Route path="/edit-property/:id" component={EditProperty} />
             <Route path="/map" component={MapView} />
             <Route path="/notifications" component={Notifications} />
