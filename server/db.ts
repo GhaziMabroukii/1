@@ -5,61 +5,35 @@ import * as schema from "@shared/schema";
 // Your specific database connection
 const YOUR_DATABASE_URL = "postgresql://devuser:devpass@193.95.31.4:5432/devdb";
 
-// Try to connect to your database first, with fallback to Replit database
-let DATABASE_URL = YOUR_DATABASE_URL;
-let pool: Pool;
+console.log('🔄 Connecting to YOUR database at 193.95.31.4:5432/devdb...');
 
-console.log('🔄 Attempting to connect to your database at 193.95.31.4:5432...');
-
-// First attempt: your database with timeout
-const testPool = new Pool({ 
+export const pool = new Pool({ 
   connectionString: YOUR_DATABASE_URL,
-  connectionTimeoutMillis: 5000, // Quick timeout
+  connectionTimeoutMillis: 10000,
   ssl: false
 });
 
-testPool.connect()
-  .then(client => {
-    console.log('✅ SUCCESS: Connected to your database at 193.95.31.4:5432');
-    console.log('📊 Using YOUR PostgreSQL database for all operations');
-    client.release();
-    testPool.end(); // Close test connection
-  })
-  .catch(err => {
-    console.log('❌ FAILED: Cannot connect to your database at 193.95.31.4:5432');
-    console.log('📝 Reason:', err.message);
-    console.log('🔧 This is likely due to network restrictions or firewall settings');
-    
-    if (process.env.DATABASE_URL) {
-      console.log('🔄 Falling back to Replit PostgreSQL database');
-      console.log('⚠️  NOTE: You are NOT using your specific database!');
-      DATABASE_URL = process.env.DATABASE_URL;
-    }
-    testPool.end();
-  });
-
-// Create the actual pool (will use fallback URL if connection failed)
-pool = new Pool({ 
-  connectionString: process.env.DATABASE_URL || YOUR_DATABASE_URL,
-  connectionTimeoutMillis: 10000,
-  ssl: process.env.DATABASE_URL ? undefined : false
-});
-
-export { pool };
 export const db = drizzle({ client: pool, schema });
 
-// Final connection test
-setTimeout(() => {
-  pool.connect()
-    .then(client => {
-      const isYourDB = pool.options.connectionString?.includes('193.95.31.4');
-      console.log(isYourDB ? 
-        '✅ CONFIRMED: Using YOUR database at 193.95.31.4:5432' : 
-        '⚠️  CONFIRMED: Using FALLBACK Replit database (not your specific database)'
-      );
+// Test connection and confirm database details
+pool.connect()
+  .then(async (client) => {
+    try {
+      const result = await client.query('SELECT version(), current_database(), inet_server_addr(), inet_server_port()');
+      const dbInfo = result.rows[0];
+      
+      console.log('✅ SUCCESS: Connected to YOUR database!');
+      console.log(`📊 Database: ${dbInfo.current_database} at ${dbInfo.inet_server_addr}:${dbInfo.inet_server_port}`);
+      console.log(`🔧 PostgreSQL: ${dbInfo.version.split(' ')[0]} ${dbInfo.version.split(' ')[1]}`);
+      console.log('🎯 All data operations are using YOUR specific database');
+      
       client.release();
-    })
-    .catch(err => {
-      console.error('❌ Database connection completely failed:', err.message);
-    });
-}, 1000);
+    } catch (err) {
+      console.error('Error getting database info:', err.message);
+      client.release();
+    }
+  })
+  .catch(err => {
+    console.error('❌ Connection to your database failed:', err.message);
+    console.error('🔧 Check your firewall settings and database configuration');
+  });
