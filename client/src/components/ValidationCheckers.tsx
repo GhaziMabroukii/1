@@ -10,6 +10,7 @@ interface ValidationCheckersProps {
   email: string;
   phone: string;
   password: string;
+  mode?: 'registration' | 'forgot-password'; // Add mode prop
   onValidationChange?: (validation: {
     email: boolean;
     phone: boolean;
@@ -44,6 +45,7 @@ export const ValidationCheckers = ({
   email, 
   phone, 
   password, 
+  mode = 'registration',
   onValidationChange 
 }: ValidationCheckersProps) => {
   const [emailStatus, setEmailStatus] = useState<'checking' | 'available' | 'taken' | 'invalid' | ''>('');
@@ -128,13 +130,23 @@ export const ValidationCheckers = ({
   // Notify parent of validation status
   useEffect(() => {
     if (onValidationChange) {
+      // For forgot-password mode, we want email to be 'taken' (exists)
+      // For registration mode, we want email to be 'available' (doesn't exist)
+      const emailValid = mode === 'forgot-password' 
+        ? emailStatus === 'taken' 
+        : emailStatus === 'available';
+      
+      const phoneValid = mode === 'forgot-password'
+        ? phoneStatus === 'taken'
+        : phoneStatus === 'available';
+      
       onValidationChange({
-        email: emailStatus === 'available',
-        phone: phoneStatus === 'available', 
+        email: emailValid,
+        phone: phoneValid, 
         password: allPasswordRequirementsMet && password.length > 0
       });
     }
-  }, [emailStatus, phoneStatus, allPasswordRequirementsMet, password, onValidationChange]);
+  }, [emailStatus, phoneStatus, allPasswordRequirementsMet, password, mode, onValidationChange]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -152,6 +164,25 @@ export const ValidationCheckers = ({
   };
 
   const getStatusMessage = (type: 'email' | 'phone', status: string) => {
+    if (mode === 'forgot-password') {
+      const forgotPasswordMessages = {
+        email: {
+          checking: 'Vérification...',
+          available: 'Email non trouvé',
+          taken: 'Email trouvé ✓',
+          invalid: 'Format email invalide'
+        },
+        phone: {
+          checking: 'Vérification...',
+          available: 'Numéro non trouvé',
+          taken: 'Numéro trouvé ✓',
+          invalid: 'Format de numéro invalide'
+        }
+      };
+      return forgotPasswordMessages[type][status as keyof typeof forgotPasswordMessages[typeof type]] || '';
+    }
+    
+    // Default registration mode messages
     const messages = {
       email: {
         checking: 'Vérification...',
@@ -174,8 +205,9 @@ export const ValidationCheckers = ({
       case 'checking':
         return 'text-blue-600';
       case 'available':
-        return 'text-green-600';
+        return mode === 'forgot-password' ? 'text-red-600' : 'text-green-600';
       case 'taken':
+        return mode === 'forgot-password' ? 'text-green-600' : 'text-red-600';
       case 'invalid':
         return 'text-red-600';
       default:

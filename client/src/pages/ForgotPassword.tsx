@@ -166,6 +166,7 @@ const ForgotPassword = () => {
               email={email}
               phone=""
               password=""
+              mode="forgot-password"
               onValidationChange={setValidationStatus}
             />
 
