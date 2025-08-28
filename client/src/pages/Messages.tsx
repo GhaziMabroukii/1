@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import UserAvatar from "@/components/UserAvatar";
+import ClickableUserProfile from "@/components/ClickableUserProfile";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -922,23 +923,36 @@ export default function Messages() {
                       >
                         <div className="flex items-start space-x-3">
                           <div className="relative">
-                            <Avatar className="h-14 w-14 ring-2 ring-white dark:ring-gray-700">
-                              <AvatarImage 
-                                src={conversation.participant?.profilePicture} 
-                                alt={conversation.participant?.name}
-                                className="object-cover"
-                              />
-                              <AvatarFallback className="bg-gradient-to-br from-blue-400 to-purple-500 text-white font-semibold">
-                                {conversation.participant?.name?.split(' ').map((n: string) => n[0]).join('')}
-                              </AvatarFallback>
-                            </Avatar>
+                            <ClickableUserProfile
+                              user={{
+                                id: conversation.participant?.id,
+                                profilePicture: conversation.participant?.profilePicture,
+                                firstName: conversation.participant?.firstName,
+                                lastName: conversation.participant?.lastName,
+                                username: conversation.participant?.username,
+                                email: conversation.participant?.email
+                              }}
+                              size="xl"
+                              className="h-14 w-14 ring-2 ring-white dark:ring-gray-700"
+                            />
                             <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-1">
-                              <p className="font-semibold text-base truncate text-gray-900 dark:text-gray-100">
-                                {conversation.participant?.name}
-                              </p>
+                              <ClickableUserProfile
+                                user={{
+                                  id: conversation.participant?.id,
+                                  profilePicture: conversation.participant?.profilePicture,
+                                  firstName: conversation.participant?.firstName,
+                                  lastName: conversation.participant?.lastName,
+                                  username: conversation.participant?.username,
+                                  email: conversation.participant?.email
+                                }}
+                                showName={true}
+                                size="sm"
+                                className="hidden"
+                                nameClassName="font-semibold text-base truncate text-gray-900 dark:text-gray-100"
+                              />
                               {conversation.lastMessage && (
                                 <span className="text-xs text-blue-500 font-medium">
                                   {formatMessageTime(conversation.lastMessage.createdAt)}
@@ -994,17 +1008,35 @@ export default function Messages() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                       <div className="relative">
-                        <UserAvatar 
-                          user={selectedConversation?.participant}
+                        <ClickableUserProfile
+                          user={{
+                            id: selectedConversation?.participant?.id,
+                            profilePicture: selectedConversation?.participant?.profilePicture,
+                            firstName: selectedConversation?.participant?.firstName,
+                            lastName: selectedConversation?.participant?.lastName,
+                            username: selectedConversation?.participant?.username,
+                            email: selectedConversation?.participant?.email
+                          }}
                           size="lg"
                           className="h-12 w-12 ring-2 ring-blue-200 dark:ring-blue-700"
                         />
                         <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
                       </div>
                       <div>
-                        <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
-                          {selectedConversation?.participant?.name || 'Utilisateur'}
-                        </h3>
+                        <ClickableUserProfile
+                          user={{
+                            id: selectedConversation?.participant?.id,
+                            profilePicture: selectedConversation?.participant?.profilePicture,
+                            firstName: selectedConversation?.participant?.firstName,
+                            lastName: selectedConversation?.participant?.lastName,
+                            username: selectedConversation?.participant?.username,
+                            email: selectedConversation?.participant?.email
+                          }}
+                          showName={true}
+                          size="sm"
+                          className="hidden"
+                          nameClassName="font-semibold text-lg text-gray-900 dark:text-gray-100"
+                        />
                         <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                           <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
                           <span>Actif maintenant</span>
@@ -1204,15 +1236,39 @@ export default function Messages() {
                                       }}
                                     >
                                       <div className="flex items-start space-x-3">
-                                        <UserAvatar 
-                                          user={msg.sender}
+                                        <ClickableUserProfile
+                                          user={{
+                                            id: msg.sender?.id,
+                                            profilePicture: msg.sender?.profilePicture,
+                                            firstName: msg.sender?.firstName,
+                                            lastName: msg.sender?.lastName,
+                                            username: msg.sender?.username,
+                                            email: msg.sender?.email
+                                          }}
                                           size="sm"
+                                          disabled={msg.senderId === currentUser.id}
                                         />
                                         <div className="flex-1 min-w-0">
                                           <div className="flex items-center space-x-2 mb-1">
-                                            <span className="text-xs font-medium text-gray-900 dark:text-gray-100">
-                                              {msg.senderId === currentUser.id ? 'Vous' : msg.sender?.firstName}
-                                            </span>
+                                            <ClickableUserProfile
+                                              user={{
+                                                id: msg.sender?.id,
+                                                profilePicture: msg.sender?.profilePicture,
+                                                firstName: msg.sender?.firstName,
+                                                lastName: msg.sender?.lastName,
+                                                username: msg.sender?.username,
+                                                email: msg.sender?.email
+                                              }}
+                                              showName={true}
+                                              size="sm"
+                                              className="hidden"
+                                              nameClassName="text-xs font-medium text-gray-900 dark:text-gray-100"
+                                              disabled={msg.senderId === currentUser.id}
+                                            >
+                                              <span className="text-xs font-medium text-gray-900 dark:text-gray-100">
+                                                {msg.senderId === currentUser.id ? 'Vous' : (msg.sender?.firstName || msg.sender?.username)}
+                                              </span>
+                                            </ClickableUserProfile>
                                             <span className="text-xs text-muted-foreground">
                                               {formatMessageTime(msg.createdAt)}
                                             </span>

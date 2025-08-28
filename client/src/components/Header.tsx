@@ -3,6 +3,7 @@ import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { MapPin, Menu, Bell, Heart, User, Search, LogOut, Home, Settings, FileText, AlertCircle, X } from "lucide-react";
 import UserAvatar from "./UserAvatar";
+import ClickableUserProfile from "./ClickableUserProfile";
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -299,6 +300,10 @@ const Header = () => {
                    <DropdownMenuItem onClick={() => navigate("/profile")} data-testid="profile-link">
                      <User className="mr-2 h-4 w-4" />
                      Mon profil
+                   </DropdownMenuItem>
+                   <DropdownMenuItem onClick={() => navigate(`/profile/${userId}`)} data-testid="public-profile-link">
+                     <User className="mr-2 h-4 w-4" />
+                     Mon Profil Public
                    </DropdownMenuItem>
 
                   <DropdownMenuSeparator />
