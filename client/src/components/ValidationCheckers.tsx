@@ -167,15 +167,15 @@ export const ValidationCheckers = ({
     if (mode === 'forgot-password') {
       const forgotPasswordMessages = {
         email: {
-          checking: 'Vérification...',
-          available: 'Email non trouvé',
-          taken: 'Email trouvé ✓',
+          checking: 'Recherche en cours...',
+          available: '❌ Compte non trouvé',
+          taken: '✅ Compte trouvé - un email sera envoyé',
           invalid: 'Format email invalide'
         },
         phone: {
-          checking: 'Vérification...',
-          available: 'Numéro non trouvé',
-          taken: 'Numéro trouvé ✓',
+          checking: 'Recherche en cours...',
+          available: '❌ Compte non trouvé',
+          taken: '✅ Compte trouvé - un email sera envoyé',
           invalid: 'Format de numéro invalide'
         }
       };

@@ -9,7 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import ValidationCheckers from "@/components/ValidationCheckers";
 
 const ForgotPassword = () => {
-  const [email, setEmail] = useState("");
+  const [searchValue, setSearchValue] = useState("");
+  const [searchType, setSearchType] = useState<'email' | 'username' | 'phone'>('email');
   const [isLoading, setIsLoading] = useState(false);
   const [isEmailSent, setIsEmailSent] = useState(false);
   const [validationStatus, setValidationStatus] = useState({
@@ -22,10 +23,21 @@ const ForgotPassword = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validationStatus.email) {
+    // Validate based on search type
+    const isValid = (searchType === 'email' && validationStatus.email) ||
+                   (searchType === 'phone' && validationStatus.phone) ||
+                   (searchType === 'username' && searchValue.length >= 3);
+    
+    if (!isValid) {
+      const errorMessage = searchType === 'email' 
+        ? "Veuillez entrer une adresse email valide."
+        : searchType === 'phone' 
+        ? "Veuillez entrer un numéro de téléphone valide."
+        : "Veuillez entrer un nom d'utilisateur valide (au moins 3 caractères).";
+        
       toast({
         title: "Erreur",
-        description: "Veuillez entrer une adresse email valide.",
+        description: errorMessage,
         variant: "destructive",
       });
       return;
@@ -39,7 +51,10 @@ const ForgotPassword = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ 
+          [searchType]: searchValue,
+          searchType 
+        }),
       });
 
       const data = await response.json();
@@ -92,9 +107,9 @@ const ForgotPassword = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">
-                  Un lien de réinitialisation a été envoyé à :
+                  Un lien de réinitialisation a été envoyé à l'email associé à :
                 </p>
-                <p className="font-semibold text-primary">{email}</p>
+                <p className="font-semibold text-primary">{searchValue}</p>
               </div>
               <div className="p-4 bg-blue-50 rounded-lg border">
                 <h4 className="font-semibold mb-2">Étapes suivantes :</h4>
@@ -113,7 +128,7 @@ const ForgotPassword = () => {
             <Button
               onClick={() => {
                 setIsEmailSent(false);
-                setEmail("");
+                setSearchValue("");
               }}
               variant="outline"
               className="w-full"
@@ -144,31 +159,60 @@ const ForgotPassword = () => {
           </div>
           <CardTitle className="text-2xl">Mot de passe oublié ?</CardTitle>
           <CardDescription>
-            Entrez votre email pour recevoir un lien de réinitialisation
+            Entrez votre email, nom d'utilisateur ou numéro de téléphone pour recevoir un lien de réinitialisation
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Adresse email</Label>
+              <Label htmlFor="searchValue">Rechercher votre compte</Label>
+              <select
+                value={searchType}
+                onChange={(e) => {
+                  setSearchType(e.target.value as 'email' | 'username' | 'phone');
+                  setSearchValue("");
+                }}
+                className="w-full p-2 border rounded-md mb-2"
+              >
+                <option value="email">Email</option>
+                <option value="username">Nom d'utilisateur</option>
+                <option value="phone">Numéro de téléphone</option>
+              </select>
               <Input
-                id="email"
-                type="email"
-                placeholder="votre@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="searchValue"
+                type={searchType === 'email' ? 'email' : searchType === 'phone' ? 'tel' : 'text'}
+                placeholder={
+                  searchType === 'email' ? 'votre@email.com' :
+                  searchType === 'phone' ? '+216 12 345 678' :
+                  'votre_nom_utilisateur'
+                }
+                value={searchValue}
+                onChange={(e) => setSearchValue(e.target.value)}
                 required
-                className={email ? (validationStatus.email ? 'border-green-500' : 'border-red-500') : ''}
+                className={searchValue ? (
+                  (searchType === 'email' && validationStatus.email) ||
+                  (searchType === 'phone' && validationStatus.phone) ||
+                  (searchType === 'username' && searchValue.length >= 3)
+                  ? 'border-green-500' : 'border-red-500') : ''}
               />
             </div>
 
             <ValidationCheckers
-              email={email}
-              phone=""
+              email={searchType === 'email' ? searchValue : ''}
+              phone={searchType === 'phone' ? searchValue : ''}
               password=""
               mode="forgot-password"
               onValidationChange={setValidationStatus}
             />
+            
+            {searchType === 'username' && searchValue && (
+              <div className={`flex items-center space-x-2 text-sm ${
+                searchValue.length >= 3 ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {searchValue.length >= 3 ? '✅' : '❌'}
+                <span>{searchValue.length >= 3 ? 'Nom d\'utilisateur valide' : 'Au moins 3 caractères requis'}</span>
+              </div>
+            )}
 
             <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
               <div className="flex items-start space-x-2">
@@ -188,9 +232,13 @@ const ForgotPassword = () => {
             <Button 
               type="submit" 
               className="w-full" 
-              disabled={isLoading || !validationStatus.email}
+              disabled={isLoading || !(
+                (searchType === 'email' && validationStatus.email) ||
+                (searchType === 'phone' && validationStatus.phone) ||
+                (searchType === 'username' && searchValue.length >= 3)
+              )}
             >
-              {isLoading ? "Envoi en cours..." : "Envoyer le lien de réinitialisation"}
+              {isLoading ? "Recherche en cours..." : "Envoyer le lien de réinitialisation"}
             </Button>
             <div className="text-center space-y-2">
               <Link to="/login" className="text-sm text-primary hover:underline flex items-center justify-center">

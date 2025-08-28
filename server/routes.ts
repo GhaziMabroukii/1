@@ -182,7 +182,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   ];
   
   const forgotPasswordValidation = [
-    body('email').isEmail().normalizeEmail().isLength({ max: 255 }).withMessage('Valid email required')
+    body('email').optional().isEmail().normalizeEmail().isLength({ max: 255 }).withMessage('Valid email required'),
+    body('username').optional().isLength({ min: 3, max: 255 }).withMessage('Username must be at least 3 characters'),
+    body('phone').optional().isMobilePhone('any').withMessage('Valid phone number required'),
+    body('searchType').isIn(['email', 'username', 'phone']).withMessage('Search type must be email, username, or phone')
   ];
 
   const resetPasswordValidation = [
@@ -2346,6 +2349,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Check if username is available  
+  app.get('/api/auth/check-username', async (req: any, res: any) => {
+    try {
+      const username = req.query.username as string;
+      if (!username) {
+        return res.status(400).json({ error: "Username is required" });
+      }
+      
+      const existingUser = await storage.getUserByUsername(username);
+      res.json({ available: !existingUser });
+    } catch (error) {
+      console.error("Username check error:", error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
   // Authentication routes with proper user type handling
   app.post("/api/auth/login", loginValidation, validateAndSanitize, async (req, res) => {
     try {
@@ -2462,28 +2481,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Forgot password - send reset email
   app.post('/api/auth/forgot-password', forgotPasswordValidation, validateAndSanitize, async (req, res) => {
     try {
-      const { email } = req.body;
+      const { email, username, phone, searchType } = req.body;
       
-      const user = await storage.getUserByEmail(email);
+      let user = null;
+      let searchValue = '';
+      
+      // Find user based on search type
+      switch (searchType) {
+        case 'email':
+          if (!email) {
+            return res.status(400).json({ error: "Email is required for email search" });
+          }
+          user = await storage.getUserByEmail(email);
+          searchValue = email;
+          break;
+        case 'username':
+          if (!username) {
+            return res.status(400).json({ error: "Username is required for username search" });
+          }
+          user = await storage.getUserByUsername(username);
+          searchValue = username;
+          break;
+        case 'phone':
+          if (!phone) {
+            return res.status(400).json({ error: "Phone is required for phone search" });
+          }
+          user = await storage.getUserByPhone(phone);
+          searchValue = phone;
+          break;
+        default:
+          return res.status(400).json({ error: "Invalid search type" });
+      }
+      
       if (!user) {
-        // Don't reveal if email exists for security
-        return res.json({ message: "Si cet email existe, un lien de réinitialisation a été envoyé." });
+        // Don't reveal if account exists for security
+        return res.json({ message: "Si ce compte existe, un lien de réinitialisation a été envoyé à l'email associé." });
       }
       
       // Generate reset token (valid for 1 hour)
       const resetToken = `reset_${user.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const resetExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
       
-      // Store reset token (you might want to add this to user table or create a separate table)
+      // Store reset token
       await storage.updateUser(user.id, {
         resetToken,
         resetTokenExpiry: resetExpiry
       } as any);
       
-      // Send reset email
+      // Send reset email to the user's email address
       try {
-        await emailService.sendPasswordResetEmail(email, resetToken, user.firstName);
-        res.json({ message: "Un email de réinitialisation a été envoyé à votre adresse." });
+        const userEmail = user.email || '';
+        if (!userEmail) {
+          return res.status(400).json({ error: "Aucun email associé à ce compte" });
+        }
+        
+        await emailService.sendPasswordResetEmail(userEmail, resetToken, user.firstName);
+        res.json({ message: "Un email de réinitialisation a été envoyé à l'adresse associée à ce compte." });
       } catch (emailError) {
         console.error('Failed to send reset email:', emailError);
         res.status(500).json({ error: "Impossible d'envoyer l'email de réinitialisation." });
