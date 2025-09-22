@@ -2701,10 +2701,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Send verification email
       const emailSent = await emailService.sendVerificationEmail(email, verificationCode, firstName, userType);
       
-      if (!emailSent) {
-        console.warn(`Failed to send verification email to ${email}, but user was created`);
-      }
-      
       const responseUser = {
         id: newUser.id,
         username: newUser.username,
@@ -2716,12 +2712,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         emailVerified: newUser.emailVerified,
       };
       
-      res.status(201).json({ 
-        user: responseUser,
-        userType: newUser.userType,
-        requiresEmailVerification: true,
-        message: `Compte créé avec succès en tant que ${newUser.userType === 'owner' ? 'propriétaire' : 'locataire'}. Vérifiez votre email pour activer votre compte.` 
-      });
+      if (!emailSent) {
+        console.warn(`Failed to send verification email to ${email}, but user was created`);
+        // If email wasn't sent, include the verification code in the response for development
+        res.status(201).json({ 
+          user: responseUser,
+          userType: newUser.userType,
+          requiresEmailVerification: true,
+          verificationCode: verificationCode, // Include code when email fails
+          message: `Compte créé avec succès en tant que ${newUser.userType === 'owner' ? 'propriétaire' : 'locataire'}. Service d'email non configuré - utilisez le code: ${verificationCode}` 
+        });
+      } else {
+        res.status(201).json({ 
+          user: responseUser,
+          userType: newUser.userType,
+          requiresEmailVerification: true,
+          message: `Compte créé avec succès en tant que ${newUser.userType === 'owner' ? 'propriétaire' : 'locataire'}. Vérifiez votre email pour activer votre compte.` 
+        });
+      }
     } catch (error) {
       console.error("Registration error:", error);
       res.status(500).json({ error: "Registration failed" });

@@ -119,6 +119,16 @@ const Signup = () => {
           description: data.message || "Votre compte a été créé avec succès.",
         });
 
+        // If verification code is provided in response (when email service is not configured)
+        if (data.verificationCode) {
+          toast({
+            title: "Code de vérification",
+            description: `Votre code de vérification est: ${data.verificationCode}`,
+            variant: "default",
+            duration: 10000, // Show for 10 seconds
+          });
+        }
+
         // If email verification is required, redirect to verification page
         if (data.requiresEmailVerification) {
           navigate(`/verify-email?email=${encodeURIComponent(formData.email)}`);
