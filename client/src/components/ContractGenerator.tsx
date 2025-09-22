@@ -252,8 +252,31 @@ export default function ContractGenerator({
               <p className="font-semibold mb-2">IL A ÉTÉ CONVENU CE QUI SUIT :</p>
               <div className="ml-4 space-y-2">
                 <p>Le bailleur loue à M. {contractData.contractData?.tenantName || contractData.tenantName || "Locataire"}</p>
-                <p><strong>Propriété:</strong> {contractData.contractData?.propertyTitle || contractData.propertyTitle || "Propriété"}</p>
-                <p><strong>Adresse:</strong> {contractData.contractData?.propertyAddress || contractData.propertyAddress || "Adresse non spécifiée"}</p>
+                <p><strong>Propriété:</strong> {contractData.contractData?.propertySnapshot?.title || contractData.contractData?.propertyTitle || contractData.propertyTitle || "Propriété"}</p>
+                <p><strong>Adresse:</strong> {contractData.contractData?.propertySnapshot?.address || contractData.contractData?.propertyAddress || contractData.propertyAddress || "Adresse non spécifiée"}</p>
+                {contractData.contractData?.propertySnapshot && (
+                  <div className="ml-4 mt-2 space-y-1 text-xs text-muted-foreground bg-blue-50 p-2 rounded">
+                    <p><strong>Spécifications de la propriété au moment du contrat:</strong></p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <p>Type: {contractData.contractData.propertySnapshot.type || "Non spécifié"}</p>
+                      <p>Surface: {contractData.contractData.propertySnapshot.surface ? `${contractData.contractData.propertySnapshot.surface}m²` : "Non spécifiée"}</p>
+                      <p>Chambres: {contractData.contractData.propertySnapshot.rooms || "Non spécifié"}</p>
+                      <p>Salles de bain: {contractData.contractData.propertySnapshot.bathrooms || "Non spécifié"}</p>
+                      <p>Ville: {contractData.contractData.propertySnapshot.city || "Non spécifiée"}</p>
+                      <p>Meublé: {contractData.contractData.propertySnapshot.furnished ? "Oui" : "Non"}</p>
+                    </div>
+                    {contractData.contractData.propertySnapshot.amenities && contractData.contractData.propertySnapshot.amenities.length > 0 && (
+                      <p><strong>Équipements:</strong> {contractData.contractData.propertySnapshot.amenities.join(", ")}</p>
+                    )}
+                    {contractData.contractData.propertySnapshot.utilities && (
+                      <p><strong>Services inclus:</strong> {contractData.contractData.propertySnapshot.utilities}</p>
+                    )}
+                    {contractData.contractData.propertySnapshot.description && (
+                      <p><strong>Description:</strong> {contractData.contractData.propertySnapshot.description}</p>
+                    )}
+                    <p className="text-xs italic mt-2">Snapshot pris le: {new Date(contractData.contractData.propertySnapshot.snapshotTakenAt || "").toLocaleDateString('fr-FR')}</p>
+                  </div>
+                )}
               </div>
             </div>
 

@@ -799,10 +799,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("Warning: Could not check for existing contracts:", storageError);
       }
 
-      // Note: The storage.getActiveContractForProperty check above covers most cases
-      // Additional checks would need storage interface methods to be implemented
+      // Fetch complete property data to create a snapshot
+      const property = await storage.getProperty(validatedData.propertyId);
+      if (!property) {
+        return res.status(400).json({ error: "Property not found" });
+      }
+
+      // Create property snapshot with all specifications
+      const propertySnapshot = {
+        id: property.id,
+        title: property.title,
+        description: property.description,
+        type: property.type,
+        address: property.address,
+        city: property.city,
+        surface: property.surface,
+        rooms: property.rooms,
+        bathrooms: property.bathrooms,
+        price: property.price,
+        priceType: property.priceType,
+        deposit: property.deposit,
+        fees: property.fees,
+        latitude: property.latitude,
+        longitude: property.longitude,
+        amenities: property.amenities,
+        utilities: property.utilities,
+        utilitiesIncluded: property.utilitiesIncluded,
+        furnished: property.furnished,
+        furniture: property.furniture,
+        categories: property.categories,
+        geographicHighlight: property.geographicHighlight,
+        availability: property.availability,
+        snapshotTakenAt: new Date().toISOString()
+      };
+
+      // Add property snapshot to contract data
+      const contractDataWithSnapshot = {
+        ...validatedData,
+        contractData: {
+          ...validatedData.contractData,
+          propertySnapshot
+        }
+      };
       
-      const contract = await storage.createContract(validatedData);
+      const contract = await storage.createContract(contractDataWithSnapshot);
       
       // Create notification for tenant
       const tenantNotification = await storage.createNotification({
