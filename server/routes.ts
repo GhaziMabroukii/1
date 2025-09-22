@@ -2664,7 +2664,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                        emailLower.includes('enis');
       
       // If not clearly a student email, check for owner patterns
-      if (!isStudent) {
+      if (!isTenant) {
         const isOwner = emailLower.includes('proprietaire') ||
                        emailLower.includes('owner') ||
                        emailLower.includes('agence') ||
