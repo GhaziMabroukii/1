@@ -999,7 +999,7 @@ export class MemStorage implements IStorage {
         // Add missing required fields
         isVerified: false,
         verificationScore: 0,
-        emailVerified: false,
+        emailVerified: true,
         emailVerificationCode: null,
         phoneVerified: false,
         phoneVerificationCode: null,
@@ -1035,7 +1035,7 @@ export class MemStorage implements IStorage {
         // Add missing required fields
         isVerified: false,
         verificationScore: 0,
-        emailVerified: false,
+        emailVerified: true,
         emailVerificationCode: null,
         phoneVerified: false,
         phoneVerificationCode: null,
