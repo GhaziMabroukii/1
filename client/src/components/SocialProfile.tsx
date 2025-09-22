@@ -88,7 +88,7 @@ export const SocialProfile: React.FC<SocialProfileProps> = ({
 
   // Fetch user profile data
   const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: [`/api/social/profile/${userId}`],
+    queryKey: [`/api/users/${userId}`],
     enabled: !!userId,
   });
 
@@ -132,6 +132,19 @@ export const SocialProfile: React.FC<SocialProfileProps> = ({
           <div className="h-24 bg-gray-200 rounded-lg"></div>
           <div className="h-32 bg-gray-200 rounded-lg"></div>
         </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <Card className="glass-card">
+          <CardContent className="p-6 text-center">
+            <h2 className="text-xl font-semibold mb-2">Profil introuvable</h2>
+            <p className="text-muted-foreground">Ce profil utilisateur n'existe pas ou n'est pas accessible.</p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
