@@ -1,7 +1,8 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { Router, Route, Switch } from "wouter";
 import { useGlobalWebSocket } from "./hooks/useWebSocket";
 import { useOnboarding } from "./hooks/useOnboarding";
@@ -44,7 +45,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import SocialProfilePage from "./pages/SocialProfilePage";
 
-const queryClient = new QueryClient();
+// queryClient is imported from @/lib/queryClient with proper defaultOptions
 
 const App = () => {
   // Initialize global WebSocket connection for real-time updates
