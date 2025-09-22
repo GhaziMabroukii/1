@@ -245,7 +245,7 @@ export const SocialProfile: React.FC<SocialProfileProps> = ({
     );
   }
 
-  const user: UserProfileData = profile;
+  const user: UserProfileData = profile as UserProfileData;
   const userPosts: UserPost[] = Array.isArray(posts) ? posts : [];
   const userBadges: UserBadge[] = Array.isArray(badges) ? badges : [];
   const isFollowing = (followStatus as any)?.isFollowing || false;
