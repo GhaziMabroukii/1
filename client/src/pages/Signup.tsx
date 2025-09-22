@@ -195,20 +195,13 @@ const Signup = () => {
               <RadioGroup
                 value={formData.userType}
                 onValueChange={(value) => setFormData({ ...formData, userType: value })}
-                className="grid grid-cols-3 gap-4"
+                className="grid grid-cols-2 gap-4"
               >
                 <div className="flex items-center space-x-2 glass-card p-4 rounded-lg">
                   <RadioGroupItem value="tenant" id="tenant" />
                   <Label htmlFor="tenant" className="flex items-center space-x-2 cursor-pointer">
                     <Users className="h-4 w-4" />
                     <span>Locataire</span>
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2 glass-card p-4 rounded-lg">
-                  <RadioGroupItem value="student" id="student" />
-                  <Label htmlFor="student" className="flex items-center space-x-2 cursor-pointer">
-                    <GraduationCap className="h-4 w-4" />
-                    <span>Étudiant</span>
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2 glass-card p-4 rounded-lg">

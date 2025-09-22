@@ -217,8 +217,6 @@ class EmailService {
         return 'Locataire';
       case 'owner':
         return 'Propriétaire';
-      case 'student':
-        return 'Étudiant';
       default:
         return 'Utilisateur';
     }

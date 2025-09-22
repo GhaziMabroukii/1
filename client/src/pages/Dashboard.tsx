@@ -414,16 +414,11 @@ const Dashboard = () => {
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold gradient-text">
-              Dashboard {userType === "student" ? "Étudiant" : "Locataire"}
+              Dashboard Locataire
             </h1>
             <p className="text-sm sm:text-base text-muted-foreground">
               Bienvenue, {userProfile?.firstName} {userProfile?.lastName}
             </p>
-            {userType === "student" && userProfile?.studentInfo?.university && (
-              <p className="text-sm text-primary mt-1">
-                📚 {userProfile.studentInfo.university}
-              </p>
-            )}
           </div>
           <Button onClick={() => navigate("/search")} className="flex items-center justify-center space-x-2 text-sm sm:text-base w-full sm:w-auto">
             <MapPin className="h-4 w-4" />
