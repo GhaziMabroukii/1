@@ -2358,8 +2358,36 @@ export class MemStorage implements IStorage {
   
   // User Posts - placeholder implementations for memory storage
   async getUserPosts(userId: number, limit: number = 20): Promise<UserPost[]> {
-    // In memory storage - would be implemented differently in database
-    return [];
+    // Generate posts based on user's properties and activities
+    const user = await this.getUser(userId);
+    const userProperties = this.properties.filter(p => p.ownerId === userId);
+    
+    const posts: UserPost[] = [];
+    
+    // Create posts from user's properties
+    userProperties.slice(0, limit).forEach((property, index) => {
+      posts.push({
+        id: property.id + 1000,
+        userId: userId,
+        type: 'property_listing',
+        title: `Nouvelle propriété : ${property.title}`,
+        content: property.description || "Belle propriété disponible",
+        media: property.images ? [property.images[0]] : [],
+        likes: Math.floor(Math.random() * 10) + 1,
+        comments: Math.floor(Math.random() * 5),
+        shares: Math.floor(Math.random() * 3),
+        isActive: true,
+        createdAt: new Date(Date.now() - (index * 24 * 60 * 60 * 1000)), // Spread over days
+        updatedAt: new Date(),
+        relatedProperty: {
+          id: property.id,
+          title: property.title,
+          image: property.images?.[0]
+        }
+      });
+    });
+    
+    return posts.slice(0, limit);
   }
 
   async createUserPost(post: InsertUserPost): Promise<UserPost> {
@@ -2403,7 +2431,44 @@ export class MemStorage implements IStorage {
   }
 
   async getUserActivities(userId: number, limit: number = 50): Promise<UserActivity[]> {
-    return [];
+    const activities: UserActivity[] = [];
+    const user = await this.getUser(userId);
+    
+    if (!user) return [];
+    
+    // Add property-related activities
+    const userProperties = this.properties.filter(p => p.ownerId === userId);
+    userProperties.forEach((property, index) => {
+      activities.push({
+        id: property.id + 2000,
+        userId: userId,
+        activityType: 'property_created',
+        description: `A publié une nouvelle propriété : ${property.title}`,
+        targetType: 'property',
+        targetId: property.id,
+        metadata: { propertyTitle: property.title },
+        createdAt: new Date(Date.now() - (index * 12 * 60 * 60 * 1000))
+      });
+    });
+    
+    // Add offer-related activities  
+    const userOffers = this.offers.filter(o => o.tenantId === userId || 
+      userProperties.some(p => p.id === o.propertyId));
+    userOffers.forEach((offer, index) => {
+      const property = this.properties.find(p => p.id === offer.propertyId);
+      activities.push({
+        id: offer.id + 3000,
+        userId: userId,
+        activityType: offer.tenantId === userId ? 'offer_sent' : 'offer_received',
+        description: `${offer.tenantId === userId ? 'A fait une offre pour' : 'A reçu une offre pour'} : ${property?.title}`,
+        targetType: 'offer',
+        targetId: offer.id,
+        metadata: { propertyTitle: property?.title },
+        createdAt: offer.createdAt || new Date(Date.now() - (index * 6 * 60 * 60 * 1000))
+      });
+    });
+    
+    return activities.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, limit);
   }
 
   // Profile Views
@@ -2426,7 +2491,100 @@ export class MemStorage implements IStorage {
 
   // User Badges
   async getUserBadges(userId: number): Promise<UserBadge[]> {
-    return [];
+    const badges: UserBadge[] = [];
+    const user = await this.getUser(userId);
+    
+    if (!user) return [];
+    
+    const userProperties = this.properties.filter(p => p.ownerId === userId);
+    const userOffers = this.offers.filter(o => o.tenantId === userId);
+    const userContracts = this.contracts.filter(c => c.tenantId === userId || c.ownerId === userId);
+    
+    // Verification badge
+    if (user.emailVerified) {
+      badges.push({
+        id: userId + 1000,
+        userId: userId,
+        badgeId: 'verified_user',
+        badgeName: 'Utilisateur Vérifié',
+        badgeDescription: 'Email vérifié avec succès',
+        badgeIcon: 'shield-check',
+        badgeColor: 'blue',
+        rarity: 'common',
+        category: 'verification',
+        points: 10,
+        earnedAt: user.createdAt || new Date()
+      });
+    }
+    
+    // Property owner badges
+    if (userProperties.length > 0) {
+      badges.push({
+        id: userId + 2000,
+        userId: userId,
+        badgeId: 'property_owner',
+        badgeName: 'Propriétaire',
+        badgeDescription: 'A publié au moins une propriété',
+        badgeIcon: 'home',
+        badgeColor: 'green',
+        rarity: 'common',
+        category: 'achievement',
+        points: 25,
+        earnedAt: new Date()
+      });
+      
+      if (userProperties.length >= 3) {
+        badges.push({
+          id: userId + 2001,
+          userId: userId,
+          badgeId: 'multiple_properties',
+          badgeName: 'Multi-Propriétaire',
+          badgeDescription: 'A publié 3 propriétés ou plus',
+          badgeIcon: 'building-2',
+          badgeColor: 'purple',
+          rarity: 'rare',
+          category: 'achievement',
+          points: 50,
+          earnedAt: new Date()
+        });
+      }
+    }
+    
+    // Active user badges
+    if (userOffers.length > 0) {
+      badges.push({
+        id: userId + 3000,
+        userId: userId,
+        badgeId: 'active_searcher',
+        badgeName: 'Chercheur Actif',
+        badgeDescription: 'A fait au moins une offre',
+        badgeIcon: 'search',
+        badgeColor: 'orange',
+        rarity: 'common',
+        category: 'activity',
+        points: 15,
+        earnedAt: new Date()
+      });
+    }
+    
+    // Contract badges
+    if (userContracts.length > 0) {
+      badges.push({
+        id: userId + 4000,
+        userId: userId,
+        badgeId: 'contract_signed',
+        badgeName: 'Premier Contrat',
+        badgeDescription: 'A signé son premier contrat',
+        badgeIcon: 'file-text',
+        badgeColor: 'gold',
+        rarity: 'epic',
+        category: 'achievement',
+        points: 100,
+        earnedAt: new Date()
+      });
+    }
+    
+    return badges;
   }
 
   async awardBadge(userId: number, badge: InsertUserBadge): Promise<UserBadge> {

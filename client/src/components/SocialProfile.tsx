@@ -89,24 +89,52 @@ export const SocialProfile: React.FC<SocialProfileProps> = ({
   // Fetch user profile data
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: [`/api/users/${userId}`],
+    queryFn: async () => {
+      const response = await fetch(`/api/users/${userId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch user profile');
+      }
+      return response.json();
+    },
     enabled: !!userId,
   });
 
   // Fetch user posts
   const { data: posts, isLoading: postsLoading } = useQuery({
     queryKey: [`/api/social/posts/${userId}`],
+    queryFn: async () => {
+      const response = await fetch(`/api/social/posts/${userId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch user posts');
+      }
+      return response.json();
+    },
     enabled: !!userId,
   });
 
   // Fetch user badges
   const { data: badges, isLoading: badgesLoading } = useQuery({
     queryKey: [`/api/social/badges/${userId}`],
+    queryFn: async () => {
+      const response = await fetch(`/api/social/badges/${userId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch user badges');
+      }
+      return response.json();
+    },
     enabled: !!userId,
   });
 
   // Fetch user activities
   const { data: activities, isLoading: activitiesLoading } = useQuery({
     queryKey: [`/api/social/activities/${userId}`],
+    queryFn: async () => {
+      const response = await fetch(`/api/social/activities/${userId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch user activities');
+      }
+      return response.json();
+    },
     enabled: !!userId,
   });
 
