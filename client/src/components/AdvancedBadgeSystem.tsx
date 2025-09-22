@@ -41,6 +41,8 @@ interface AdvancedBadgeSystemProps {
     lastActiveAt: string;
   };
   userBadges?: BadgeData[];
+  followerCount?: number;
+  followingCount?: number;
   className?: string;
   showAll?: boolean;
   limit?: number;
@@ -49,6 +51,8 @@ interface AdvancedBadgeSystemProps {
 export const AdvancedBadgeSystem: React.FC<AdvancedBadgeSystemProps> = ({
   user,
   userBadges = [],
+  followerCount = 0,
+  followingCount = 0,
   className = "",
   showAll = false,
   limit = 5
@@ -233,6 +237,145 @@ export const AdvancedBadgeSystem: React.FC<AdvancedBadgeSystemProps> = ({
         category: 'achievement',
         points: 500
       });
+    }
+    
+    // Follower-Based Badges (Social Influence)
+    if (user.userType === 'owner') {
+      // Influencer badges for owners based on follower count
+      if (followerCount >= 1000) {
+        earnedBadges.push({
+          id: 'mega_influencer',
+          name: 'Méga Influenceur',
+          description: 'Plus de 1000 suiveurs',
+          icon: '🌟',
+          color: '#7C3AED',
+          rarity: 'legendary',
+          category: 'social',
+          points: 500
+        });
+      } else if (followerCount >= 500) {
+        earnedBadges.push({
+          id: 'major_influencer',
+          name: 'Grand Influenceur',
+          description: 'Plus de 500 suiveurs',
+          icon: '✨',
+          color: '#EC4899',
+          rarity: 'epic',
+          category: 'social',
+          points: 300
+        });
+      } else if (followerCount >= 100) {
+        earnedBadges.push({
+          id: 'influencer',
+          name: 'Influenceur',
+          description: 'Plus de 100 suiveurs',
+          icon: '🎭',
+          color: '#8B5CF6',
+          rarity: 'rare',
+          category: 'social',
+          points: 150
+        });
+      } else if (followerCount >= 50) {
+        earnedBadges.push({
+          id: 'rising_star',
+          name: 'Étoile Montante',
+          description: 'Plus de 50 suiveurs',
+          icon: '⭐',
+          color: '#3B82F6',
+          rarity: 'rare',
+          category: 'social',
+          points: 100
+        });
+      } else if (followerCount >= 10) {
+        earnedBadges.push({
+          id: 'community_builder',
+          name: 'Bâtisseur de Communauté',
+          description: 'Plus de 10 suiveurs',
+          icon: '👥',
+          color: '#10B981',
+          rarity: 'common',
+          category: 'social',
+          points: 50
+        });
+      }
+      
+      // First follower badge
+      if (followerCount >= 1) {
+        earnedBadges.push({
+          id: 'first_follower',
+          name: 'Premier Suiveur',
+          description: 'Votre premier suiveur!',
+          icon: '🎉',
+          color: '#F59E0B',
+          rarity: 'common',
+          category: 'social',
+          points: 25
+        });
+      }
+    }
+    
+    // Social engagement badges based on following behavior
+    if (followingCount >= 50) {
+      earnedBadges.push({
+        id: 'network_explorer',
+        name: 'Explorateur de Réseau',
+        description: 'Suit plus de 50 propriétaires',
+        icon: '🕵️',
+        color: '#6366F1',
+        rarity: 'rare',
+        category: 'social',
+        points: 75
+      });
+    } else if (followingCount >= 20) {
+      earnedBadges.push({
+        id: 'social_connector',
+        name: 'Connecteur Social',
+        description: 'Suit plus de 20 propriétaires',
+        icon: '🤝',
+        color: '#06B6D4',
+        rarity: 'common',
+        category: 'social',
+        points: 40
+      });
+    } else if (followingCount >= 5) {
+      earnedBadges.push({
+        id: 'network_starter',
+        name: 'Début de Réseau',
+        description: 'Suit plus de 5 propriétaires',
+        icon: '🌱',
+        color: '#10B981',
+        rarity: 'common',
+        category: 'social',
+        points: 20
+      });
+    }
+    
+    // Balanced social user (good follower to following ratio for owners)
+    if (user.userType === 'owner' && followerCount >= 10 && followingCount >= 5) {
+      const ratio = followerCount / followingCount;
+      if (ratio >= 5) {
+        earnedBadges.push({
+          id: 'social_magnet',
+          name: 'Aimant Social',
+          description: 'Ratio suiveurs/suivis excellent (5:1+)',
+          icon: '🧲',
+          color: '#DC2626',
+          rarity: 'epic',
+          category: 'social',
+          points: 200
+        });
+      } else if (ratio >= 2) {
+        earnedBadges.push({
+          id: 'well_connected',
+          name: 'Bien Connecté',
+          description: 'Bon équilibre suiveurs/suivis',
+          icon: '🔗',
+          color: '#059669',
+          rarity: 'rare',
+          category: 'social',
+          points: 100
+        });
+      }
     }
     
     return earnedBadges;

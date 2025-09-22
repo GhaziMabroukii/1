@@ -4239,6 +4239,213 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Follow System API Endpoints
+  
+  // Follow a user
+  app.post("/api/social/follow", requireAuth, async (req, res) => {
+    try {
+      const { followingId } = req.body;
+      const followerId = req.user.id;
+      
+      // Validate input
+      if (!followingId || isNaN(followingId)) {
+        return res.status(400).json({ error: "Valid followingId is required" });
+      }
+      
+      // Check if trying to follow themselves
+      if (followerId === followingId) {
+        return res.status(400).json({ error: "Cannot follow yourself" });
+      }
+      
+      // Check if user being followed exists
+      const userToFollow = await storage.getUser(followingId);
+      if (!userToFollow) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Business logic: Only allow following owners
+      if (userToFollow.userType !== 'owner') {
+        return res.status(400).json({ error: "You can only follow property owners" });
+      }
+      
+      // Check if already following
+      const isAlreadyFollowing = await storage.isFollowing(followerId, followingId);
+      if (isAlreadyFollowing) {
+        return res.status(400).json({ error: "Already following this user" });
+      }
+      
+      // Create follow relationship
+      const follow = await storage.followUser(followerId, followingId);
+      
+      // Get updated follower count for real-time updates
+      const followerCount = await storage.getFollowerCount(followingId);
+      
+      // Create notification for the followed user
+      const notification = await storage.createNotification({
+        userId: followingId,
+        title: "Nouveau suiveur",
+        message: `${req.user.firstName} ${req.user.lastName} vous suit maintenant`,
+        type: "follow",
+        relatedId: followerId,
+      });
+      
+      // Real-time updates
+      broadcastToUser(followingId, 'new_follower', { 
+        follower: req.user, 
+        followerCount 
+      });
+      broadcastToUser(followingId, 'new_notification', notification);
+      broadcastToUser(followerId, 'follow_success', { 
+        followingId, 
+        followerCount 
+      });
+      
+      // Update user badge/reputation system
+      await storage.checkAndAwardBadges(followingId);
+      
+      res.status(201).json({ 
+        success: true, 
+        follow,
+        followerCount
+      });
+    } catch (error) {
+      console.error("Error following user:", error);
+      res.status(500).json({ error: "Failed to follow user" });
+    }
+  });
+  
+  // Unfollow a user
+  app.delete("/api/social/follow/:followingId", requireAuth, async (req, res) => {
+    try {
+      const followingId = parseInt(req.params.followingId);
+      const followerId = req.user.id;
+      
+      // Validate input
+      if (isNaN(followingId)) {
+        return res.status(400).json({ error: "Valid followingId is required" });
+      }
+      
+      // Check if actually following
+      const isFollowing = await storage.isFollowing(followerId, followingId);
+      if (!isFollowing) {
+        return res.status(400).json({ error: "Not following this user" });
+      }
+      
+      // Remove follow relationship
+      const success = await storage.unfollowUser(followerId, followingId);
+      
+      if (!success) {
+        return res.status(500).json({ error: "Failed to unfollow user" });
+      }
+      
+      // Get updated follower count
+      const followerCount = await storage.getFollowerCount(followingId);
+      
+      // Real-time updates
+      broadcastToUser(followingId, 'follower_removed', { 
+        followerId, 
+        followerCount 
+      });
+      broadcastToUser(followerId, 'unfollow_success', { 
+        followingId, 
+        followerCount 
+      });
+      
+      res.json({ 
+        success: true, 
+        followerCount 
+      });
+    } catch (error) {
+      console.error("Error unfollowing user:", error);
+      res.status(500).json({ error: "Failed to unfollow user" });
+    }
+  });
+  
+  // Check if following a user
+  app.get("/api/social/follow/:followingId/check", requireAuth, async (req, res) => {
+    try {
+      const followingId = parseInt(req.params.followingId);
+      const followerId = req.user.id;
+      
+      if (isNaN(followingId)) {
+        return res.status(400).json({ error: "Valid followingId is required" });
+      }
+      
+      const isFollowing = await storage.isFollowing(followerId, followingId);
+      
+      res.json({ isFollowing });
+    } catch (error) {
+      console.error("Error checking follow status:", error);
+      res.status(500).json({ error: "Failed to check follow status" });
+    }
+  });
+  
+  // Get user's followers
+  app.get("/api/social/followers/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Valid userId is required" });
+      }
+      
+      const followers = await storage.getFollowers(userId);
+      const followerCount = await storage.getFollowerCount(userId);
+      
+      res.json({ 
+        followers, 
+        count: followerCount 
+      });
+    } catch (error) {
+      console.error("Error fetching followers:", error);
+      res.status(500).json({ error: "Failed to fetch followers" });
+    }
+  });
+  
+  // Get users that a user is following
+  app.get("/api/social/following/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Valid userId is required" });
+      }
+      
+      const following = await storage.getFollowing(userId);
+      const followingCount = await storage.getFollowingCount(userId);
+      
+      res.json({ 
+        following, 
+        count: followingCount 
+      });
+    } catch (error) {
+      console.error("Error fetching following:", error);
+      res.status(500).json({ error: "Failed to fetch following" });
+    }
+  });
+  
+  // Get follower/following counts
+  app.get("/api/social/follow-stats/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Valid userId is required" });
+      }
+      
+      const followerCount = await storage.getFollowerCount(userId);
+      const followingCount = await storage.getFollowingCount(userId);
+      
+      res.json({ 
+        followerCount, 
+        followingCount 
+      });
+    } catch (error) {
+      console.error("Error fetching follow stats:", error);
+      res.status(500).json({ error: "Failed to fetch follow stats" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // WebSocket server setup with authentication and real-time events

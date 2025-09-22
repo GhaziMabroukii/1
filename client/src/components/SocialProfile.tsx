@@ -9,9 +9,13 @@ import {
   User, Shield, Heart, MessageCircle, Share2, Eye, Calendar, 
   MapPin, Phone, Mail, Globe, Award, Trophy, Star,
   Facebook, Instagram, Twitter, Linkedin, ExternalLink,
-  Activity, BarChart3, TrendingUp, Users
+  Activity, BarChart3, TrendingUp, Users, UserPlus, UserMinus
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
+import { useWebSocket } from '@/hooks/useWebSocket';
+import { apiRequest } from '@/lib/queryClient';
+import { AdvancedBadgeSystem } from './AdvancedBadgeSystem';
 
 interface SocialProfileProps {
   userId: number;
@@ -110,6 +114,89 @@ export const SocialProfile: React.FC<SocialProfileProps> = ({
     enabled: !!userId,
   });
 
+  // Fetch follow stats
+  const { data: followStats, isLoading: followStatsLoading } = useQuery({
+    queryKey: [`/api/social/follow-stats/${userId}`],
+    enabled: !!userId,
+  });
+
+  // Check if current user is following this user
+  const { data: followStatus, isLoading: followStatusLoading } = useQuery({
+    queryKey: [`/api/social/follow/${userId}/check`],
+    enabled: !!userId && !!viewerUserId && !isOwnProfile,
+  });
+
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { isConnected } = useWebSocket();
+
+  // Follow/Unfollow mutations
+  const followMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('/api/social/follow', {
+        method: 'POST',
+        body: JSON.stringify({ followingId: userId }),
+      });
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/social/follow/${userId}/check`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/social/follow-stats/${userId}`] });
+      toast({
+        title: "Suivi avec succès",
+        description: `Vous suivez maintenant ${user.firstName} ${user.lastName}`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de suivre cet utilisateur",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const unfollowMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest(`/api/social/follow/${userId}`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/social/follow/${userId}/check`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/social/follow-stats/${userId}`] });
+      toast({
+        title: "Désabonnement réussi",
+        description: `Vous ne suivez plus ${user.firstName} ${user.lastName}`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de ne plus suivre cet utilisateur",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handle real-time follow updates via WebSocket events
+  useEffect(() => {
+    const handleWebSocketMessage = (event: MessageEvent) => {
+      try {
+        const message = JSON.parse(event.data);
+        if (message.event === 'new_follower' || message.event === 'follower_removed') {
+          queryClient.invalidateQueries({ queryKey: [`/api/social/follow-stats/${userId}`] });
+        }
+      } catch (error) {
+        // Ignore parsing errors
+      }
+    };
+
+    if (isConnected) {
+      // Listen for WebSocket messages (this would need proper WebSocket integration)
+      // For now, we'll rely on manual query invalidation
+    }
+  }, [isConnected, queryClient, userId]);
+
   // Record profile view
   useEffect(() => {
     if (userId && viewerUserId && userId !== viewerUserId) {
@@ -123,6 +210,15 @@ export const SocialProfile: React.FC<SocialProfileProps> = ({
       });
     }
   }, [userId, viewerUserId]);
+
+  // Handle follow/unfollow action
+  const handleFollowToggle = () => {
+    if (isFollowing) {
+      unfollowMutation.mutate();
+    } else {
+      followMutation.mutate();
+    }
+  };
 
   if (profileLoading) {
     return (
@@ -150,8 +246,11 @@ export const SocialProfile: React.FC<SocialProfileProps> = ({
   }
 
   const user: UserProfileData = profile;
-  const userPosts: UserPost[] = posts || [];
-  const userBadges: UserBadge[] = badges || [];
+  const userPosts: UserPost[] = Array.isArray(posts) ? posts : [];
+  const userBadges: UserBadge[] = Array.isArray(badges) ? badges : [];
+  const isFollowing = (followStatus as any)?.isFollowing || false;
+  const followerCount = (followStats as any)?.followerCount || 0;
+  const followingCount = (followStats as any)?.followingCount || 0;
 
   const getDisciplineColor = (score: number) => {
     if (score >= 90) return 'text-green-600';
@@ -248,16 +347,29 @@ export const SocialProfile: React.FC<SocialProfileProps> = ({
               )}
             </div>
 
-            {!isOwnProfile && (
+            {!isOwnProfile && viewerUserId && (
               <div className="flex space-x-2">
-                <Button>
+                <Button data-testid="button-contact">
                   <MessageCircle className="h-4 w-4 mr-2" />
                   Contacter
                 </Button>
-                <Button variant="outline">
-                  <Users className="h-4 w-4 mr-2" />
-                  Suivre
-                </Button>
+                {user.userType === 'owner' && (
+                  <Button 
+                    variant={isFollowing ? "secondary" : "outline"}
+                    onClick={handleFollowToggle}
+                    disabled={followMutation.isPending || unfollowMutation.isPending || followStatusLoading}
+                    data-testid="button-follow"
+                  >
+                    {followMutation.isPending || unfollowMutation.isPending ? (
+                      <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    ) : isFollowing ? (
+                      <UserMinus className="h-4 w-4 mr-2" />
+                    ) : (
+                      <UserPlus className="h-4 w-4 mr-2" />
+                    )}
+                    {isFollowing ? 'Ne plus suivre' : 'Suivre'}
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -265,7 +377,7 @@ export const SocialProfile: React.FC<SocialProfileProps> = ({
       </Card>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         <Card className="glass-card">
           <CardContent className="p-4 text-center">
             <div className={`text-2xl font-bold ${getDisciplineColor(user.disciplineScore)}`}>
@@ -301,6 +413,25 @@ export const SocialProfile: React.FC<SocialProfileProps> = ({
             <p className="text-sm text-muted-foreground">Note moyenne</p>
           </CardContent>
         </Card>
+
+        {/* Follower Stats */}
+        <Card className="glass-card">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-pink-600" data-testid="text-follower-count">
+              {followerCount}
+            </div>
+            <p className="text-sm text-muted-foreground">Suiveurs</p>
+          </CardContent>
+        </Card>
+        
+        <Card className="glass-card">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-indigo-600" data-testid="text-following-count">
+              {followingCount}
+            </div>
+            <p className="text-sm text-muted-foreground">Suivis</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Bio */}
@@ -312,13 +443,53 @@ export const SocialProfile: React.FC<SocialProfileProps> = ({
         </Card>
       )}
 
-      {/* Badges Section */}
+      {/* Advanced Badge System */}
+      <AdvancedBadgeSystem 
+        user={{
+          id: user.id,
+          userType: user.userType,
+          isVerified: user.isVerified,
+          emailVerified: true, // We'll assume these are verified for now
+          phoneVerified: true,
+          documentVerified: true,
+          contractsCount: user.completedContracts,
+          completedContracts: user.completedContracts,
+          rating: user.averageRating,
+          averageRating: user.averageRating,
+          responseTime: 'fast', // Default to fast response
+          totalLogins: user.totalLogins,
+          totalMessages: user.totalMessages,
+          totalOffers: user.totalOffers,
+          disciplineScore: user.disciplineScore,
+          trustScore: user.trustScore,
+          profileViews: user.profileViews,
+          createdAt: user.createdAt,
+          lastActiveAt: user.lastActiveAt
+        }}
+        userBadges={userBadges.map(badge => ({
+          id: badge.badgeId,
+          name: badge.badgeName,
+          description: badge.badgeDescription || '',
+          icon: badge.badgeIcon,
+          color: badge.badgeColor,
+          rarity: badge.rarity as any,
+          category: badge.category as any,
+          points: badge.points
+        }))}
+        followerCount={followerCount}
+        followingCount={followingCount}
+        className="glass-card"
+        showAll={false}
+        limit={8}
+      />
+
+      {/* Legacy Badges Section */}
       {userBadges.length > 0 && (
         <Card className="glass-card">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Trophy className="h-5 w-5" />
-              <span>Badges & Récompenses</span>
+              <span>Badges Spéciaux</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
