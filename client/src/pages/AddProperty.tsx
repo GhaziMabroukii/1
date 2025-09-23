@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import Header from "@/components/Header";
+import BackButton from "@/components/BackButton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -100,6 +101,7 @@ const AddProperty = () => {
   });
 
   const [newRule, setNewRule] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
@@ -657,6 +659,11 @@ const AddProperty = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Prevent multiple submissions
+    if (isSubmitting) {
+      return;
+    }
+    
     // Validation
     if (!formData.title || !formData.type || !formData.price || !formData.address || !formData.city) {
       toast({
@@ -668,6 +675,7 @@ const AddProperty = () => {
     }
 
     try {
+      setIsSubmitting(true);
       // Get current user data
       const currentUser = JSON.parse(localStorage.getItem("userData") || "{}");
       
@@ -799,6 +807,8 @@ const AddProperty = () => {
         description: error instanceof Error ? error.message : "Impossible de créer le bien",
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -808,6 +818,7 @@ const AddProperty = () => {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
+          <BackButton to="/manage-properties" className="mb-4" />
           <h1 className="text-3xl font-bold gradient-text flex items-center space-x-3">
             <Plus className="h-8 w-8 text-primary" />
             <span>Ajouter un bien</span>
@@ -1935,9 +1946,18 @@ const AddProperty = () => {
             {/* Submit */}
             <Card className="glass-card">
               <CardContent className="pt-6">
-                <Button type="submit" className="w-full">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Publier le bien
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-background border-t-foreground"></div>
+                      Publication en cours...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Publier le bien
+                    </>
+                  )}
                 </Button>
                 <p className="text-xs text-muted-foreground mt-2 text-center">
                   Votre bien sera vérifié avant publication

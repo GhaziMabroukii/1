@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import Header from "@/components/Header";
+import BackButton from "@/components/BackButton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,8 @@ const ManageProperties = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [showContractDialog, setShowContractDialog] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [propertyToDelete, setPropertyToDelete] = useState<any>(null);
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
@@ -161,15 +164,25 @@ const ManageProperties = () => {
     });
   };
 
-  const deleteProperty = (propertyId: number) => {
-    const updatedProperties = properties.filter(p => p.id !== propertyId);
+  const handleDeleteConfirmation = (property: any) => {
+    setPropertyToDelete(property);
+    setShowDeleteDialog(true);
+  };
+
+  const deleteProperty = () => {
+    if (!propertyToDelete) return;
+    
+    const updatedProperties = properties.filter(p => p.id !== propertyToDelete.id);
     setProperties(updatedProperties);
     localStorage.setItem("userProperties", JSON.stringify(updatedProperties));
     
     toast({
       title: "Bien supprimé",
-      description: "Le bien a été retiré de votre portfolio",
+      description: `"${propertyToDelete.title}" a été retiré de votre portfolio`,
     });
+    
+    setShowDeleteDialog(false);
+    setPropertyToDelete(null);
   };
 
   const handleContractAction = (propertyId: number) => {
@@ -203,20 +216,23 @@ const ManageProperties = () => {
       <Header />
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold gradient-text flex items-center space-x-3">
-              <Home className="h-8 w-8 text-primary" />
-              <span>Gérer mes biens</span>
-            </h1>
-            <p className="text-muted-foreground">
-              {properties.length} bien(s) dans votre portfolio
-            </p>
+        <div className="mb-8">
+          <BackButton to="/dashboard" className="mb-4" />
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold gradient-text flex items-center space-x-3">
+                <Home className="h-8 w-8 text-primary" />
+                <span>Gérer mes biens</span>
+              </h1>
+              <p className="text-muted-foreground">
+                {properties.length} bien(s) dans votre portfolio
+              </p>
+            </div>
+            <Button onClick={() => navigate("/add-property")} className="flex items-center space-x-2">
+              <Plus className="h-4 w-4" />
+              <span>Ajouter un bien</span>
+            </Button>
           </div>
-          <Button onClick={() => navigate("/add-property")} className="flex items-center space-x-2">
-            <Plus className="h-4 w-4" />
-            <span>Ajouter un bien</span>
-          </Button>
         </div>
 
         {/* Stats */}
@@ -409,7 +425,7 @@ const ManageProperties = () => {
                     <Button 
                       variant="destructive" 
                       size="sm"
-                      onClick={() => deleteProperty(property.id)}
+                      onClick={() => handleDeleteConfirmation(property)}
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
@@ -467,6 +483,32 @@ const ManageProperties = () => {
               Créer un nouveau contrat
             </AlertDialogAction>
             <AlertDialogCancel className="w-full">Annuler</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+            <AlertDialogDescription>
+              {propertyToDelete && (
+                <>
+                  Êtes-vous sûr de vouloir supprimer le bien "{propertyToDelete.title}" ?
+                  <br />
+                  <span className="text-sm text-muted-foreground">
+                    Cette action est irréversible et supprimera définitivement ce bien de votre portfolio.
+                  </span>
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={deleteProperty} className="bg-destructive hover:bg-destructive/90">
+              Supprimer définitivement
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
