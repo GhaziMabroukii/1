@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Send, Upload, Image, FileText, X, Download, Eye, FileIcon } from "lucide-react";
+import { LoadingIcon } from "@/components/ui/loading-icon";
 import { useToast } from "@/hooks/use-toast";
 
 interface Message {
@@ -20,9 +21,10 @@ interface MessagingInterfaceProps {
   contactName: string;
   messages: Message[];
   onSendMessage: (message: Omit<Message, 'id' | 'timestamp'>) => void;
+  isLoading?: boolean;
 }
 
-const MessagingInterface = ({ contactName, messages, onSendMessage }: MessagingInterfaceProps) => {
+const MessagingInterface = ({ contactName, messages, onSendMessage, isLoading = false }: MessagingInterfaceProps) => {
   const [newMessage, setNewMessage] = useState("");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -30,7 +32,7 @@ const MessagingInterface = ({ contactName, messages, onSendMessage }: MessagingI
   const currentUser = localStorage.getItem("userEmail") || "Vous";
 
   const handleSendMessage = () => {
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() || isLoading) return;
 
     onSendMessage({
       sender: currentUser,
@@ -94,7 +96,9 @@ const MessagingInterface = ({ contactName, messages, onSendMessage }: MessagingI
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSendMessage();
+      if (!isLoading) {
+        handleSendMessage();
+      }
     }
   };
 
@@ -264,8 +268,16 @@ const MessagingInterface = ({ contactName, messages, onSendMessage }: MessagingI
               className="flex-1"
             />
 
-            <Button onClick={handleSendMessage} disabled={!newMessage.trim()}>
-              <Send className="h-4 w-4" />
+            <Button 
+              onClick={handleSendMessage} 
+              disabled={!newMessage.trim() || isLoading}
+              data-testid="button-send-message"
+            >
+              {isLoading ? (
+                <LoadingIcon size="sm" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
             </Button>
           </div>
         </div>
