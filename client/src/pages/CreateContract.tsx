@@ -22,7 +22,8 @@ import {
   Send,
   CheckCircle,
   AlertCircle,
-  Info
+  Info,
+  Loader2
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -625,11 +626,19 @@ export default function CreateContract() {
                         type="submit" 
                         disabled={createContract.isPending}
                         className="flex items-center space-x-2"
+                        data-testid="button-create-contract"
                       >
-                        <Send className="h-4 w-4" />
-                        <span>
-                          {createContract.isPending ? "Création..." : "Créer le Contrat"}
-                        </span>
+                        {createContract.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Création...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Send className="h-4 w-4" />
+                            <span>Créer le Contrat</span>
+                          </>
+                        )}
                       </Button>
                     </div>
                   </CardContent>

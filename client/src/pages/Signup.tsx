@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { MapPin, GraduationCap, Users, Building, Upload } from "lucide-react";
+import { MapPin, GraduationCap, Users, Building, Upload, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import ValidationCheckers from "@/components/ValidationCheckers";
@@ -38,6 +38,7 @@ const Signup = () => {
   });
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [selectedGender, setSelectedGender] = useState<"male" | "female" | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [validationStatus, setValidationStatus] = useState({
     email: false,
     phone: false,
@@ -94,6 +95,8 @@ const Signup = () => {
       phone: formData.phone
     });
 
+    setIsLoading(true);
+    
     try {
       const response = await fetch("/api/auth/register", {
         method: "POST",
@@ -156,6 +159,8 @@ const Signup = () => {
         description: "Une erreur s'est produite. Veuillez réessayer.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -489,6 +494,7 @@ const Signup = () => {
               type="submit" 
               className="w-full" 
               disabled={
+                isLoading ||
                 !formData.userType || 
                 !formData.acceptTerms || 
                 !validationStatus.email || 
@@ -496,8 +502,16 @@ const Signup = () => {
                 !validationStatus.password ||
                 formData.password !== formData.confirmPassword
               }
+              data-testid="button-signup"
             >
-              Créer mon compte
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Création du compte...
+                </>
+              ) : (
+                "Créer mon compte"
+              )}
             </Button>
             <p className="text-sm text-muted-foreground text-center">
               Déjà un compte?{" "}

@@ -199,18 +199,28 @@ export default function Offers() {
                 size="sm" 
                 onClick={() => updateOfferStatus.mutate({ offerId: offer.id, status: 'accepted' })}
                 disabled={updateOfferStatus.isPending}
+                data-testid="button-accept-offer"
               >
-                <CheckCircle className="h-4 w-4 mr-1" />
-                Accepter
+                {updateOfferStatus.isPending ? (
+                  <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-1" />
+                ) : (
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                )}
+                {updateOfferStatus.isPending ? 'Acceptation...' : 'Accepter'}
               </Button>
               <Button 
                 size="sm" 
                 variant="destructive"
                 onClick={() => updateOfferStatus.mutate({ offerId: offer.id, status: 'rejected' })}
                 disabled={updateOfferStatus.isPending}
+                data-testid="button-reject-offer"
               >
-                <XCircle className="h-4 w-4 mr-1" />
-                Refuser
+                {updateOfferStatus.isPending ? (
+                  <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-1" />
+                ) : (
+                  <XCircle className="h-4 w-4 mr-1" />
+                )}
+                {updateOfferStatus.isPending ? 'Refus...' : 'Refuser'}
               </Button>
             </>
           )}
@@ -220,9 +230,14 @@ export default function Offers() {
               size="sm"
               onClick={() => requestContract.mutate(offer.id)}
               disabled={requestContract.isPending}
+              data-testid="button-request-contract"
             >
-              <FileText className="h-4 w-4 mr-1" />
-              Demander un contrat
+              {requestContract.isPending ? (
+                <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-1" />
+              ) : (
+                <FileText className="h-4 w-4 mr-1" />
+              )}
+              {requestContract.isPending ? 'Demande...' : 'Demander un contrat'}
             </Button>
           )}
 

@@ -1179,8 +1179,19 @@ export default function PropertyDetails() {
                             type="submit" 
                             className="w-full"
                             disabled={createOfferMutation.isPending}
+                            data-testid="button-submit-offer"
                           >
-                            {createOfferMutation.isPending ? "Envoi en cours..." : "Envoyer l'offre"}
+                            {createOfferMutation.isPending ? (
+                              <>
+                                <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2" />
+                                Envoi en cours...
+                              </>
+                            ) : (
+                              <>
+                                <Banknote className="mr-2 h-4 w-4" />
+                                Envoyer l'offre
+                              </>
+                            )}
                           </Button>
                         </form>
                       </Form>
@@ -1220,9 +1231,19 @@ export default function PropertyDetails() {
                         size="lg"
                         onClick={() => requestContractMutation.mutate(acceptedOffer.id)}
                         disabled={requestContractMutation.isPending}
+                        data-testid="button-request-contract"
                       >
-                        <FileText className="mr-2 h-4 w-4" />
-                        {requestContractMutation.isPending ? "Demande en cours..." : "Demander le contrat"}
+                        {requestContractMutation.isPending ? (
+                          <>
+                            <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2" />
+                            Demande en cours...
+                          </>
+                        ) : (
+                          <>
+                            <FileText className="mr-2 h-4 w-4" />
+                            Demander le contrat
+                          </>
+                        )}
                       </Button>
                     )}
 
