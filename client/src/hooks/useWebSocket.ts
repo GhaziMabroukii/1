@@ -98,9 +98,26 @@ export function useWebSocket({ onMessage }: UseWebSocketProps = {}) {
   const handleBuiltInEvents = (message: WebSocketMessage) => {
     const { event, data } = message;
 
+    // Get current user info for targeted invalidations
+    const getCurrentUserInfo = () => {
+      try {
+        const userId = localStorage.getItem('userId');
+        const userType = localStorage.getItem('userType');
+        return userId && userType ? { userId: parseInt(userId), userType } : null;
+      } catch {
+        return null;
+      }
+    };
+
+    const currentUser = getCurrentUserInfo();
+
     switch (event) {
       case 'auth_success':
         console.log('WebSocket authenticated successfully');
+        break;
+
+      case 'connection_established':
+        console.log('Received WebSocket event:', event, data);
         break;
 
       case 'new_message':
@@ -110,12 +127,19 @@ export function useWebSocket({ onMessage }: UseWebSocketProps = {}) {
         break;
 
       case 'new_notification':
-        // Invalidate notifications
+        // Invalidate notifications for specific user
+        if (data.userId && currentUser?.userId === data.userId) {
+          queryClient.invalidateQueries({ queryKey: ['/api/notifications', data.userId] });
+        }
+        // Fallback to broad invalidation if no user targeting
         queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
         break;
 
       case 'notification_read':
-        // Update specific notification
+        // Update specific notification for user
+        if (data.userId && currentUser?.userId === data.userId) {
+          queryClient.invalidateQueries({ queryKey: ['/api/notifications', data.userId] });
+        }
         queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
         break;
 
@@ -124,26 +148,49 @@ export function useWebSocket({ onMessage }: UseWebSocketProps = {}) {
       case 'offer_accepted':
       case 'offer_rejected':
       case 'offer_update':
-        // Invalidate offers
+      case 'contract_requested': // Add missing contract request event
+        // Invalidate offers with user-specific targeting
+        if (currentUser) {
+          queryClient.invalidateQueries({ queryKey: ['/api/offers', currentUser.userId, currentUser.userType] });
+          // Also invalidate contract requests which use the same endpoint with status filter
+          queryClient.invalidateQueries({ queryKey: ['/api/offers', 'contract_requests', currentUser.userId] });
+        }
+        // Fallback broad invalidation
         queryClient.invalidateQueries({ queryKey: ['/api/offers'] });
         break;
 
       case 'contract_created':
       case 'contract_updated':
       case 'contract_signed':
-        // Invalidate contracts
+        // Invalidate contracts with user-specific targeting
+        if (currentUser) {
+          queryClient.invalidateQueries({ queryKey: ['/api/contracts', currentUser.userId] });
+        }
         queryClient.invalidateQueries({ queryKey: ['/api/contracts'] });
+        // Also invalidate offers since contract creation affects offer status
+        if (currentUser) {
+          queryClient.invalidateQueries({ queryKey: ['/api/offers', currentUser.userId, currentUser.userType] });
+        }
+        queryClient.invalidateQueries({ queryKey: ['/api/offers'] });
         break;
 
       case 'property_created':
       case 'property_updated':
-        // Invalidate properties
+        // Invalidate properties with owner-specific targeting
+        if (currentUser && data.ownerId === currentUser.userId) {
+          queryClient.invalidateQueries({ queryKey: ['/api/properties', currentUser.userId] });
+        }
         queryClient.invalidateQueries({ queryKey: ['/api/properties'] });
         break;
 
       case 'request_created':
       case 'request_updated':
-        // Invalidate requests
+        // Invalidate requests with user-specific targeting
+        if (currentUser) {
+          queryClient.invalidateQueries({ queryKey: ['/api/tenant-requests', currentUser.userId] });
+          queryClient.invalidateQueries({ queryKey: ['/api/owner-requests', currentUser.userId] });
+          queryClient.invalidateQueries({ queryKey: ['/api/tenant-requests/received', currentUser.userId] });
+        }
         queryClient.invalidateQueries({ queryKey: ['/api/tenant-requests'] });
         queryClient.invalidateQueries({ queryKey: ['/api/owner-requests'] });
         break;
