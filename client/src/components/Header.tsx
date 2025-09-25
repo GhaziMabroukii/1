@@ -15,8 +15,7 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { TenantRequestsDropdown } from "./TenantRequestsDropdown";
-import { OwnerRequestsDropdown } from "./OwnerRequestsDropdown";
+import { UnifiedNotificationsDropdown } from "./UnifiedNotificationsDropdown";
 import { NotificationCenter } from "./NotificationCenter";
 
 const Header = () => {
@@ -141,29 +140,14 @@ const Header = () => {
           <div className="flex items-center space-x-2 sm:space-x-3">
             {isAuthenticated && (
               <>
-                {/* Tenant/Owner Requests Dropdowns - Hidden on mobile, shown in mobile menu */}
+                {/* Unified Notifications Dropdown - Hidden on mobile, shown in mobile menu */}
                 <div className="hidden lg:flex items-center space-x-2">
-                  {userType === "tenant" && (() => {
-                    const userData = localStorage.getItem("userData");
-                    const userId = userData ? JSON.parse(userData).id : 7;
-                    return (
-                      <TenantRequestsDropdown 
-                        userId={userId} 
-                        userType={userType} 
-                      />
-                    );
-                  })()}
-                  
-                  {userType === "owner" && (() => {
-                    const userData = localStorage.getItem("userData");
-                    const userId = userData ? JSON.parse(userData).id : 1;
-                    return (
-                      <OwnerRequestsDropdown 
-                        userId={userId} 
-                        userType={userType} 
-                      />
-                    );
-                  })()}
+                  {(userType === "tenant" || userType === "owner") && userId && (
+                    <UnifiedNotificationsDropdown 
+                      userId={userId} 
+                      userType={userType as 'owner' | 'tenant'} 
+                    />
+                  )}
                 </div>
                 
                 {/* Quick Actions - Responsive */}
