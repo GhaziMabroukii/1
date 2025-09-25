@@ -59,7 +59,11 @@ export const AdvancedBadgeSystem: React.FC<AdvancedBadgeSystemProps> = ({
   const { data: followStats } = useQuery({
     queryKey: ['/api/social/follow-stats', user.id],
     queryFn: async () => {
-      const response = await fetch(`/api/social/follow-stats/${user.id}`);
+      const response = await fetch(`/api/social/follow-stats/${user.id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       if (!response.ok) throw new Error('Failed to fetch follow stats');
       return response.json();
     },

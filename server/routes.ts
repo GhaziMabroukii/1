@@ -4610,18 +4610,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Get properties from followed users (for tenants)
-  app.get("/api/social/following-properties/:userId", requireAuth, async (req, res) => {
+  // Get properties from followed users (for tenants only)
+  app.get("/api/social/following-properties", requireAuth, async (req, res) => {
     try {
-      const userId = parseInt(req.params.userId);
+      const userId = req.user.id;
       
-      if (isNaN(userId)) {
-        return res.status(400).json({ error: "Valid userId is required" });
-      }
-      
-      // Verify the requesting user is the same as the userId (privacy)
-      if (req.user.id !== userId) {
-        return res.status(403).json({ error: "Access denied" });
+      // Only allow tenants to access this endpoint
+      if (req.user.userType !== 'tenant') {
+        return res.status(403).json({ error: "Only tenants can view properties from followed users" });
       }
       
       const properties = await storage.getPropertiesFromFollowing(userId);

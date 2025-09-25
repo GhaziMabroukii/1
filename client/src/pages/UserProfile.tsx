@@ -6,6 +6,7 @@ import { UserBadges } from "@/components/BadgeSystem";
 import { VerificationModal } from "@/components/VerificationModal";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import OnboardingTour from "@/components/OnboardingTour";
+import { FollowedPropertiesSection } from "@/components/FollowedPropertiesSection";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -721,6 +722,11 @@ const UserProfile = () => {
                 </p>
               </CardContent>
             </Card>
+
+            {/* Properties from Followed Users - For Tenants Only */}
+            {userProfile.userType === "tenant" && (
+              <FollowedPropertiesSection userId={currentUserId} />
+            )}
 
             {/* Stats */}
             {userProfile.userType === "owner" && (
