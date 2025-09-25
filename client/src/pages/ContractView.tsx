@@ -9,7 +9,6 @@ import { ContractStatusBadge } from "@/components/ContractStatusBadge";
 import { EnhancedContractActions } from "@/components/EnhancedContractActions";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { AutomaticTenantNavigation } from "@/components/AutomaticTenantNavigation";
-import { TenantRequestsDropdown } from "@/components/TenantRequestsDropdown";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -231,10 +230,6 @@ const ContractView = () => {
             Retour
           </Button>
           <div className="flex items-center gap-4">
-            <TenantRequestsDropdown 
-              userId={currentUserId} 
-              userType={contract.ownerId === currentUserId ? 'owner' : 'tenant'} 
-            />
             <NotificationCenter userId={currentUserId} />
             <EnhancedContractActions 
               contract={contract} 

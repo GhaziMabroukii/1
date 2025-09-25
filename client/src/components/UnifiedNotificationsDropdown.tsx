@@ -1,5 +1,5 @@
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +22,7 @@ import {
   Home,
   Bell
 } from 'lucide-react';
+import { useGlobalWebSocket } from '@/hooks/useWebSocket';
 
 interface UnifiedNotificationsDropdownProps {
   userId: number;
@@ -69,6 +70,45 @@ type NotificationItem = OfferNotification | ContractNotification | TerminationRe
 
 export function UnifiedNotificationsDropdown({ userId, userType }: UnifiedNotificationsDropdownProps) {
   const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
+  
+  // Connect to WebSocket for real-time updates with specific event handling
+  const { isConnected } = useWebSocket({
+    onMessage: (message) => {
+      const { event, data } = message;
+      
+      // Additional invalidations specific to this component's queries
+      switch (event) {
+        case 'new_offer':
+        case 'offer_sent':
+        case 'offer_accepted':
+        case 'offer_rejected':
+        case 'offer_update':
+          // Invalidate offers queries with user-specific keys
+          queryClient.invalidateQueries({ queryKey: [`/api/offers`, userId, userType] });
+          break;
+          
+        case 'contract_created':
+        case 'contract_updated':
+        case 'contract_signed':
+          // Invalidate contracts queries with user-specific keys
+          queryClient.invalidateQueries({ queryKey: [`/api/contracts`, userId, userType] });
+          break;
+          
+        case 'request_created':
+        case 'request_updated':
+          // Invalidate termination request queries with user-specific keys
+          if (userType === 'owner') {
+            queryClient.invalidateQueries({ queryKey: [`/api/owner-requests/${userId}`] });
+            queryClient.invalidateQueries({ queryKey: [`/api/tenant-requests/received/${userId}`] });
+          } else {
+            queryClient.invalidateQueries({ queryKey: [`/api/tenant-requests/${userId}`] });
+            queryClient.invalidateQueries({ queryKey: [`/api/owner-requests/received/${userId}`] });
+          }
+          break;
+      }
+    }
+  });
 
   // Fetch offers based on user type
   const { data: offers = [], isLoading: offersLoading } = useQuery<OfferNotification[]>({

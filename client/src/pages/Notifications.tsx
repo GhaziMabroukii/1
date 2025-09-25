@@ -16,7 +16,7 @@ import {
   FileText,
   Search,
   Filter,
-  MarkAllRead,
+  Check,
   Eye,
   EyeOff,
   MessageSquare, 
@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
+import { useWebSocket } from '@/hooks/useWebSocket';
 
 interface NotificationItem {
   id: number;
@@ -44,6 +45,41 @@ export default function Notifications() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  
+  // Connect to WebSocket for real-time updates with specific event handling
+  const { isConnected } = useWebSocket({
+    onMessage: (message) => {
+      const { event, data } = message;
+      
+      // Invalidate queries based on WebSocket events for real-time updates
+      switch (event) {
+        case 'new_offer':
+        case 'offer_sent':
+        case 'offer_accepted':
+        case 'offer_rejected':
+        case 'offer_update':
+          queryClient.invalidateQueries({ queryKey: [`/api/offers`, currentUserId, userType] });
+          break;
+          
+        case 'contract_created':
+        case 'contract_updated':
+        case 'contract_signed':
+          queryClient.invalidateQueries({ queryKey: [`/api/contracts`, currentUserId, userType] });
+          break;
+          
+        case 'request_created':
+        case 'request_updated':
+          queryClient.invalidateQueries({ queryKey: [`/api/owner-requests/${currentUserId}`] });
+          queryClient.invalidateQueries({ queryKey: [`/api/tenant-requests/received/${currentUserId}`] });
+          break;
+          
+        case 'new_notification':
+        case 'notification_read':
+          queryClient.invalidateQueries({ queryKey: [`/api/notifications`, currentUserId] });
+          break;
+      }
+    }
+  });
 
   // Get current user
   const currentUserId = Number(localStorage.getItem("userId"));
@@ -294,7 +330,7 @@ export default function Notifications() {
             size="sm"
             data-testid="button-mark-all-read"
           >
-            <MarkAllRead className="h-4 w-4 mr-2" />
+            <Check className="h-4 w-4 mr-2" />
             Tout marquer comme lu
           </Button>
         </div>
