@@ -138,20 +138,20 @@ const MapView = () => {
       return;
     }
 
-    if (!filteredProperties.length) {
-      console.log("No properties to display");
-      return;
-    }
-
-    console.log(`Adding ${filteredProperties.length} markers to map`);
-
-    // Clear existing markers
+    // Always clear existing markers first, even if no properties to display
     markersRef.current.forEach(marker => {
       if (marker && typeof marker.setMap === 'function') {
         marker.setMap(null);
       }
     });
     markersRef.current = [];
+
+    if (!filteredProperties.length) {
+      console.log("No properties to display - map cleared");
+      return;
+    }
+
+    console.log(`Adding ${filteredProperties.length} markers to map`);
 
     // Add new markers
     filteredProperties.forEach((property, index) => {
@@ -309,10 +309,26 @@ const MapView = () => {
     }
 
     if (rentalPeriod && rentalPeriod !== "all") {
-      // Since priceType doesn't exist in the data, we'll assume monthly rentals
-      // In a real app, this would need to be added to the database schema
-      // For now, we'll just keep all properties if any period is selected
-      console.log("Rental period filter applied, but priceType field not found in data");
+      // Since priceType doesn't exist in the current data model, we'll implement
+      // a price-based approximation for different rental periods
+      filtered = filtered.filter(property => {
+        const price = parseFloat(property.price) || 0;
+        // Approximate filtering based on typical price ranges for different periods
+        switch (rentalPeriod) {
+          case "jour":
+            return price <= 100; // Daily rentals typically under 100 TND
+          case "nuit": 
+            return price <= 150; // Nightly rentals typically under 150 TND
+          case "semaine":
+            return price >= 100 && price <= 500; // Weekly rentals 100-500 TND
+          case "mois":
+            return price >= 200; // Monthly rentals typically 200+ TND
+          case "annee":
+            return price >= 3000; // Annual rentals typically 3000+ TND
+          default:
+            return true;
+        }
+      });
     }
 
     if (maxPrice && maxPrice !== "all") {
@@ -362,7 +378,7 @@ const MapView = () => {
 
   // Update markers when filtered properties change
   useEffect(() => {
-    if (mapInstance.current && filteredProperties.length > 0) {
+    if (mapInstance.current) {
       console.log("Updating markers due to filteredProperties change:", filteredProperties.length);
       updateMapMarkers();
     }
