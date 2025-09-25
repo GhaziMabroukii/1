@@ -69,7 +69,7 @@ interface TerminationRequest {
 type NotificationItem = OfferNotification | ContractNotification | TerminationRequest;
 
 export function UnifiedNotificationsDropdown({ userId, userType }: UnifiedNotificationsDropdownProps) {
-  const [, navigate] = useLocation();
+  const [location, setLocation] = useLocation();
   const queryClient = useQueryClient();
   
   // Connect to WebSocket for real-time updates with specific event handling
@@ -254,25 +254,25 @@ export function UnifiedNotificationsDropdown({ userId, userType }: UnifiedNotifi
 
   const handleNotificationClick = (notification: NotificationItem) => {
     if (notification.type === 'offer') {
-      navigate('/offers');
+      setLocation('/offers');
     } else if (notification.type === 'contract') {
-      navigate(`/contract/${notification.id}`);
+      setLocation(`/contract/${notification.id}`);
     } else if (notification.type === 'termination') {
       if (userType === 'owner') {
         // Check if it's sent or received
         const isSent = sentTerminations.some(req => req.id === notification.id);
         if (isSent) {
-          navigate(`/owner-termination-workflow/${notification.id}`);
+          setLocation(`/owner-termination-workflow/${notification.id}`);
         } else {
-          navigate(`/owner-termination-review/${notification.id}`);
+          setLocation(`/owner-termination-review/${notification.id}`);
         }
       } else {
         // Check if it's sent or received
         const isSent = sentTerminations.some(req => req.id === notification.id);
         if (isSent) {
-          navigate(`/tenant-termination-workflow/${notification.id}`);
+          setLocation(`/tenant-termination-workflow/${notification.id}`);
         } else {
-          navigate(`/tenant-request-response/${notification.id}`);
+          setLocation(`/tenant-request-response/${notification.id}`);
         }
       }
     }
@@ -429,7 +429,7 @@ export function UnifiedNotificationsDropdown({ userId, userType }: UnifiedNotifi
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem 
-              onClick={() => navigate('/notifications')}
+              onClick={() => setLocation('/notifications')}
               className="text-center cursor-pointer font-medium"
               data-testid="menu-item-view-all-notifications"
             >
