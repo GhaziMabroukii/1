@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,8 @@ import UserAvatar from "./UserAvatar";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import UserBadge from "./UserBadge";
 import { AdvancedBadgeSystem } from "./AdvancedBadgeSystem";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import { 
   User, 
   MapPin, 
@@ -17,7 +20,11 @@ import {
   Eye,
   Phone,
   Mail,
-  Shield
+  Shield,
+  UserPlus,
+  UserMinus,
+  Heart,
+  HeartHandshake
 } from "lucide-react";
 
 interface UserProfileProps {
@@ -32,6 +39,118 @@ export default function UserProfile({ userId, onClose, showContactInfo = false }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  // Get current user info
+  const currentUserId = Number(localStorage.getItem("userId"));
+  const currentUserType = localStorage.getItem("userType");
+  
+  // Check if current user is following this profile
+  const { data: followStatus } = useQuery({
+    queryKey: ['/api/social/follow', userId, 'check'],
+    queryFn: async () => {
+      const response = await fetch(`/api/social/follow/${userId}/check`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      if (!response.ok) return { isFollowing: false };
+      return response.json();
+    },
+    enabled: !!currentUserId && currentUserId !== userId,
+  });
+  
+  // Check if current user likes this profile
+  const { data: likeStatus } = useQuery({
+    queryKey: ['/api/social/profile-like', userId, 'check'],
+    queryFn: async () => {
+      const response = await fetch(`/api/social/profile-like/${userId}/check`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      if (!response.ok) return { isLiked: false };
+      return response.json();
+    },
+    enabled: !!currentUserId && currentUserId !== userId,
+  });
+  
+  // Get profile like count
+  const { data: profileLikeCount } = useQuery({
+    queryKey: ['/api/social/profile-likes-count', userId],
+    queryFn: async () => {
+      const response = await fetch(`/api/social/profile-likes-count/${userId}`);
+      if (!response.ok) return { likeCount: 0 };
+      return response.json();
+    },
+  });
+  
+  // Follow/Unfollow mutation
+  const followMutation = useMutation({
+    mutationFn: async (action: 'follow' | 'unfollow') => {
+      if (action === 'follow') {
+        return await apiRequest('/api/social/follow', {
+          method: 'POST',
+          body: JSON.stringify({ followingId: userId })
+        });
+      } else {
+        return await apiRequest(`/api/social/follow/${userId}`, {
+          method: 'DELETE'
+        });
+      }
+    },
+    onSuccess: (data, action) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/social/follow', userId, 'check'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/social/follow-stats', userId] });
+      toast({
+        title: action === 'follow' ? "Utilisateur suivi" : "Utilisateur non suivi",
+        description: action === 'follow' 
+          ? "Vous suivez maintenant cet utilisateur" 
+          : "Vous ne suivez plus cet utilisateur"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de mettre à jour le statut de suivi",
+        variant: "destructive"
+      });
+    }
+  });
+  
+  // Like/Unlike mutation
+  const likeMutation = useMutation({
+    mutationFn: async (action: 'like' | 'unlike') => {
+      if (action === 'like') {
+        return await apiRequest('/api/social/profile-like', {
+          method: 'POST',
+          body: JSON.stringify({ likedUserId: userId })
+        });
+      } else {
+        return await apiRequest(`/api/social/profile-like/${userId}`, {
+          method: 'DELETE'
+        });
+      }
+    },
+    onSuccess: (data, action) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/social/profile-like', userId, 'check'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/social/profile-likes-count', userId] });
+      toast({
+        title: action === 'like' ? "Profil aimé" : "Like retiré",
+        description: action === 'like' 
+          ? "Vous avez aimé ce profil" 
+          : "Vous n'aimez plus ce profil"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de mettre à jour le like",
+        variant: "destructive"
+      });
+    }
+  });
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -170,14 +289,55 @@ export default function UserProfile({ userId, onClose, showContactInfo = false }
           </div>
 
           {/* Contact Actions */}
-          <div className="flex items-center space-x-4">
-            <Button onClick={handleStartConversation} className="flex-1">
+          <div className="flex items-center space-x-2 flex-wrap">
+            <Button onClick={handleStartConversation} className="flex-1 min-w-0">
               <MessageSquare className="h-4 w-4 mr-2" />
               Contacter
             </Button>
             
+            {/* Follow Button - Only for tenants to follow owners */}
+            {currentUserId && currentUserId !== userId && currentUserType === 'tenant' && profile.userType === 'owner' && (
+              <Button
+                variant={followStatus?.isFollowing ? "destructive" : "outline"}
+                size="sm"
+                onClick={() => followMutation.mutate(followStatus?.isFollowing ? 'unfollow' : 'follow')}
+                disabled={followMutation.isPending}
+                data-testid={followStatus?.isFollowing ? "button-unfollow" : "button-follow"}
+              >
+                {followMutation.isPending ? (
+                  <LoadingSpinner className="h-4 w-4 mr-2" />
+                ) : followStatus?.isFollowing ? (
+                  <UserMinus className="h-4 w-4 mr-2" />
+                ) : (
+                  <UserPlus className="h-4 w-4 mr-2" />
+                )}
+                {followStatus?.isFollowing ? 'Ne plus suivre' : 'Suivre'}
+              </Button>
+            )}
+            
+            {/* Like Button - For all authenticated users except viewing their own profile */}
+            {currentUserId && currentUserId !== userId && (
+              <Button
+                variant={likeStatus?.isLiked ? "default" : "outline"}
+                size="sm"
+                onClick={() => likeMutation.mutate(likeStatus?.isLiked ? 'unlike' : 'like')}
+                disabled={likeMutation.isPending}
+                data-testid={likeStatus?.isLiked ? "button-unlike" : "button-like"}
+                className={likeStatus?.isLiked ? "bg-red-500 hover:bg-red-600" : ""}
+              >
+                {likeMutation.isPending ? (
+                  <LoadingSpinner className="h-4 w-4 mr-2" />
+                ) : likeStatus?.isLiked ? (
+                  <Heart className="h-4 w-4 mr-2 fill-current" />
+                ) : (
+                  <Heart className="h-4 w-4 mr-2" />
+                )}
+                {profileLikeCount?.likeCount || 0}
+              </Button>
+            )}
+            
             {showContactInfo && profile.phone && (
-              <Button variant="outline" className="flex items-center space-x-2">
+              <Button variant="outline" size="sm" className="flex items-center space-x-2">
                 <Phone className="h-4 w-4" />
                 <span>{profile.phone}</span>
               </Button>

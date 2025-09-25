@@ -632,6 +632,16 @@ export const userFollowers = pgTable("user_followers", {
   uniqueFollow: unique().on(table.followerId, table.followingId),
 }));
 
+// User Profile Likes
+export const userProfileLikes = pgTable("user_profile_likes", {
+  id: serial("id").primaryKey(),
+  likerId: integer("liker_id").notNull().references(() => users.id), // User who likes
+  likedUserId: integer("liked_user_id").notNull().references(() => users.id), // User being liked
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueProfileLike: unique().on(table.likerId, table.likedUserId),
+}));
+
 // Social Schemas
 export const insertUserPostSchema = createInsertSchema(userPosts).omit({
   id: true,
@@ -674,6 +684,11 @@ export const insertUserFollowerSchema = createInsertSchema(userFollowers).omit({
   createdAt: true,
 });
 
+export const insertUserProfileLikeSchema = createInsertSchema(userProfileLikes).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Social Types
 export type UserPost = typeof userPosts.$inferSelect;
 export type InsertUserPost = z.infer<typeof insertUserPostSchema>;
@@ -689,3 +704,5 @@ export type PostLike = typeof postLikes.$inferSelect;
 export type InsertPostLike = z.infer<typeof insertPostLikeSchema>;
 export type UserFollower = typeof userFollowers.$inferSelect;
 export type InsertUserFollower = z.infer<typeof insertUserFollowerSchema>;
+export type UserProfileLike = typeof userProfileLikes.$inferSelect;
+export type InsertUserProfileLike = z.infer<typeof insertUserProfileLikeSchema>;

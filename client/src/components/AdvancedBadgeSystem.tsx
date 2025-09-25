@@ -1,4 +1,5 @@
 import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { 
@@ -41,8 +42,6 @@ interface AdvancedBadgeSystemProps {
     lastActiveAt: string;
   };
   userBadges?: BadgeData[];
-  followerCount?: number;
-  followingCount?: number;
   className?: string;
   showAll?: boolean;
   limit?: number;
@@ -51,12 +50,24 @@ interface AdvancedBadgeSystemProps {
 export const AdvancedBadgeSystem: React.FC<AdvancedBadgeSystemProps> = ({
   user,
   userBadges = [],
-  followerCount = 0,
-  followingCount = 0,
   className = "",
   showAll = false,
   limit = 5
 }) => {
+  
+  // Fetch real follow stats from API
+  const { data: followStats } = useQuery({
+    queryKey: ['/api/social/follow-stats', user.id],
+    queryFn: async () => {
+      const response = await fetch(`/api/social/follow-stats/${user.id}`);
+      if (!response.ok) throw new Error('Failed to fetch follow stats');
+      return response.json();
+    },
+    staleTime: 30000, // Cache for 30 seconds
+  });
+
+  const followerCount = followStats?.followerCount || 0;
+  const followingCount = followStats?.followingCount || 0;
   
   // Calculate earned badges based on user data
   const calculateEarnedBadges = (): BadgeData[] => {

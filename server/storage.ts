@@ -1,6 +1,6 @@
 import { 
   users, properties, offers, contracts, notifications, conversations, messages, userBlocks, userSessions, userFavorites, reviews,
-  propertyLikes, reviewLikes, priceNegotiations, userPosts, userActivities, profileViews, userBadges, postComments, postLikes, userFollowers,
+  propertyLikes, reviewLikes, priceNegotiations, userPosts, userActivities, profileViews, userBadges, postComments, postLikes, userFollowers, userProfileLikes,
   type User, type InsertUser, type Property, type InsertProperty,
   type Offer, type InsertOffer, type Contract, type InsertContract,
   type Notification, type InsertNotification, type Message, type InsertMessage,
@@ -10,7 +10,8 @@ import {
   type PriceNegotiation, type InsertPriceNegotiation, type UserPost, type InsertUserPost,
   type UserActivity, type InsertUserActivity, type ProfileView, type InsertProfileView,
   type UserBadge, type InsertUserBadge, type PostComment, type InsertPostComment,
-  type PostLike, type InsertPostLike, type UserFollower, type InsertUserFollower
+  type PostLike, type InsertPostLike, type UserFollower, type InsertUserFollower,
+  type UserProfileLike, type InsertUserProfileLike
 } from "@shared/schema";
 // Database is only available in production
 let db: any = null;
@@ -171,6 +172,14 @@ export interface IStorage {
   getFollowing(userId: number): Promise<User[]>;
   getFollowerCount(userId: number): Promise<number>;
   getFollowingCount(userId: number): Promise<number>;
+  
+  // Profile Likes System
+  likeUserProfile(likerId: number, likedUserId: number): Promise<any>;
+  unlikeUserProfile(likerId: number, likedUserId: number): Promise<boolean>;
+  isProfileLiked(likerId: number, likedUserId: number): Promise<boolean>;
+  getProfileLikes(userId: number): Promise<User[]>;
+  getProfileLikesCount(userId: number): Promise<number>;
+  getPropertiesFromFollowing(userId: number): Promise<Property[]>;
   
   // Missing methods needed for complete implementation
   markAllNotificationsRead(userId: number): Promise<boolean>;
@@ -1344,6 +1353,59 @@ export class DatabaseStorage implements IStorage {
     return result[0]?.count || 0;
   }
 
+  // Profile Likes System
+  async likeUserProfile(likerId: number, likedUserId: number): Promise<any> {
+    const [like] = await db
+      .insert(userProfileLikes)
+      .values({ likerId, likedUserId })
+      .returning();
+    return like;
+  }
+
+  async unlikeUserProfile(likerId: number, likedUserId: number): Promise<boolean> {
+    const result = await db
+      .delete(userProfileLikes)
+      .where(and(eq(userProfileLikes.likerId, likerId), eq(userProfileLikes.likedUserId, likedUserId)));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async isProfileLiked(likerId: number, likedUserId: number): Promise<boolean> {
+    const [like] = await db
+      .select()
+      .from(userProfileLikes)
+      .where(and(eq(userProfileLikes.likerId, likerId), eq(userProfileLikes.likedUserId, likedUserId)));
+    return !!like;
+  }
+
+  async getProfileLikes(userId: number): Promise<User[]> {
+    const likes = await db
+      .select({ user: users })
+      .from(userProfileLikes)
+      .innerJoin(users, eq(userProfileLikes.likerId, users.id))
+      .where(eq(userProfileLikes.likedUserId, userId));
+    return likes.map(like => like.user);
+  }
+
+  async getProfileLikesCount(userId: number): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(userProfileLikes)
+      .where(eq(userProfileLikes.likedUserId, userId));
+    return result[0]?.count || 0;
+  }
+
+  async getPropertiesFromFollowing(userId: number): Promise<Property[]> {
+    // Get properties from users that the current user follows (for tenants)
+    const followingProperties = await db
+      .select({ property: properties })
+      .from(userFollowers)
+      .innerJoin(properties, eq(userFollowers.followingId, properties.ownerId))
+      .where(eq(userFollowers.followerId, userId))
+      .orderBy(desc(properties.createdAt))
+      .limit(20);
+    return followingProperties.map(fp => fp.property);
+  }
+
   // Missing methods needed for complete implementation
   async markAllNotificationsRead(userId: number): Promise<boolean> {
     await db
@@ -1423,6 +1485,8 @@ export class MemStorage implements IStorage {
   private userFavorites: UserFavorite[] = [];
   private reviews: Review[] = [];
   private priceNegotiations: PriceNegotiation[] = [];
+  private userFollowers: UserFollower[] = [];
+  private userProfileLikes: UserProfileLike[] = [];
   private nextId = 1;
 
   constructor() {
@@ -3086,6 +3150,107 @@ export class MemStorage implements IStorage {
 
   async calculateTrustScore(userId: number): Promise<number> {
     return 0; // Calculated based on various factors
+  }
+
+  // Follow System
+  async followUser(followerId: number, followingId: number): Promise<UserFollower> {
+    const newFollow = {
+      id: this.nextId++,
+      followerId,
+      followingId,
+      createdAt: new Date(),
+    } as UserFollower;
+    this.userFollowers.push(newFollow);
+    return newFollow;
+  }
+
+  async unfollowUser(followerId: number, followingId: number): Promise<boolean> {
+    const index = this.userFollowers.findIndex(f => 
+      f.followerId === followerId && f.followingId === followingId
+    );
+    if (index >= 0) {
+      this.userFollowers.splice(index, 1);
+      return true;
+    }
+    return false;
+  }
+
+  async isFollowing(followerId: number, followingId: number): Promise<boolean> {
+    return this.userFollowers.some(f => 
+      f.followerId === followerId && f.followingId === followingId
+    );
+  }
+
+  async getFollowers(userId: number): Promise<User[]> {
+    const followerIds = this.userFollowers
+      .filter(f => f.followingId === userId)
+      .map(f => f.followerId);
+    return this.users.filter(user => followerIds.includes(user.id));
+  }
+
+  async getFollowing(userId: number): Promise<User[]> {
+    const followingIds = this.userFollowers
+      .filter(f => f.followerId === userId)
+      .map(f => f.followingId);
+    return this.users.filter(user => followingIds.includes(user.id));
+  }
+
+  async getFollowerCount(userId: number): Promise<number> {
+    return this.userFollowers.filter(f => f.followingId === userId).length;
+  }
+
+  async getFollowingCount(userId: number): Promise<number> {
+    return this.userFollowers.filter(f => f.followerId === userId).length;
+  }
+
+  // Profile Likes System
+  async likeUserProfile(likerId: number, likedUserId: number): Promise<any> {
+    const newLike = {
+      id: this.nextId++,
+      likerId,
+      likedUserId,
+      createdAt: new Date(),
+    } as UserProfileLike;
+    this.userProfileLikes.push(newLike);
+    return newLike;
+  }
+
+  async unlikeUserProfile(likerId: number, likedUserId: number): Promise<boolean> {
+    const index = this.userProfileLikes.findIndex(l => 
+      l.likerId === likerId && l.likedUserId === likedUserId
+    );
+    if (index >= 0) {
+      this.userProfileLikes.splice(index, 1);
+      return true;
+    }
+    return false;
+  }
+
+  async isProfileLiked(likerId: number, likedUserId: number): Promise<boolean> {
+    return this.userProfileLikes.some(l => 
+      l.likerId === likerId && l.likedUserId === likedUserId
+    );
+  }
+
+  async getProfileLikes(userId: number): Promise<User[]> {
+    const likerIds = this.userProfileLikes
+      .filter(l => l.likedUserId === userId)
+      .map(l => l.likerId);
+    return this.users.filter(user => likerIds.includes(user.id));
+  }
+
+  async getProfileLikesCount(userId: number): Promise<number> {
+    return this.userProfileLikes.filter(l => l.likedUserId === userId).length;
+  }
+
+  async getPropertiesFromFollowing(userId: number): Promise<Property[]> {
+    const followingIds = this.userFollowers
+      .filter(f => f.followerId === userId)
+      .map(f => f.followingId);
+    return this.properties
+      .filter(property => followingIds.includes(property.ownerId))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 20);
   }
 }
 

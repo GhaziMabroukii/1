@@ -4446,6 +4446,192 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Profile Likes System API Endpoints
+  
+  // Like a user's profile
+  app.post("/api/social/profile-like", requireAuth, async (req, res) => {
+    try {
+      const { likedUserId } = req.body;
+      const likerId = req.user.id;
+      
+      // Validate input
+      if (!likedUserId || isNaN(likedUserId)) {
+        return res.status(400).json({ error: "Valid likedUserId is required" });
+      }
+      
+      // Check if trying to like their own profile
+      if (likerId === likedUserId) {
+        return res.status(400).json({ error: "Cannot like your own profile" });
+      }
+      
+      // Check if user being liked exists
+      const userToLike = await storage.getUser(likedUserId);
+      if (!userToLike) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Check if already liked
+      const isAlreadyLiked = await storage.isProfileLiked(likerId, likedUserId);
+      if (isAlreadyLiked) {
+        return res.status(400).json({ error: "Already liked this profile" });
+      }
+      
+      // Create profile like
+      const like = await storage.likeUserProfile(likerId, likedUserId);
+      
+      // Get updated like count for real-time updates
+      const likeCount = await storage.getProfileLikesCount(likedUserId);
+      
+      // Create notification for the liked user
+      const notification = await storage.createNotification({
+        userId: likedUserId,
+        title: "Profil apprécié",
+        message: `${req.user.firstName} ${req.user.lastName} a aimé votre profil`,
+        type: "profile_like",
+        relatedId: likerId,
+      });
+      
+      // Real-time updates
+      broadcastToUser(likedUserId, 'profile_liked', { 
+        liker: req.user, 
+        likeCount 
+      });
+      broadcastToUser(likedUserId, 'new_notification', notification);
+      
+      res.status(201).json({ 
+        success: true, 
+        like,
+        likeCount 
+      });
+    } catch (error) {
+      console.error("Error liking profile:", error);
+      res.status(500).json({ error: "Failed to like profile" });
+    }
+  });
+  
+  // Unlike a user's profile
+  app.delete("/api/social/profile-like/:likedUserId", requireAuth, async (req, res) => {
+    try {
+      const likedUserId = parseInt(req.params.likedUserId);
+      const likerId = req.user.id;
+      
+      // Validate input
+      if (isNaN(likedUserId)) {
+        return res.status(400).json({ error: "Valid likedUserId is required" });
+      }
+      
+      // Check if user exists
+      const userToUnlike = await storage.getUser(likedUserId);
+      if (!userToUnlike) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Check if currently liked
+      const isCurrentlyLiked = await storage.isProfileLiked(likerId, likedUserId);
+      if (!isCurrentlyLiked) {
+        return res.status(400).json({ error: "Profile not currently liked" });
+      }
+      
+      // Remove profile like
+      const success = await storage.unlikeUserProfile(likerId, likedUserId);
+      
+      if (!success) {
+        return res.status(500).json({ error: "Failed to unlike profile" });
+      }
+      
+      // Get updated like count for real-time updates
+      const likeCount = await storage.getProfileLikesCount(likedUserId);
+      
+      // Real-time updates
+      broadcastToUser(likedUserId, 'profile_unliked', { 
+        unliker: req.user, 
+        likeCount 
+      });
+      
+      res.json({ 
+        success: true,
+        likeCount 
+      });
+    } catch (error) {
+      console.error("Error unliking profile:", error);
+      res.status(500).json({ error: "Failed to unlike profile" });
+    }
+  });
+  
+  // Check if current user likes a profile
+  app.get("/api/social/profile-like/:likedUserId/check", requireAuth, async (req, res) => {
+    try {
+      const likedUserId = parseInt(req.params.likedUserId);
+      const likerId = req.user.id;
+      
+      if (isNaN(likedUserId)) {
+        return res.status(400).json({ error: "Valid likedUserId is required" });
+      }
+      
+      const isLiked = await storage.isProfileLiked(likerId, likedUserId);
+      res.json({ isLiked });
+    } catch (error) {
+      console.error("Error checking profile like status:", error);
+      res.status(500).json({ error: "Failed to check profile like status" });
+    }
+  });
+  
+  // Get users who liked a profile
+  app.get("/api/social/profile-likes/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Valid userId is required" });
+      }
+      
+      const likers = await storage.getProfileLikes(userId);
+      res.json(likers);
+    } catch (error) {
+      console.error("Error fetching profile likes:", error);
+      res.status(500).json({ error: "Failed to fetch profile likes" });
+    }
+  });
+  
+  // Get profile like count
+  app.get("/api/social/profile-likes-count/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Valid userId is required" });
+      }
+      
+      const likeCount = await storage.getProfileLikesCount(userId);
+      res.json({ likeCount });
+    } catch (error) {
+      console.error("Error fetching profile like count:", error);
+      res.status(500).json({ error: "Failed to fetch profile like count" });
+    }
+  });
+  
+  // Get properties from followed users (for tenants)
+  app.get("/api/social/following-properties/:userId", requireAuth, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Valid userId is required" });
+      }
+      
+      // Verify the requesting user is the same as the userId (privacy)
+      if (req.user.id !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const properties = await storage.getPropertiesFromFollowing(userId);
+      res.json(properties);
+    } catch (error) {
+      console.error("Error fetching properties from following:", error);
+      res.status(500).json({ error: "Failed to fetch properties from following" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // WebSocket server setup with authentication and real-time events
