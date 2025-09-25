@@ -1,0 +1,51 @@
+useWebSocket is not defined
+at UnifiedNotificationsDropdown (https://fe51e537-8a61-41a9-9195-6f715ca1766a-00-3qoefktcu8ooq.janeway.replit.dev/src/components/UnifiedNotificationsDropdown.tsx:42:27)
+at renderWithHooks (https://fe51e537-8a61-41a9-9195-6f715ca1766a-00-3qoefktcu8ooq.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-NXESFFTV.js?v=74e546a5:11596:26)
+at mountIndeterminateComponent (https://fe51e537-8a61-41a9-9195-6f715ca1766a-00-3qoefktcu8ooq.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-NXESFFTV.js?v=74e546a5:14974:21)
+at beginWork (https://fe51e537-8a61-41a9-9195-6f715ca1766a-00-3qoefktcu8ooq.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-NXESFFTV.js?v=74e546a5:15962:22)
+at HTMLUnknownElement.callCallback2 (https://fe51e537-8a61-41a9-9195-6f715ca1766a-00-3qoefktcu8ooq.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-NXESFFTV.js?v=74e546a5:3680:22)
+at Object.invokeGuardedCallbackDev (https://fe51e537-8a61-41a9-9195-6f715ca1766a-00-3qoefktcu8ooq.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-NXESFFTV.js?v=74e546a5:3705:24)
+at invokeGuardedCallback (https://fe51e537-8a61-41a9-9195-6f715ca1766a-00-3qoefktcu8ooq.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-NXESFFTV.js?v=74e546a5:3739:39)
+at beginWork$1 (https://fe51e537-8a61-41a9-9195-6f715ca1766a-00-3qoefktcu8ooq.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-NXESFFTV.js?v=74e546a5:19818:15)
+at performUnitOfWork (https://fe51e537-8a61-41a9-9195-6f715ca1766a-00-3qoefktcu8ooq.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-NXESFFTV.js?v=74e546a5:19251:20)
+at workLoopSync (https://fe51e537-8a61-41a9-9195-6f715ca1766a-00-3qoefktcu8ooq.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-NXESFFTV.js?v=74e546a5:19190:13)
+The above error occurred in the <UnifiedNotificationsDropdown> component:
+
+    at UnifiedNotificationsDropdown (https://fe51e537-8a61-41a9-9195-6f715ca1766a-00-3qoefktcu8ooq.janeway.replit.dev/src/components/UnifiedNotificationsDropdown.tsx:38:48)
+    at div
+    at div
+    at div
+    at div
+    at header
+    at Header (https://fe51e537-8a61-41a9-9195-6f715ca1766a-00-3qoefktcu8ooq.janeway.replit.dev/src/components/Header.tsx:38:49)
+    at div
+    at Search (https://fe51e537-8a61-41a9-9195-6f715ca1766a-00-3qoefktcu8ooq.janeway.replit.dev/src/pages/Search.tsx:177:41)
+    at Route (https://fe51e537-8a61-41a9-9195-6f715ca1766a-00-3qoefktcu8ooq.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=2880ee64:205:16)
+    at Switch (https://fe51e537-8a61-41a9-9195-6f715ca1766a-00-3qoefktcu8ooq.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=2880ee64:261:17)
+    at Router (https://fe51e537-8a61-41a9-9195-6f715ca1766a-00-3qoefktcu8ooq.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=2880ee64:161:17)
+    at Provider (https://fe51e537-8a61-41a9-9195-6f715ca1766a-00-3qoefktcu8ooq.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-C6BJTAFJ.js?v=74e546a5:37:15)
+    at TooltipProvider (https://fe51e537-8a61-41a9-9195-6f715ca1766a-00-3qoefktcu8ooq.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=52d6b31d:65:5)
+    at QueryClientProvider (https://fe51e537-8a61-41a9-9195-6f715ca1766a-00-3qoefktcu8ooq.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=94468cc2:2878:3)
+    at App (https://fe51e537-8a61-41a9-9195-6f715ca1766a-00-3qoefktcu8ooq.janeway.replit.dev/src/App.tsx:65:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+useWebSocket is not defined
+WebSocket error: 
+Event {isTrusted: true}
+
+WebSocket disconnected
+Attempting to reconnect in 1000ms...
+[vite] failed to connect to websocket.
+your current setup:
+  (browser) fe51e537-8a61-41a9-9195-6f715ca1766a-00-3qoefktcu8ooq.janeway.replit.dev/ <--[HTTP]--> localhost:5173/ (server)
+  (browser) fe51e537-8a61-41a9-9195-6f715ca1766a-00-3qoefktcu8ooq.janeway.replit.dev:/ <--[WebSocket (failing)]--> localhost:5173/ (server)
+Check out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .
+[vite] 
+TypeError {}
+
+[vite] 
+TypeError {}
+
+[vite] 
+TypeError {}

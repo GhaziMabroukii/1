@@ -22,7 +22,7 @@ import {
   Home,
   Bell
 } from 'lucide-react';
-import { useGlobalWebSocket } from '@/hooks/useWebSocket';
+import { useWebSocket } from '@/hooks/useWebSocket';
 
 interface UnifiedNotificationsDropdownProps {
   userId: number;
