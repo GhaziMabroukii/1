@@ -6,6 +6,7 @@ import { insertPropertySchema, insertOfferSchema, insertContractSchema, insertNo
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 import multer from "multer";
 import path from "path";
 import { processAIMessage } from "./ai-service";
@@ -23,7 +24,20 @@ console.log("✓ Database connection established successfully");
 // Alias tables for clarity in joins
 const offersTable = offers;
 
-// Authentication middleware
+// JWT secret key - in production, this should be a strong, randomly generated secret
+const JWT_SECRET = process.env.JWT_SECRET || 'ekrili-dev-secret-key-change-in-production';
+const JWT_EXPIRY = process.env.JWT_EXPIRY || '24h';
+
+// Helper function to generate secure JWT tokens
+const generateJWT = (userId: number): string => {
+  return jwt.sign(
+    { userId }, 
+    JWT_SECRET, 
+    { expiresIn: JWT_EXPIRY }
+  );
+};
+
+// Secure authentication middleware using JWT
 const requireAuth = async (req: any, res: any, next: any) => {
   try {
     const authHeader = req.headers.authorization;
@@ -32,18 +46,26 @@ const requireAuth = async (req: any, res: any, next: any) => {
     }
     
     const token = authHeader.split(' ')[1];
-    // Extract user ID from session token
-    const tokenParts = token.split('_');
-    if (tokenParts.length < 4 || tokenParts[0] !== 'session') {
-      return res.status(401).json({ error: "Invalid token" });
+    
+    // Verify JWT signature and extract payload
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (jwtError) {
+      console.error("JWT verification failed:", jwtError);
+      return res.status(401).json({ error: "Invalid or expired token" });
     }
     
-    const userId = parseInt(tokenParts[1]);
-    const userType = tokenParts[2];
+    // Extract user ID from verified JWT payload
+    const userId = decoded.userId;
+    if (!userId || isNaN(userId)) {
+      return res.status(401).json({ error: "Invalid user ID in token" });
+    }
     
+    // Verify user still exists in database
     const user = await storage.getUser(userId);
-    if (!user || user.userType !== userType) {
-      return res.status(401).json({ error: "Invalid session" });
+    if (!user) {
+      return res.status(401).json({ error: "User not found" });
     }
     
     // Add user info to request
@@ -60,7 +82,7 @@ const requireAuth = async (req: any, res: any, next: any) => {
     next();
   } catch (error) {
     console.error("Authentication error:", error);
-    res.status(401).json({ error: "Invalid session" });
+    res.status(401).json({ error: "Authentication failed" });
   }
 };
 
@@ -2441,10 +2463,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid credentials" });
       }
       
-      // Create session token with user type
-      const sessionToken = `session_${user.id}_${user.userType}_${Date.now()}`;
+      // Generate secure JWT token
+      const sessionToken = generateJWT(user.id);
       
-      // Return user info with session token
+      // Return user info with JWT token
       const responseUser = {
         id: user.id,
         username: user.username,
