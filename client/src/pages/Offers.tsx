@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { ArrowLeft, CheckCircle, XCircle, FileText, Clock } from "lucide-react";
+import { LoadingIcon } from "@/components/ui/loading-icon";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import Header from "@/components/Header";
@@ -87,50 +88,6 @@ export default function Offers() {
     enabled: !!currentUser, // Only run query if user is authenticated
   });
 
-  const updateOfferStatus = useMutation({
-    mutationFn: async ({ offerId, status }: { offerId: number; status: string }) => {
-      return await apiRequest(`/api/offers/${offerId}/status`, {
-        method: "PUT",
-        body: JSON.stringify({ status }),
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/offers"] });
-      toast({
-        title: "Offre mise à jour",
-        description: "Le statut de l'offre a été modifié",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Erreur",
-        description: "Impossible de modifier le statut de l'offre",
-        variant: "destructive",
-      });
-    }
-  });
-
-  const requestContract = useMutation({
-    mutationFn: async (offerId: number) => {
-      return await apiRequest(`/api/offers/${offerId}/request-contract`, {
-        method: "PUT",
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/offers"] });
-      toast({
-        title: "Contrat demandé",
-        description: "Votre demande de contrat a été envoyée au propriétaire",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Erreur", 
-        description: "Impossible de demander le contrat",
-        variant: "destructive",
-      });
-    }
-  });
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -147,110 +104,200 @@ export default function Offers() {
     }
   };
 
-  const OfferCard = ({ offer, type }: { offer: any; type: 'sent' | 'received' }) => (
-    <Card key={offer.id} className="mb-4">
-      <CardHeader>
-        <div className="flex justify-between items-start">
-          <div>
-            <CardTitle className="text-lg">{offer.property?.title || `Propriété #${offer.propertyId}`}</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              {type === 'sent' 
-                ? `Offre envoyée à ${offer.owner?.firstName} ${offer.owner?.lastName}` 
-                : `Offre reçue de ${offer.tenant?.firstName} ${offer.tenant?.lastName}`}
-            </p>
-            {offer.property?.address && (
-              <p className="text-xs text-muted-foreground">{offer.property.address}</p>
+  const OfferCard = ({ offer, type }: { offer: any; type: 'sent' | 'received' }) => {
+    const [pendingAction, setPendingAction] = useState<'accept' | 'reject' | 'contract' | null>(null);
+
+    const updateOfferStatus = useMutation({
+      mutationFn: async ({ offerId, status }: { offerId: number; status: string }) => {
+        return await apiRequest(`/api/offers/${offerId}/status`, {
+          method: "PUT",
+          body: JSON.stringify({ status }),
+        });
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/offers", currentUser?.id, currentUser?.userType] });
+        toast({
+          title: "Offre mise à jour",
+          description: "Le statut de l'offre a été modifié",
+        });
+      },
+      onError: () => {
+        toast({
+          title: "Erreur",
+          description: "Impossible de modifier le statut de l'offre",
+          variant: "destructive",
+        });
+      },
+      onSettled: () => {
+        setPendingAction(null);
+      }
+    });
+
+    const requestContract = useMutation({
+      mutationFn: async (offerId: number) => {
+        return await apiRequest(`/api/offers/${offerId}/request-contract`, {
+          method: "PUT",
+        });
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/offers", currentUser?.id, currentUser?.userType] });
+        toast({
+          title: "Contrat demandé",
+          description: "Votre demande de contrat a été envoyée au propriétaire",
+        });
+      },
+      onError: () => {
+        toast({
+          title: "Erreur", 
+          description: "Impossible de demander le contrat",
+          variant: "destructive",
+        });
+      },
+      onSettled: () => {
+        setPendingAction(null);
+      }
+    });
+
+    const isMutating = updateOfferStatus.isPending || requestContract.isPending;
+
+    const handleAccept = () => {
+      if (isMutating) return;
+      setPendingAction('accept');
+      updateOfferStatus.mutate({ offerId: offer.id, status: 'accepted' });
+    };
+
+    const handleReject = () => {
+      if (isMutating) return;
+      setPendingAction('reject');
+      updateOfferStatus.mutate({ offerId: offer.id, status: 'rejected' });
+    };
+
+    const handleRequestContract = () => {
+      if (isMutating) return;
+      setPendingAction('contract');
+      requestContract.mutate(offer.id);
+    };
+
+    return (
+      <Card key={offer.id} className="mb-4">
+        <CardHeader>
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle className="text-lg">{offer.property?.title || `Propriété #${offer.propertyId}`}</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {type === 'sent' 
+                  ? `Offre envoyée à ${offer.owner?.firstName} ${offer.owner?.lastName}` 
+                  : `Offre reçue de ${offer.tenant?.firstName} ${offer.tenant?.lastName}`}
+              </p>
+              {offer.property?.address && (
+                <p className="text-xs text-muted-foreground">{offer.property.address}</p>
+              )}
+            </div>
+            {getStatusBadge(offer.status)}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <p className="text-sm font-medium">Loyer mensuel</p>
+              <p className="text-lg font-bold text-primary">{offer.monthlyRent} TND</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium">Dépôt de garantie</p>
+              <p className="text-lg">{offer.deposit || 0} TND</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium">Date de début</p>
+              <p>{format(new Date(offer.startDate), "dd MMM yyyy", { locale: fr })}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium">Date de fin</p>
+              <p>{format(new Date(offer.endDate), "dd MMM yyyy", { locale: fr })}</p>
+            </div>
+          </div>
+
+          {offer.conditions && (
+            <div className="mb-4">
+              <p className="text-sm font-medium mb-1">Conditions</p>
+              <p className="text-sm text-muted-foreground">{offer.conditions}</p>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            {type === 'received' && offer.status === 'pending' && (
+              <>
+                <Button 
+                  size="sm" 
+                  onClick={handleAccept}
+                  disabled={isMutating}
+                  data-testid="button-accept-offer"
+                >
+                  {pendingAction === 'accept' ? (
+                    <>
+                      <LoadingIcon size="sm" className="mr-1" />
+                      Acceptation...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      Accepter
+                    </>
+                  )}
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="destructive"
+                  onClick={handleReject}
+                  disabled={isMutating}
+                  data-testid="button-reject-offer"
+                >
+                  {pendingAction === 'reject' ? (
+                    <>
+                      <LoadingIcon size="sm" className="mr-1" />
+                      Refus...
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="h-4 w-4 mr-1" />
+                      Refuser
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
+
+            {type === 'sent' && offer.status === 'accepted' && (
+              <Button 
+                size="sm"
+                onClick={handleRequestContract}
+                disabled={isMutating}
+                data-testid="button-request-contract"
+              >
+                {pendingAction === 'contract' ? (
+                  <>
+                    <LoadingIcon size="sm" className="mr-1" />
+                    Demande...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4 mr-1" />
+                    Demander un contrat
+                  </>
+                )}
+              </Button>
+            )}
+
+            {offer.status === 'contract_requested' && (
+              <Button size="sm" variant="outline" onClick={() => navigate('/contracts')}>
+                <FileText className="h-4 w-4 mr-1" />
+                Voir les contrats
+              </Button>
             )}
           </div>
-          {getStatusBadge(offer.status)}
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div>
-            <p className="text-sm font-medium">Loyer mensuel</p>
-            <p className="text-lg font-bold text-primary">{offer.monthlyRent} TND</p>
-          </div>
-          <div>
-            <p className="text-sm font-medium">Dépôt de garantie</p>
-            <p className="text-lg">{offer.deposit || 0} TND</p>
-          </div>
-          <div>
-            <p className="text-sm font-medium">Date de début</p>
-            <p>{format(new Date(offer.startDate), "dd MMM yyyy", { locale: fr })}</p>
-          </div>
-          <div>
-            <p className="text-sm font-medium">Date de fin</p>
-            <p>{format(new Date(offer.endDate), "dd MMM yyyy", { locale: fr })}</p>
-          </div>
-        </div>
-
-        {offer.conditions && (
-          <div className="mb-4">
-            <p className="text-sm font-medium mb-1">Conditions</p>
-            <p className="text-sm text-muted-foreground">{offer.conditions}</p>
-          </div>
-        )}
-
-        <div className="flex gap-2">
-          {type === 'received' && offer.status === 'pending' && (
-            <>
-              <Button 
-                size="sm" 
-                onClick={() => updateOfferStatus.mutate({ offerId: offer.id, status: 'accepted' })}
-                disabled={updateOfferStatus.isPending}
-                data-testid="button-accept-offer"
-              >
-                {updateOfferStatus.isPending ? (
-                  <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-1" />
-                ) : (
-                  <CheckCircle className="h-4 w-4 mr-1" />
-                )}
-                {updateOfferStatus.isPending ? 'Acceptation...' : 'Accepter'}
-              </Button>
-              <Button 
-                size="sm" 
-                variant="destructive"
-                onClick={() => updateOfferStatus.mutate({ offerId: offer.id, status: 'rejected' })}
-                disabled={updateOfferStatus.isPending}
-                data-testid="button-reject-offer"
-              >
-                {updateOfferStatus.isPending ? (
-                  <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-1" />
-                ) : (
-                  <XCircle className="h-4 w-4 mr-1" />
-                )}
-                {updateOfferStatus.isPending ? 'Refus...' : 'Refuser'}
-              </Button>
-            </>
-          )}
-
-          {type === 'sent' && offer.status === 'accepted' && (
-            <Button 
-              size="sm"
-              onClick={() => requestContract.mutate(offer.id)}
-              disabled={requestContract.isPending}
-              data-testid="button-request-contract"
-            >
-              {requestContract.isPending ? (
-                <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-1" />
-              ) : (
-                <FileText className="h-4 w-4 mr-1" />
-              )}
-              {requestContract.isPending ? 'Demande...' : 'Demander un contrat'}
-            </Button>
-          )}
-
-          {offer.status === 'contract_requested' && (
-            <Button size="sm" variant="outline" onClick={() => navigate('/contracts')}>
-              <FileText className="h-4 w-4 mr-1" />
-              Voir les contrats
-            </Button>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background">

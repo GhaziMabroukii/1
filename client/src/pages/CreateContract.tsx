@@ -22,9 +22,9 @@ import {
   Send,
   CheckCircle,
   AlertCircle,
-  Info,
-  Loader2
+  Info
 } from "lucide-react";
+import { LoadingIcon } from "@/components/ui/loading-icon";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import Header from "@/components/Header";
@@ -630,7 +630,7 @@ export default function CreateContract() {
                       >
                         {createContract.isPending ? (
                           <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <LoadingIcon className="mr-2" />
                             <span>Création...</span>
                           </>
                         ) : (
