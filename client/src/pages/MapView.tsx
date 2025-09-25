@@ -11,7 +11,7 @@ declare global {
   interface Window {
     google: any;
     initMap: () => void;
-    initMapCallback: () => void;
+    initMapCallback?: () => void;
   }
 }
 
@@ -172,8 +172,8 @@ const MapView = () => {
               <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 13px;">📍 ${property.location}</p>
               <p style="margin: 0 0 10px 0; font-weight: bold; color: #f59e0b; font-size: 18px;">${property.price} TND/${property.priceType || 'mois'}</p>
               <div style="margin-bottom: 10px;">
-                <span style="background: ${property.status === 'Disponible' ? '#dcfce7' : '#fee2e2'}; color: ${property.status === 'Disponible' ? '#166534' : '#dc2626'}; padding: 3px 8px; border-radius: 4px; font-size: 12px;">
-                  ${property.status === 'Disponible' ? '✅ Disponible' : '🚫 ' + property.status}
+                <span style="background: ${property.availability === 'Disponible' ? '#dcfce7' : '#fee2e2'}; color: ${property.availability === 'Disponible' ? '#166534' : '#dc2626'}; padding: 3px 8px; border-radius: 4px; font-size: 12px;">
+                  ${property.availability === 'Disponible' ? '✅ Disponible' : '🚫 ' + property.availability}
                 </span>
                 ${property.furnished ? '<span style="background: #dbeafe; color: #1e40af; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-left: 4px;">🛋️ Meublé</span>' : '<span style="background: #f3f4f6; color: #374151; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-left: 4px;">🏠 Non meublé</span>'}
               </div>
@@ -254,8 +254,8 @@ const MapView = () => {
     };
     
     const icon = typeIcons[type] || '🏢';
-    // Use real status field from database
-    const isAvailable = property.status === 'Disponible';
+    // Fix: Use real availability field from database
+    const isAvailable = property.availability === 'Disponible';
     const color = isAvailable ? '#10B981' : '#EF4444';
     const shadowColor = isAvailable ? '#065F46' : '#991B1B';
     
@@ -288,39 +288,75 @@ const MapView = () => {
     if (searchQuery) {
       filtered = filtered.filter(property => 
         property.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        property.location?.toLowerCase().includes(searchQuery.toLowerCase())
+        property.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        property.description?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
     if (propertyType && propertyType !== "all") {
-      filtered = filtered.filter(property => property.type === propertyType);
+      // Fix: Use 'category' field instead of 'type' and handle case variations
+      filtered = filtered.filter(property => {
+        const category = property.category?.toLowerCase();
+        const type = propertyType.toLowerCase();
+        // Handle both French and English category names
+        return category === type || 
+               (type === "apartment" && category === "appartement") ||
+               (type === "appartement" && category === "apartment") ||
+               (type === "studio" && category === "studio") ||
+               (type === "villa" && category === "villa") ||
+               (type === "maison" && category === "maison");
+      });
     }
 
     if (rentalPeriod && rentalPeriod !== "all") {
-      filtered = filtered.filter(property => property.priceType === rentalPeriod);
+      // Since priceType doesn't exist in the data, we'll assume monthly rentals
+      // In a real app, this would need to be added to the database schema
+      // For now, we'll just keep all properties if any period is selected
+      console.log("Rental period filter applied, but priceType field not found in data");
     }
 
     if (maxPrice && maxPrice !== "all") {
       const price = parseInt(maxPrice);
-      filtered = filtered.filter(property => parseFloat(property.price) <= price);
-    }
-
-    if (equipmentFilters.furnished || equipmentFilters.unfurnished || equipmentFilters.parking) {
       filtered = filtered.filter(property => {
-        const amenities = property.amenities || [];
-        
-        // Check furnished status using real database field
-        if (equipmentFilters.furnished && !property.furnished) return false;
-        if (equipmentFilters.unfurnished && property.furnished) return false;
-        
-        // Check parking in amenities array
-        const hasParking = amenities.includes('parking') || amenities.includes('Parking');
-        if (equipmentFilters.parking && !hasParking) return false;
-        
-        return true;
+        const propPrice = parseFloat(property.price) || 0;
+        return propPrice <= price;
       });
     }
 
+    // Fix: Improved equipment filtering logic
+    const hasAnyEquipmentFilter = equipmentFilters.furnished || equipmentFilters.unfurnished || equipmentFilters.parking;
+    if (hasAnyEquipmentFilter) {
+      filtered = filtered.filter(property => {
+        const amenities = (property.amenities || []).map((a: string) => a.toLowerCase());
+        let matchesFilter = false;
+        
+        // If both furnished and unfurnished are checked, show all properties (no filter)
+        const furnitureFilterActive = equipmentFilters.furnished || equipmentFilters.unfurnished;
+        if (furnitureFilterActive && !(equipmentFilters.furnished && equipmentFilters.unfurnished)) {
+          // Only one furniture filter is active
+          if (equipmentFilters.furnished && property.furnished) matchesFilter = true;
+          if (equipmentFilters.unfurnished && !property.furnished) matchesFilter = true;
+        } else if (!furnitureFilterActive) {
+          // No furniture filter, so this condition passes
+          matchesFilter = true;
+        } else {
+          // Both filters active, show all
+          matchesFilter = true;
+        }
+        
+        // Check parking filter
+        if (equipmentFilters.parking) {
+          const hasParking = amenities.includes('parking') || 
+                           amenities.includes('garage') || 
+                           amenities.includes('stationnement');
+          if (!hasParking) matchesFilter = false;
+        }
+        
+        return matchesFilter;
+      });
+    }
+
+    console.log(`Filtering: ${properties.length} → ${filtered.length} properties`);
     setFilteredProperties(filtered);
   }, [properties, searchQuery, propertyType, rentalPeriod, maxPrice, equipmentFilters]);
 
